@@ -27,6 +27,7 @@ async function connectDB() {
 }
 
 // ── Mailer ────────────────────────────────────────────────────────────────────
+console.log('Clé Resend utilisée:', process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.substring(0, 10) + '...' : 'NON DÉFINIE');
 
 async function sendEmail(to, subject, html) {
     const res = await fetch('https://api.resend.com/emails', {
