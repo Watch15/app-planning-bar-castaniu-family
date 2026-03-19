@@ -208,16 +208,24 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
         console.log('Gmail user configuré:', process.env.GMAIL_USER ? 'OUI' : 'NON');
         console.log('Gmail pass configuré:', process.env.GMAIL_PASS ? 'OUI' : 'NON');
         
-        await mailer.sendMail({
-            from:    '"Planning Bar" <' + process.env.GMAIL_USER + '>',
-            to:      email,
-            subject: 'Ton accès Planning Bar',
-            html:
-                '<p>Bonjour ' + (name || '') + ',</p>' +
-                '<p>Tu as été invité(e) à rejoindre <strong>Planning Bar</strong>.</p>' +
-                '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
-                '<p style="color:#999;font-size:12px">Ce lien expire dans 24h.</p>',
-        });
+        try {
+            await mailer.sendMail({
+                from:    '"Planning Bar" <' + process.env.GMAIL_USER + '>',
+                to:      email,
+                subject: 'Ton accès Planning Bar',
+                html:
+                    '<p>Bonjour ' + (name || '') + ',</p>' +
+                    '<p>Tu as été invité(e) à rejoindre <strong>Planning Bar</strong>.</p>' +
+                    '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
+                    '<p style="color:#999;font-size:12px">Ce lien expire dans 24h.</p>',
+            });
+            console.log('✅ Email envoyé avec succès à', email);
+            } catch (mailErr) {
+                console.error('❌ Erreur envoi email:', mailErr.message);
+                console.error('Code erreur:', mailErr.code);
+                // On continue quand même — le compte est créé, le patron peut copier le lien manuellement
+                console.log('Lien d\'invitation (à envoyer manuellement):', link);
+            }
 
         res.status(201).json({ message: 'Invitation envoyée à ' + email });
     } catch (e) { res.status(500).json({ error: e.message }); }
