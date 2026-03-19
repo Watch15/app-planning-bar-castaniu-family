@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon planning — Planning Bar</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            color: #1a1a2e;
+        }
+
+        /* ── Header ── */
+        .header {
+            background: #1a1a2e;
+            color: white;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .header-left  { display: flex; align-items: center; gap: 10px; }
+        .header-logo  { font-size: 16px; font-weight: 700; }
+        .header-week  { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 2px; }
+        .btn-logout {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white; font-size: 12px;
+            padding: 6px 12px; border-radius: 8px;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .btn-logout:hover { background: rgba(255,255,255,0.2); }
+
+        /* ── Bonjour ── */
+        .greeting {
+            padding: 20px 20px 8px;
+        }
+        .greeting-name {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+        .greeting-sub {
+            font-size: 13px;
+            color: #999;
+            margin-top: 2px;
+        }
+
+        /* ── Stats semaine ── */
+        .week-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 12px 20px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .stat-value { font-size: 22px; font-weight: 700; color: #1a1a2e; }
+        .stat-label { font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+
+        /* ── Liste des jours ── */
+        .days-list {
+            padding: 0 20px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* ── Carte jour ── */
+        .day-card {
+            background: white;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .day-card.today {
+            box-shadow: 0 2px 12px rgba(83,74,183,0.15);
+            border: 2px solid #534AB7;
+        }
+        .day-card.no-shift { opacity: 0.5; }
+
+        .day-header {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #f5f5f5;
+            gap: 12px;
+        }
+        .day-date-block { min-width: 44px; text-align: center; }
+        .day-weekday {
+            font-size: 11px;
+            font-weight: 600;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .day-num {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a1a2e;
+            line-height: 1;
+        }
+        .day-card.today .day-weekday,
+        .day-card.today .day-num { color: #534AB7; }
+        .day-card.no-shift .day-num { color: #ccc; }
+
+        .day-header-right { flex: 1; }
+        .day-rest {
+            font-size: 13px;
+            color: #ccc;
+            font-style: italic;
+        }
+        .today-badge {
+            display: none;
+            background: #534AB7;
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .day-card.today .today-badge { display: inline-block; }
+
+        /* ── Shift block ── */
+        .shift-block {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f8f8f8;
+        }
+        .shift-block:last-child { border-bottom: none; }
+
+        .shift-top {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .shift-establishment {
+            flex: 1;
+            font-size: 15px;
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+        .shift-hours-badge {
+            background: #f0f2f5;
+            color: #555;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 8px;
+            white-space: nowrap;
+        }
+        .shift-duration {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        /* Collègues */
+        .colleagues-label {
+            font-size: 11px;
+            color: #bbb;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-bottom: 6px;
+        }
+        .colleagues-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .colleague-pill {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: #f8f8f8;
+            border-radius: 20px;
+            padding: 4px 10px;
+            font-size: 12px;
+            color: #555;
+        }
+        .colleague-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* ── État chargement / erreur ── */
+        .state-msg {
+            padding: 40px 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #aaa;
+        }
+        .state-msg.error { color: #e74c3c; }
+
+        /* ── Empty week ── */
+        .empty-week {
+            padding: 48px 20px;
+            text-align: center;
+        }
+        .empty-week-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+        }
+        .empty-week-text {
+            font-size: 15px;
+            font-weight: 600;
+            color: #aaa;
+        }
+        .empty-week-sub {
+            font-size: 13px;
+            color: #ccc;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <div>
+            <div class="header-logo">Planning Bar</div>
+            <div class="header-week" id="header-week"></div>
+        </div>
+    </div>
+    <button class="btn-logout" onclick="logout()">Déconnexion</button>
+</div>
+
+<div class="greeting">
+    <div class="greeting-name" id="greeting-name">Bonjour !</div>
+    <div class="greeting-sub" id="greeting-sub">Voici ton planning de la semaine</div>
+</div>
+
+<div class="week-stats" id="week-stats"></div>
+
+<div class="days-list" id="days-list">
+    <div class="state-msg">Chargement…</div>
+</div>
+
+<script>
+// ── Constantes ────────────────────────────────────────────────────────────────
+
+const DAY_NAMES  = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+const MONTH_NAMES = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'];
+
+// ── Utilitaires ───────────────────────────────────────────────────────────────
+
+function toDateStr(d) {
+    return d.toISOString().slice(0, 10);
+}
+
+function getMondayOf(d) {
+    const day  = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    const mon  = new Date(d);
+    mon.setDate(d.getDate() + diff);
+    mon.setHours(0, 0, 0, 0);
+    return mon;
+}
+
+function addDays(d, n) {
+    const r = new Date(d);
+    r.setDate(r.getDate() + n);
+    return r;
+}
+
+function fmtHour(h) {
+    return String(Math.floor(h % 24)).padStart(2, '0') + 'h';
+}
+
+function fmtDuration(h) {
+    const total = h;
+    const hrs   = Math.floor(total);
+    const mins  = Math.round((total - hrs) * 60);
+    return mins > 0 ? hrs + 'h' + String(mins).padStart(2, '0') : hrs + 'h';
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+async function checkAuth() {
+    try {
+        const res = await fetch('/auth/me', { credentials: 'include' });
+        if (res.status === 401) { window.location.href = '/login.html'; return null; }
+        return (await res.json()).user;
+    } catch {
+        window.location.href = '/login.html';
+        return null;
+    }
+}
+
+async function logout() {
+    await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+    window.location.href = '/login.html';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+async function init() {
+    const user = await checkAuth();
+    if (!user) return;
+
+    // Le patron n'a pas accès à cette page
+    if (user.role === 'patron') {
+        window.location.href = '/index.html';
+        return;
+    }
+
+    document.getElementById('greeting-name').textContent = 'Bonjour ' + (user.name || '') + ' !';
+
+    const monday = getMondayOf(new Date());
+    const sunday = addDays(monday, 6);
+    const from   = toDateStr(monday);
+    const to     = toDateStr(sunday);
+
+    // Label semaine dans le header
+    document.getElementById('header-week').textContent =
+        'Semaine du ' + monday.getDate() + ' ' + MONTH_NAMES[monday.getMonth()] +
+        ' au ' + sunday.getDate() + ' ' + MONTH_NAMES[sunday.getMonth()];
+
+    await loadPlanning(from, to, user);
+}
+
+// ── Chargement ────────────────────────────────────────────────────────────────
+
+async function loadPlanning(from, to, user) {
+    const list = document.getElementById('days-list');
+
+    try {
+        const res  = await fetch('/api/my-shifts?from=' + from + '&to=' + to, { credentials: 'include' });
+
+        // Vérifier que la réponse est bien du JSON
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            // Le serveur a renvoyé du HTML → session expirée ou erreur serveur
+            if (res.status === 401) {
+                window.location.href = '/login.html';
+                return;
+            }
+            throw new Error('Erreur serveur (' + res.status + ')');
+        }
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            // Cas spécifique : compte non lié à un profil staff
+            if (data.error && data.error.includes('profil staff')) {
+                list.innerHTML =
+                    '<div class="empty-week">' +
+                        '<div class="empty-week-icon">⚠️</div>' +
+                        '<div class="empty-week-text">Compte non configuré</div>' +
+                        '<div class="empty-week-sub">Ton compte n est pas encore lié à un profil staff.<br>Contacte ton responsable.</div>' +
+                    '</div>';
+                return;
+            }
+            throw new Error(data.error || 'Erreur inconnue');
+        }
+
+        renderStats(data.shifts);
+        renderDays(from, data.shifts, data.colleagues);
+
+    } catch (e) {
+        list.innerHTML = '<div class="state-msg error">' + e.message + '</div>';
+    }
+}
+
+// ── Stats semaine ─────────────────────────────────────────────────────────────
+
+function renderStats(shifts) {
+    const nbShifts  = shifts.length;
+    const totalH    = shifts.reduce((a, s) => a + (s.end_time - s.start_time), 0);
+    const nbJours   = new Set(shifts.map(s => s.date)).size;
+    const statsEl   = document.getElementById('week-stats');
+    statsEl.innerHTML =
+        statCard(nbJours,              'Jours') +
+        statCard(nbShifts,             'Shifts') +
+        statCard(fmtDuration(totalH),  'Heures');
+}
+
+function statCard(value, label) {
+    return '<div class="stat-card">' +
+        '<div class="stat-value">' + value + '</div>' +
+        '<div class="stat-label">' + label + '</div>' +
+    '</div>';
+}
+
+// ── Rendu des jours ───────────────────────────────────────────────────────────
+
+function renderDays(from, shifts, colleagues) {
+    const list   = document.getElementById('days-list');
+    const today  = toDateStr(new Date());
+    const monday = new Date(from + 'T00:00:00');
+
+    // Si aucun shift toute la semaine
+    if (shifts.length === 0) {
+        list.innerHTML =
+            '<div class="empty-week">' +
+                '<div class="empty-week-icon">📅</div>' +
+                '<div class="empty-week-text">Aucun shift cette semaine</div>' +
+                '<div class="empty-week-sub">Reviens plus tard ou contacte ton responsable</div>' +
+            '</div>';
+        return;
+    }
+
+    list.innerHTML = '';
+
+    for (let i = 0; i < 7; i++) {
+        const date      = toDateStr(addDays(monday, i));
+        const d         = addDays(monday, i);
+        const dayShifts = shifts.filter(s => s.date === date);
+        const isToday   = date === today;
+        const hasShift  = dayShifts.length > 0;
+
+        const card = document.createElement('div');
+        card.className = 'day-card' + (isToday ? ' today' : '') + (!hasShift ? ' no-shift' : '');
+
+        // En-tête du jour
+        const header = document.createElement('div');
+        header.className = 'day-header';
+        header.innerHTML =
+            '<div class="day-date-block">' +
+                '<div class="day-weekday">' + DAY_NAMES[d.getDay()] + '</div>' +
+                '<div class="day-num">' + d.getDate() + '</div>' +
+            '</div>' +
+            '<div class="day-header-right">' +
+                (!hasShift
+                    ? '<span class="day-rest">Repos</span>'
+                    : '<span class="today-badge">Aujourd\'hui</span>') +
+            '</div>';
+        card.appendChild(header);
+
+        // Shifts du jour
+        dayShifts.forEach(shift => {
+            const block = document.createElement('div');
+            block.className = 'shift-block';
+
+            const duration     = shift.end_time - shift.start_time;
+            const dayColleagues = (colleagues[date] || [])
+                .filter(c => c.establishment_id === shift.establishment_id);
+
+            let colleaguesHTML = '';
+            if (dayColleagues.length > 0) {
+                const pills = dayColleagues.map(c =>
+                    '<span class="colleague-pill">' +
+                        '<span class="colleague-dot" style="background:' + (c.color || '#888') + '"></span>' +
+                        c.staff_name +
+                    '</span>'
+                ).join('');
+                colleaguesHTML =
+                    '<div class="colleagues-label">Collègues</div>' +
+                    '<div class="colleagues-list">' + pills + '</div>';
+            }
+
+            block.innerHTML =
+                '<div class="shift-top">' +
+                    '<span class="shift-establishment">' + formatEstablishment(shift.establishment_id) + '</span>' +
+                    '<span class="shift-hours-badge">' + fmtHour(shift.start_time) + ' → ' + fmtHour(shift.end_time) + '</span>' +
+                '</div>' +
+                '<div class="shift-duration">' + fmtDuration(duration) + ' de service</div>' +
+                (colleaguesHTML ? '<div style="margin-top:10px">' + colleaguesHTML + '</div>' : '');
+
+            card.appendChild(block);
+        });
+
+        list.appendChild(card);
+    }
+}
+
+// ── Formatage nom établissement ───────────────────────────────────────────────
+
+function formatEstablishment(id) {
+    const map = {
+        'Josy_pub':          'Josy — Pub',
+        'Poni_restaurant':   'Poni — Restaurant',
+        'FanFan_restaurant': 'FanFan — Restaurant',
+        'Caval_restaurant':  'Caval — Restaurant',
+    };
+    return map[id] || id;
+}
+
+// ── Démarrage ─────────────────────────────────────────────────────────────────
+
+init();
+</script>
+</body>
+</html>

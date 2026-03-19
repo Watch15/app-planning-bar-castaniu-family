@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion — Planning Bar</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px 36px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        }
+
+        .login-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 32px;
+        }
+
+        .login-logo-icon {
+            width: 40px; height: 40px;
+            background: #1a1a2e;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 18px; font-weight: 700;
+        }
+
+        .login-logo-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+
+        .login-logo-sub {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 1px;
+        }
+
+        h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 6px;
+        }
+
+        .login-subtitle {
+            font-size: 13px;
+            color: #999;
+            margin-bottom: 28px;
+        }
+
+        .field {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        input[type="email"],
+        input[type="password"] {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            color: #1a1a2e;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        input:focus { border-color: #534AB7; }
+
+        .password-wrap {
+            position: relative;
+        }
+        .toggle-pw {
+            position: absolute;
+            right: 12px; top: 50%;
+            transform: translateY(-50%);
+            background: none; border: none;
+            color: #bbb; cursor: pointer;
+            font-size: 13px; padding: 4px;
+        }
+        .toggle-pw:hover { color: #555; }
+
+        .error-msg {
+            background: #fff5f5;
+            border: 1px solid #f5c6c6;
+            color: #c0392b;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .error-msg.visible { display: block; }
+
+        .btn-login {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: none;
+            background: #1a1a2e;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+            margin-top: 8px;
+        }
+        .btn-login:hover:not(:disabled) { background: #2c3e50; }
+        .btn-login:disabled {
+            background: #ccc; cursor: not-allowed;
+        }
+
+        .login-footer {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 12px;
+            color: #ccc;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.4);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+    <div class="login-logo">
+        <div class="login-logo-icon">P</div>
+        <div>
+            <div class="login-logo-text">Planning Bar</div>
+            <div class="login-logo-sub">Gestion des plannings</div>
+        </div>
+    </div>
+
+    <h1>Connexion</h1>
+    <p class="login-subtitle">Connecte-toi avec ton email et ton mot de passe.</p>
+
+    <div class="error-msg" id="error-msg"></div>
+
+    <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="ton@email.com" autocomplete="email" autofocus>
+    </div>
+
+    <div class="field">
+        <label for="password">Mot de passe</label>
+        <div class="password-wrap">
+            <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+            <button class="toggle-pw" id="toggle-pw" type="button" title="Afficher/masquer">👁</button>
+        </div>
+    </div>
+
+    <button class="btn-login" id="btn-login">Se connecter</button>
+
+    <div class="login-footer">Planning Bar &copy; 2025</div>
+</div>
+
+<script>
+    const emailInput = document.getElementById('email');
+    const pwInput    = document.getElementById('password');
+    const btnLogin   = document.getElementById('btn-login');
+    const errorMsg   = document.getElementById('error-msg');
+    const togglePw   = document.getElementById('toggle-pw');
+
+    // Vérifier si déjà connecté
+    fetch('/auth/me', { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data?.user) redirectByRole(data.user.role); })
+        .catch(() => {});
+
+    togglePw.addEventListener('click', () => {
+        pwInput.type = pwInput.type === 'password' ? 'text' : 'password';
+    });
+
+    // Connexion avec Enter
+    [emailInput, pwInput].forEach(el => {
+        el.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+    });
+
+    btnLogin.addEventListener('click', login);
+
+    async function login() {
+        const email    = emailInput.value.trim();
+        const password = pwInput.value;
+
+        if (!email || !password) {
+            showError('Remplis tous les champs.');
+            return;
+        }
+
+        btnLogin.disabled = true;
+        btnLogin.innerHTML = '<span class="spinner"></span>Connexion…';
+        hideError();
+
+        try {
+            const res = await fetch('/auth/login', {
+                method:      'POST',
+                headers:     { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body:        JSON.stringify({ email, password }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                showError(data.error || 'Erreur de connexion.');
+                return;
+            }
+
+            redirectByRole(data.user.role);
+
+        } catch {
+            showError('Impossible de contacter le serveur.');
+        } finally {
+            btnLogin.disabled = false;
+            btnLogin.innerHTML = 'Se connecter';
+        }
+    }
+
+    function redirectByRole(role) {
+        if (role === 'patron') {
+            window.location.href = '/index.html';
+        } else {
+            window.location.href = '/planning.html';
+        }
+    }
+
+    function showError(msg) {
+        errorMsg.textContent = msg;
+        errorMsg.classList.add('visible');
+    }
+    function hideError() {
+        errorMsg.classList.remove('visible');
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planning Bar</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+    <!-- ── Header ── -->
+    <header class="header">
+        <div class="header-left">
+            <h1 class="app-title">Planning</h1>
+            <div class="venue-tabs" id="venue-tabs"></div>
+        </div>
+        <div class="header-right">
+            <span class="date-display" id="date-display"></span>
+            <button class="btn-manage-staff" id="btn-manage-staff">Gérer le staff</button>
+            <button class="btn-manage-staff" id="btn-manage-accounts" style="background:#f0effe;border-color:#7F77DD;color:#534AB7">Comptes</button>
+            <div class="user-badge-wrap">
+                <span class="user-badge" id="user-badge"></span>
+                <button class="btn-logout" onclick="logout()">Déconnexion</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ── Barre de navigation + onglets vue ── -->
+    <div class="week-nav">
+        <button class="week-arrow" id="prev-week">&#8592;</button>
+        <span class="week-label" id="week-label"></span>
+        <button class="week-arrow" id="next-week">&#8594;</button>
+        <button class="btn-today" id="btn-today">Aujourd'hui</button>
+
+        <div class="view-tabs">
+            <button class="view-tab active" data-view="day">Jour</button>
+            <button class="view-tab" data-view="week">Semaine</button>
+        </div>
+    </div>
+
+    <!-- ── Vue semaine mini (cards 7 jours) ── -->
+    <div class="week-grid" id="week-grid"></div>
+
+    <!-- ── Vue semaine complète ── -->
+    <div class="week-full" id="week-full" style="display:none">
+        <div class="week-sub-tabs">
+            <button class="week-sub-tab active" data-sub="dashboard">Tableau de bord</button>
+            <button class="week-sub-tab" data-sub="agenda">Agenda</button>
+        </div>
+        <div id="week-dashboard"></div>
+        <div id="week-agenda" style="display:none"></div>
+    </div>
+
+    <!-- ── Vue détail d'un jour ── -->
+    <div class="day-detail" id="day-detail" style="display:none">
+
+        <div class="day-detail-header">
+            <span class="day-detail-title" id="day-detail-title"></span>
+            <button class="btn-copy-day" id="btn-copy-day">Copier ce jour →</button>
+            <button class="day-detail-close" id="day-detail-close">×</button>
+        </div>
+
+        <!-- Timeline -->
+        <div class="timeline-top">
+            <div class="tl-corner"></div>
+            <div class="timeline-header" id="timeline-header"></div>
+        </div>
+        <div class="timeline-body" id="timeline-body"></div>
+
+    </div>
+
+    <!-- ── Barre staff ── -->
+    <div class="staff-bar">
+        <span class="staff-bar-label">Staff</span>
+        <div class="staff-list" id="staff-list"></div>
+        <span class="staff-bar-hint">Glisse un nom sur le planning</span>
+    </div>
+
+    <!-- ── Stats ── -->
+    <div class="stats-bar" id="stats-bar"></div>
+
+</div>
+
+<!-- ── Modale gestion staff ── -->
+<div class="modal-overlay" id="staff-modal" style="display:none">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">Gestion du staff</span>
+            <button class="modal-close" id="staff-modal-close">×</button>
+        </div>
+
+        <!-- Liste du staff existant -->
+        <div class="staff-manage-list" id="staff-manage-list"></div>
+
+        <!-- Formulaire ajout -->
+        <div class="staff-add-form">
+            <div class="staff-add-title">Ajouter un membre</div>
+            <div class="staff-add-fields">
+                <input type="text"  id="new-staff-name"  class="staff-input" placeholder="Prénom Nom">
+                <input type="email" id="new-staff-email" class="staff-input" placeholder="email@exemple.com (optionnel)">
+                <input type="color" id="new-staff-color" class="staff-color-pick" value="#3498db" title="Couleur">
+                <button class="btn-add-staff" id="btn-add-staff">Ajouter</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modale gestion des comptes ── -->
+<div class="modal-overlay" id="accounts-modal" style="display:none">
+    <div class="modal" style="width:500px;max-width:95vw">
+        <div class="modal-header">
+            <span class="modal-title">Comptes du staff</span>
+            <button class="modal-close" id="accounts-modal-close">×</button>
+        </div>
+        <div id="accounts-list"></div>
+        <div class="staff-add-form">
+            <div class="staff-add-title">Inviter un membre du staff</div>
+            <div class="staff-add-fields">
+                <select id="new-account-staff" class="staff-input" style="flex:1.2">
+                    <option value="">— Lier à un membre du staff —</option>
+                </select>
+                <input type="email" id="new-account-email" class="staff-input" placeholder="email@exemple.com">
+                <button class="btn-add-staff" id="btn-invite-account">Inviter</button>
+            </div>
+            <p style="font-size:11px;color:#bbb;margin-top:8px">Un email avec un lien de création de mot de passe sera envoyé automatiquement.</p>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modale copie de jour ── -->
+<div class="modal-overlay" id="copy-modal" style="display:none">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">Copier le planning vers…</span>
+            <button class="modal-close" id="copy-modal-close">×</button>
+        </div>
+
+        <p class="modal-hint">Shifts à copier (tu peux les modifier avant de confirmer)</p>
+        <div class="copy-shifts-preview" id="copy-shifts-preview"></div>
+
+        <p class="modal-hint" style="margin-top:14px">Jours cibles</p>
+        <div class="copy-days-grid" id="copy-days-grid"></div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" id="copy-modal-cancel">Annuler</button>
+            <button class="btn-confirm" id="copy-modal-confirm">Copier</button>
+        </div>
+    </div>
+</div>
+
+<div class="conflict-toast" id="conflict-toast"></div>
+<div class="drop-hint" id="drop-hint">Dépose pour ajouter au planning</div>
+<div id="toast"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
