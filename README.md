@@ -65,4 +65,4 @@ NODE_ENV=development
 ## Rôles
 
 - **patron** — accès complet (planning, staff, comptes)
-- **staff** — lecture seule de son propre planning (Phase 4)
+- **staff** — lecture seule de son propre planning
