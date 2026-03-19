@@ -220,15 +220,22 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
         console.log('Gmail user configuré:', process.env.GMAIL_USER ? 'OUI' : 'NON');
         console.log('Gmail pass configuré:', process.env.GMAIL_PASS ? 'OUI' : 'NON');
         
-        await sendEmail(
-            email,
-            'Ton accès Planning Bar',
-            '<p>Bonjour ' + (name || '') + ',</p>' +
-            '<p>Tu as été invité(e) à rejoindre <strong>Planning Bar</strong>.</p>' +
-            '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
-            '<p style="color:#999;font-size:12px">Ce lien expire dans 24h.</p>'
-        );
-        console.log('✅ Email envoyé à', email);
+        try {
+            await sendEmail(
+                email,
+                'Ton accès Planning Bar',
+                '<p>Bonjour ' + (name || '') + ',</p>' +
+                '<p>Tu as été invité(e) à rejoindre <strong>Planning Bar</strong>.</p>' +
+                '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
+                '<p style="color:#999;font-size:12px">Ce lien expire dans 24h.</p>'
+            );
+            console.log('✅ Email envoyé à', email);
+            } catch (mailErr) {
+                console.error('❌ Erreur envoi email:', mailErr.message);
+                // Supprimer le compte créé puisque l'invitation n'a pas pu partir
+                await db.collection('users').deleteOne({ invite_token: token });
+                return res.status(500).json({ error: 'Impossible d\'envoyer l\'email : ' + mailErr.message });
+            }
 
         res.status(201).json({ message: 'Invitation envoyée à ' + email });
     } catch (e) { res.status(500).json({ error: e.message }); }
