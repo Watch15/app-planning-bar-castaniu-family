@@ -204,6 +204,10 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
 
         const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token;
 
+        console.log('Tentative envoi email vers:', email);
+        console.log('Gmail user configuré:', process.env.GMAIL_USER ? 'OUI' : 'NON');
+        console.log('Gmail pass configuré:', process.env.GMAIL_PASS ? 'OUI' : 'NON');
+        
         await mailer.sendMail({
             from:    '"Planning Bar" <' + process.env.GMAIL_USER + '>',
             to:      email,
