@@ -1,11 +1,10 @@
 require('dotenv').config();
-const express    = require('express');
+const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
-const cors       = require('cors');
-const bcrypt     = require('bcryptjs');
-const session    = require('express-session');
-const nodemailer = require('nodemailer');
-const crypto     = require('crypto');
+const cors    = require('cors');
+const bcrypt  = require('bcryptjs');
+const session = require('express-session');
+const crypto  = require('crypto');
 
 const app = express();
 app.use(express.json());
@@ -26,15 +25,27 @@ async function connectDB() {
     }
 }
 
-// ── Mailer ────────────────────────────────────────────────────────────────────
+// ── Email via Resend ──────────────────────────────────────────────────────────
 
-const mailer = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_PASS,
-    },
-});
+async function sendEmail(to, subject, html) {
+    const res = await fetch('https://api.resend.com/emails', {
+        method:  'POST',
+        headers: {
+            'Authorization': 'Bearer ' + process.env.RESEND_API_KEY,
+            'Content-Type':  'application/json',
+        },
+        body: JSON.stringify({
+            from:    'Planning Bar <onboarding@resend.dev>',
+            to,
+            subject,
+            html,
+        }),
+    });
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Erreur Resend');
+    }
+}
 
 // ── Session ───────────────────────────────────────────────────────────────────
 
@@ -49,10 +60,7 @@ function setupSession() {
             db.collection('sessions').findOne({ sid })
                 .then(doc => {
                     if (!doc) return cb(null, null);
-                    if (doc.expires < new Date()) {
-                        this.destroy(sid, () => {});
-                        return cb(null, null);
-                    }
+                    if (doc.expires < new Date()) { this.destroy(sid, () => {}); return cb(null, null); }
                     cb(null, doc.session);
                 })
                 .catch(err => cb(err));
@@ -65,9 +73,7 @@ function setupSession() {
                 { sid },
                 { $set: { sid, session: sessionData, expires } },
                 { upsert: true }
-            )
-            .then(() => cb(null))
-            .catch(err => cb(err));
+            ).then(() => cb(null)).catch(err => cb(err));
         }
 
         destroy(sid, cb) {
@@ -93,7 +99,7 @@ function setupSession() {
 
 setupSession();
 
-// ── Middlewares auth ──────────────────────────────────────────────────────────
+// ── Middlewares ───────────────────────────────────────────────────────────────
 
 function checkDB(req, res, next) {
     if (!db) return res.status(503).json({ error: 'Base de données non disponible' });
@@ -145,13 +151,14 @@ app.get('/auth/me', (req, res) => {
     res.json({ user: req.session.user });
 });
 
+// Activation compte via token invitation
 app.post('/auth/set-password', checkDB, async (req, res) => {
     const { token, password } = req.body;
     if (!token || !password) return res.status(400).json({ error: 'Token et mot de passe requis' });
     if (password.length < 8) return res.status(400).json({ error: 'Minimum 8 caractères' });
     try {
         const user = await db.collection('users').findOne({ invite_token: token });
-        if (!user)                           return res.status(404).json({ error: 'Lien invalide' });
+        if (!user)                            return res.status(404).json({ error: 'Lien invalide' });
         if (user.invite_expires < new Date()) return res.status(410).json({ error: 'Lien expiré (24h)' });
         const hash = await bcrypt.hash(password, 12);
         await db.collection('users').updateOne(
@@ -159,6 +166,61 @@ app.post('/auth/set-password', checkDB, async (req, res) => {
             { $set: { password_hash: hash, active: true }, $unset: { invite_token: '', invite_expires: '' } }
         );
         res.json({ message: 'Mot de passe créé, tu peux te connecter' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Reset mot de passe via token (lien email)
+app.patch('/auth/reset-password', checkDB, async (req, res) => {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ error: 'Token et mot de passe requis' });
+    if (password.length < 8) return res.status(400).json({ error: 'Minimum 8 caractères' });
+    try {
+        const user = await db.collection('users').findOne({ reset_token: token });
+        if (!user)                           return res.status(404).json({ error: 'Lien invalide' });
+        if (user.reset_expires < new Date()) return res.status(410).json({ error: 'Lien expiré (1h)' });
+        const hash = await bcrypt.hash(password, 12);
+        await db.collection('users').updateOne(
+            { reset_token: token },
+            { $set: { password_hash: hash }, $unset: { reset_token: '', reset_expires: '' } }
+        );
+        res.json({ message: 'Mot de passe mis à jour, tu peux te connecter' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Mot de passe oublié — envoi email reset
+app.post('/auth/forgot-password', checkDB, async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email requis' });
+    try {
+        const user = await db.collection('users').findOne({ email: email.toLowerCase().trim() });
+        if (!user) return res.json({ message: 'Si cet email existe, un lien a été envoyé.' });
+
+        const token   = crypto.randomBytes(32).toString('hex');
+        const expires = new Date(Date.now() + 60 * 60 * 1000);
+        await db.collection('users').updateOne(
+            { _id: user._id },
+            { $set: { reset_token: token, reset_expires: expires } }
+        );
+
+        const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token + '&mode=reset';
+        const html =
+            '<p>Bonjour ' + (user.name || '') + ',</p>' +
+            '<p>Tu as demandé à réinitialiser ton mot de passe.</p>' +
+            '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Réinitialiser mon mot de passe</a></p>' +
+            '<p style="color:#999;font-size:12px">Ce lien expire dans 1h.</p>';
+
+        let manual = false;
+        try {
+            await sendEmail(email, 'Réinitialisation de ton mot de passe', html);
+        } catch (mailErr) {
+            console.error('❌ Reset email failed:', mailErr.message);
+            manual = true;
+        }
+
+        res.json({
+            message: 'Si cet email existe, un lien a été envoyé.',
+            ...(manual && { link, manual: true }),
+        });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -173,6 +235,7 @@ app.get('/api/users', checkDB, requirePatron, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Inviter un utilisateur (staff ou patron)
 app.post('/api/users', checkDB, requirePatron, async (req, res) => {
     const { email, staff_id, name, role } = req.body;
     const userRole = role === 'patron' ? 'patron' : 'staff';
@@ -188,7 +251,7 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
             email:          email.toLowerCase().trim(),
             password_hash:  null,
             role:           userRole,
-            staff_id:       staff_id || null,
+            staff_id:       userRole === 'staff' ? (staff_id || null) : null,
             name:           name || '',
             invite_token:   token,
             invite_expires: expires,
@@ -196,7 +259,7 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
             created_at:     new Date(),
         });
 
-        if (staff_id) {
+        if (staff_id && userRole === 'staff') {
             await db.collection('staff').updateOne(
                 { _id: new ObjectId(staff_id) },
                 { $set: { email: email.toLowerCase().trim() } }
@@ -204,19 +267,41 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
         }
 
         const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token;
+        const html =
+            '<p>Bonjour ' + (name || '') + ',</p>' +
+            '<p>Tu as été invité(e) à rejoindre <strong>Planning Bar</strong>.</p>' +
+            '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
+            '<p style="color:#999;font-size:12px">Ce lien expire dans 24h.</p>';
 
-        await mailer.sendMail({
-            from:    '"Planning Bar" <' + process.env.GMAIL_USER + '>',
-            to:      email,
-            subject: 'Ton accès Planning Bar',
-            html:
-                '<p>Bonjour ' + (name || '') + ',</p>' +
-                '<p>Tu as été invité(e) à rejoindre <strong>Planning Bar</strong>.</p>' +
-                '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
-                '<p style="color:#999;font-size:12px">Ce lien expire dans 24h.</p>',
+        let manual = false;
+        try {
+            await sendEmail(email, 'Ton accès Planning Bar', html);
+            console.log('✅ Email envoyé à', email);
+        } catch (mailErr) {
+            console.error('❌ Erreur envoi email:', mailErr.message);
+            manual = true;
+            // Ne pas supprimer le compte — retourner le lien pour envoi manuel
+        }
+
+        res.status(201).json({
+            message: manual ? 'Compte créé mais email non envoyé.' : 'Invitation envoyée à ' + email,
+            ...(manual && { link, manual: true }),
         });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
-        res.status(201).json({ message: 'Invitation envoyée à ' + email });
+// Reset mot de passe par le patron
+app.patch('/api/users/:id/reset-password', checkDB, requirePatron, async (req, res) => {
+    const { password } = req.body;
+    if (!password || password.length < 8) return res.status(400).json({ error: 'Minimum 8 caractères' });
+    try {
+        const hash   = await bcrypt.hash(password, 12);
+        const result = await db.collection('users').updateOne(
+            { _id: new ObjectId(req.params.id) },
+            { $set: { password_hash: hash, active: true }, $unset: { reset_token: '', reset_expires: '' } }
+        );
+        if (result.matchedCount === 0) return res.status(404).json({ error: 'Utilisateur introuvable' });
+        res.json({ message: 'Mot de passe mis à jour' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -285,8 +370,7 @@ app.get('/api/shifts/:establishmentId/:date', checkDB, requireAuth, async (req, 
     try {
         const shifts = await db.collection('shifts')
             .find({ establishment_id: req.params.establishmentId, date: req.params.date })
-            .sort({ start_time: 1 })
-            .toArray();
+            .sort({ start_time: 1 }).toArray();
         res.json(shifts);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -307,32 +391,25 @@ app.get('/api/week/:establishmentId', checkDB, requireAuth, async (req, res) => 
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET shifts de la semaine pour le staff connecté
-// /api/my-shifts?from=2025-06-16&to=2025-06-22
 app.get('/api/my-shifts', checkDB, requireAuth, async (req, res) => {
     const { from, to } = req.query;
     if (!from || !to) return res.status(400).json({ error: 'from et to requis' });
     const staffId = req.session.user.staff_id;
     if (!staffId) return res.status(400).json({ error: 'Aucun profil staff lié à ce compte' });
     try {
-        // Shifts du staff sur la période
         const myShifts = await db.collection('shifts').find({
-            staff_id: staffId,
-            date: { $gte: from, $lte: to }
+            staff_id: staffId, date: { $gte: from, $lte: to }
         }).sort({ date: 1, start_time: 1 }).toArray();
 
-        // Pour chaque jour où ce staff travaille, récupérer les collègues
         const dates = [...new Set(myShifts.map(s => s.date))];
         const colleagueMap = {};
         for (const date of dates) {
-            const allShifts = await db.collection('shifts').find({
+            colleagueMap[date] = await db.collection('shifts').find({
                 date,
                 establishment_id: { $in: myShifts.filter(s => s.date === date).map(s => s.establishment_id) },
                 staff_id: { $ne: staffId }
             }).toArray();
-            colleagueMap[date] = allShifts;
         }
-
         res.json({ shifts: myShifts, colleagues: colleagueMap });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -409,47 +486,28 @@ app.post('/api/copy-day', checkDB, requirePatron, async (req, res) => {
         for (const date of to_dates) {
             await db.collection('shifts').deleteMany({ establishment_id, date });
             const newShifts = shifts.map(({ _id, ...rest }) => ({ ...rest, date }));
-            if (newShifts.length > 0) {
-                await db.collection('shifts').insertMany(newShifts);
-                created += newShifts.length;
-            }
+            if (newShifts.length > 0) { await db.collection('shifts').insertMany(newShifts); created += newShifts.length; }
         }
         res.json({ message: created + ' shifts copiés sur ' + to_dates.length + ' jour(s)' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Disponibilités ───────────────────────────────────────────────────────────
+// ── Disponibilités ────────────────────────────────────────────────────────────
 
-// GET paramètres saisie dispos (ouvert/fermé, deadline)
 app.get('/api/dispo-settings', checkDB, requireAuth, async (req, res) => {
     try {
-        const settings = await db.collection('settings').findOne({ key: 'dispo' }) || {
-            open:     true,
-            message:  null,
-        };
-
-        // Calcul deadline automatique : vendredi 13h de la semaine courante
+        const settings = await db.collection('settings').findOne({ key: 'dispo' }) || { open: true, message: null };
         const now    = new Date();
-        const day    = now.getDay(); // 0=dim, 5=ven
+        const day    = now.getDay();
         const diff   = day <= 5 ? 5 - day : 5 - day + 7;
         const friday = new Date(now);
         friday.setDate(now.getDate() + diff);
         friday.setHours(13, 0, 0, 0);
-
         const deadlinePassed = now > friday;
-
-        res.json({
-            open:            settings.open,
-            message:         settings.message,
-            deadline:        friday.toISOString(),
-            deadlinePassed,
-            // Saisie possible si ouvert par le patron ET deadline non passée
-            canSubmit:       settings.open && !deadlinePassed,
-        });
+        res.json({ open: settings.open, message: settings.message, deadline: friday.toISOString(), deadlinePassed, canSubmit: settings.open && !deadlinePassed });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PATCH paramètres saisie (patron ouvre/ferme manuellement)
 app.patch('/api/dispo-settings', checkDB, requirePatron, async (req, res) => {
     const { open, message } = req.body;
     try {
@@ -462,82 +520,54 @@ app.patch('/api/dispo-settings', checkDB, requirePatron, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET dispos du staff connecté pour une semaine
 app.get('/api/dispos/mine', checkDB, requireAuth, async (req, res) => {
     const { from, to } = req.query;
     if (!from || !to) return res.status(400).json({ error: 'from et to requis' });
     const staffId = req.session.user.staff_id;
     if (!staffId) return res.status(400).json({ error: 'Aucun profil staff lié' });
     try {
-        const dispos = await db.collection('availabilities').find({
-            staff_id: staffId,
-            date:     { $gte: from, $lte: to },
-        }).toArray();
+        const dispos = await db.collection('availabilities').find({ staff_id: staffId, date: { $gte: from, $lte: to } }).toArray();
         res.json(dispos);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST soumettre les dispos de la semaine
 app.post('/api/dispos', checkDB, requireAuth, async (req, res) => {
     const staffId = req.session.user.staff_id;
     if (!staffId) return res.status(400).json({ error: 'Aucun profil staff lié' });
-
-    // Vérifier que la saisie est ouverte
     const settings = await db.collection('settings').findOne({ key: 'dispo' }) || { open: true };
-    const now      = new Date();
-    const day      = now.getDay();
-    const diff     = day <= 5 ? 5 - day : 5 - day + 7;
-    const friday   = new Date(now);
+    const now = new Date();
+    const day = now.getDay();
+    const diff = day <= 5 ? 5 - day : 5 - day + 7;
+    const friday = new Date(now);
     friday.setDate(now.getDate() + diff);
     friday.setHours(13, 0, 0, 0);
-
-    if (!settings.open)  return res.status(403).json({ error: 'La saisie des disponibilités est fermée.' });
-    if (now > friday)    return res.status(403).json({ error: 'La deadline est passée (vendredi 13h).' });
-
-    const { dispos } = req.body; // [{ date, type, start_time, end_time, note }]
-    if (!Array.isArray(dispos) || dispos.length === 0)
-        return res.status(400).json({ error: 'Aucune disponibilité fournie' });
-
+    if (!settings.open) return res.status(403).json({ error: 'La saisie des disponibilités est fermée.' });
+    if (now > friday)   return res.status(403).json({ error: 'La deadline est passée (vendredi 13h).' });
+    const { dispos } = req.body;
+    if (!Array.isArray(dispos) || dispos.length === 0) return res.status(400).json({ error: 'Aucune disponibilité fournie' });
     try {
-        // Supprimer les anciennes dispos de cette semaine pour ce staff
         const dates = dispos.map(d => d.date);
-        await db.collection('availabilities').deleteMany({
-            staff_id: staffId,
-            date:     { $in: dates },
-            status:   'pending',
-        });
-
+        await db.collection('availabilities').deleteMany({ staff_id: staffId, date: { $in: dates }, status: 'pending' });
         const docs = dispos.map(d => ({
-            staff_id:   staffId,
-            staff_name: req.session.user.name || '',
-            date:       d.date,
-            type:       d.type || 'custom',   // soir | midi | custom
-            start_time: parseFloat(d.start_time),
-            end_time:   parseFloat(d.end_time),
-            note:       d.note || '',
-            status:     'pending',
-            created_at: new Date(),
+            staff_id: staffId, staff_name: req.session.user.name || '',
+            date: d.date, type: d.type || 'custom',
+            start_time: parseFloat(d.start_time), end_time: parseFloat(d.end_time),
+            note: d.note || '', status: 'pending', created_at: new Date(),
         }));
-
         await db.collection('availabilities').insertMany(docs);
         res.status(201).json({ message: docs.length + ' disponibilité(s) enregistrée(s)' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET toutes les dispos en attente (patron)
 app.get('/api/dispos/pending', checkDB, requirePatron, async (req, res) => {
     const { from, to } = req.query;
     if (!from || !to) return res.status(400).json({ error: 'from et to requis' });
     try {
-        const dispos = await db.collection('availabilities').find({
-            date:   { $gte: from, $lte: to },
-            status: 'pending',
-        }).sort({ date: 1, start_time: 1 }).toArray();
+        const dispos = await db.collection('availabilities').find({ date: { $gte: from, $lte: to }, status: 'pending' }).sort({ date: 1, start_time: 1 }).toArray();
         res.json(dispos);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET nombre de dispos en attente (pour le badge)
 app.get('/api/dispos/count', checkDB, requirePatron, async (req, res) => {
     try {
         const count = await db.collection('availabilities').countDocuments({ status: 'pending' });
@@ -545,44 +575,29 @@ app.get('/api/dispos/count', checkDB, requirePatron, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PATCH confirmer une dispo → crée un shift si demandé
 app.patch('/api/dispos/:id/confirm', checkDB, requirePatron, async (req, res) => {
     const { establishment_id, create_shift } = req.body;
     if (!establishment_id) return res.status(400).json({ error: 'establishment_id requis' });
     try {
         const dispo = await db.collection('availabilities').findOne({ _id: new ObjectId(req.params.id) });
         if (!dispo) return res.status(404).json({ error: 'Dispo introuvable' });
-
-        await db.collection('availabilities').updateOne(
-            { _id: new ObjectId(req.params.id) },
-            { $set: { status: 'confirmed', establishment_id } }
-        );
-
+        await db.collection('availabilities').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { status: 'confirmed', establishment_id } });
         if (create_shift) {
-            // Récupérer la couleur du staff
             const staffMember = await db.collection('staff').findOne({ _id: new ObjectId(dispo.staff_id) });
             await db.collection('shifts').insertOne({
-                staff_id:         dispo.staff_id,
-                staff_name:       dispo.staff_name,
-                establishment_id,
-                date:             dispo.date,
-                start_time:       dispo.start_time,
-                end_time:         dispo.end_time,
-                color:            staffMember?.color || '#3498db',
+                staff_id: dispo.staff_id, staff_name: dispo.staff_name,
+                establishment_id, date: dispo.date,
+                start_time: dispo.start_time, end_time: dispo.end_time,
+                color: staffMember?.color || '#3498db',
             });
         }
-
         res.json({ message: 'Dispo confirmée' + (create_shift ? ' et shift créé' : '') });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PATCH refuser une dispo
 app.patch('/api/dispos/:id/reject', checkDB, requirePatron, async (req, res) => {
     try {
-        const result = await db.collection('availabilities').updateOne(
-            { _id: new ObjectId(req.params.id) },
-            { $set: { status: 'rejected' } }
-        );
+        const result = await db.collection('availabilities').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { status: 'rejected' } });
         if (result.matchedCount === 0) return res.status(404).json({ error: 'Dispo introuvable' });
         res.json({ message: 'Dispo refusée' });
     } catch (e) { res.status(500).json({ error: e.message }); }
