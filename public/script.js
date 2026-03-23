@@ -1,7 +1,7 @@
 // ── Constantes ───────────────────────────────────────────────────────────────
 
 const PX_PER_HOUR = 60;
-const START_HOUR  = 12;
+const START_HOUR  = 10;
 const END_HOUR    = 26;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
 
@@ -80,7 +80,6 @@ async function init() {
     initViewTabs();
     await Promise.all([loadEstablishments(), loadAllStaff()]);
 
-    // Dispos
     loadDisposBadge();
     loadDispoControl();
 
@@ -92,7 +91,6 @@ async function init() {
         document.getElementById('dispos-modal').style.display = 'none';
     });
 
-    // Comptes
     const btnAccounts = document.getElementById('btn-manage-accounts');
     if (btnAccounts) btnAccounts.addEventListener('click', openAccountsModal);
 
@@ -1070,10 +1068,10 @@ async function renderAccountsList() {
                     '<div style="font-size:12px;color:#999">' + user.email + '</div>' +
                 '</div>' +
                 '<span class="staff-login-badge ' + badge + '" style="margin-right:8px">' + status + '</span>' +
-                    '<button class="staff-manage-save" data-action="reset">Reset mdp</button>' +
-                    '<button class="staff-manage-delete" data-action="delete">×</button>';
-                row.querySelector('[data-action="reset"]').addEventListener('click',  () => patronResetPassword(user._id, user.name || user.email));
-                row.querySelector('[data-action="delete"]').addEventListener('click', () => deleteAccount(user._id, user.name || user.email));
+                '<button class="staff-manage-save" data-action="reset">Reset mdp</button>' +
+                '<button class="staff-manage-delete" data-action="delete">×</button>';
+            row.querySelector('[data-action="reset"]').addEventListener('click',  () => patronResetPassword(user._id, user.name || user.email));
+            row.querySelector('[data-action="delete"]').addEventListener('click', () => deleteAccount(user._id, user.name || user.email));
             list.appendChild(row);
         });
     } catch (e) {
@@ -1187,8 +1185,8 @@ async function loadDisposBadge() {
         const { count } = await res.json();
         const badge = document.getElementById('dispos-badge');
         if (!badge) return;
-        badge.textContent    = count;
-        badge.style.display  = count > 0 ? 'flex' : 'none';
+        badge.textContent   = count;
+        badge.style.display = count > 0 ? 'flex' : 'none';
     } catch { }
 }
 
@@ -1213,42 +1211,167 @@ async function loadDisposList() {
             list.innerHTML = '<div style="padding:24px;text-align:center;color:#ccc;font-size:13px">Aucune disponibilité en attente</div>';
             return;
         }
+
+        // Grouper par staff_id
+        const byStaff = {};
+        dispos.forEach(d => {
+            if (!byStaff[d.staff_id]) byStaff[d.staff_id] = { name: d.staff_name, dispos: [] };
+            byStaff[d.staff_id].dispos.push(d);
+        });
+
         list.innerHTML = '';
-        dispos.forEach(dispo => {
-            const row   = document.createElement('div');
-            row.className = 'staff-manage-row';
-            const sm    = allStaff.find(s => String(s._id) === dispo.staff_id);
+
+        // Semaine : lun → dim
+        const weekDays = [];
+        for (let i = 0; i < 7; i++) weekDays.push(toDateStr(addDays(nextMonday, i)));
+        const DAY_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+
+        Object.entries(byStaff).forEach(([staffId, { name, dispos: staffDispos }]) => {
+            const sm    = allStaff.find(s => String(s._id) === staffId);
             const color = sm ? sm.color : '#888';
             const fmt   = h => String(Math.floor(h % 24)).padStart(2, '0') + 'h';
-            const typeLabel = dispo.type === 'soir' ? 'Soir' : dispo.type === 'midi' ? 'Midi' : 'Horaires précis';
-            const dateObj   = new Date(dispo.date + 'T00:00:00');
-            const dateLabel = dateObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-            row.innerHTML =
-                '<span class="staff-manage-dot" style="background:' + color + '"></span>' +
-                '<div class="staff-manage-info" style="flex:1">' +
-                    '<div style="font-size:13px;font-weight:600;color:#333">' + dispo.staff_name + ' — ' + dateLabel + '</div>' +
-                    '<div style="font-size:12px;color:#999">' + typeLabel + ' · ' + fmt(dispo.start_time) + ' → ' + fmt(dispo.end_time) + (dispo.note ? ' · ' + dispo.note : '') + '</div>' +
+
+            const card = document.createElement('div');
+            card.style.cssText = 'background:var(--color-bg-secondary,#f8f8f8);border:1px solid var(--color-border-secondary,#eee);border-radius:12px;margin:8px 16px;overflow:hidden';
+
+            // Header carte staff
+            const header = document.createElement('div');
+            header.style.cssText = 'display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--color-border-tertiary,#f0f0f0)';
+            header.innerHTML =
+                '<span style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0;display:inline-block"></span>' +
+                '<div style="flex:1">' +
+                    '<div style="font-size:13px;font-weight:700;color:#333">' + name + '</div>' +
+                    '<div style="font-size:11px;color:#aaa">' + staffDispos.length + ' jour' + (staffDispos.length > 1 ? 's' : '') + ' disponible' + (staffDispos.length > 1 ? 's' : '') + '</div>' +
                 '</div>' +
-                '<button class="staff-manage-save" data-action="confirm" style="background:#eafaf1;border-color:#2ecc71;color:#27ae60">✓</button>' +
-                '<button class="staff-manage-delete" data-action="reject">✕</button>';
-            row.querySelector('[data-action="confirm"]').addEventListener('click', () => openConfirmDispo(dispo, row));
-            row.querySelector('[data-action="reject"]').addEventListener('click', async () => {
-                if (!confirm('Refuser cette dispo ?')) return;
-                await fetch('/api/dispos/' + dispo._id + '/reject', { credentials: 'include', method: 'PATCH' });
-                row.remove();
-                loadDisposBadge();
+                '<button class="btn-confirm-all" style="padding:6px 12px;border-radius:8px;border:1.5px solid #2ecc71;background:#eafaf1;color:#27ae60;font-size:12px;font-weight:600;cursor:pointer">✓ Tout confirmer</button>';
+            card.appendChild(header);
+
+            // Grille des 7 jours
+            const grid = document.createElement('div');
+            grid.style.cssText = 'display:flex;gap:6px;padding:10px 14px;overflow-x:auto';
+
+            weekDays.forEach(date => {
+                const dispo = staffDispos.find(d => d.date === date);
+                const d     = new Date(date + 'T00:00:00');
+                const pill  = document.createElement('div');
+                pill.style.cssText = 'min-width:70px;border-radius:8px;padding:8px 6px;text-align:center;border:1.5px solid;flex-shrink:0;' +
+                    (dispo
+                        ? 'background:white;border-color:#e0e0e0;cursor:pointer'
+                        : 'background:#f5f5f5;border-color:#eee;opacity:0.5');
+
+                const typeColor = dispo
+                    ? (dispo.type === 'midi' ? '#534AB7' : '#1a1a2e')
+                    : '#ccc';
+
+                pill.innerHTML =
+                    '<div style="font-size:10px;color:#aaa;margin-bottom:2px">' + DAY_SHORT[d.getDay()] + ' ' + d.getDate() + '</div>' +
+                    (dispo
+                        ? '<div style="font-size:12px;font-weight:700;color:' + typeColor + '">' + (dispo.type === 'soir' ? 'Soir' : dispo.type === 'midi' ? 'Midi' : 'Perso') + '</div>' +
+                          '<div style="font-size:10px;color:#999;margin-top:1px">' + fmt(dispo.start_time) + '→' + fmt(dispo.end_time) + '</div>'
+                        : '<div style="font-size:14px;color:#ddd">—</div>');
+
+                if (dispo) {
+                    pill.title = 'Cliquer pour confirmer ou refuser';
+                    pill.addEventListener('click', () => openConfirmDispo(dispo, pill, card, staffId));
+
+                    // Hover
+                    pill.addEventListener('mouseenter', () => { if (!pill.dataset.confirmed) pill.style.borderColor = '#2ecc71'; });
+                    pill.addEventListener('mouseleave', () => { if (!pill.dataset.confirmed) pill.style.borderColor = '#e0e0e0'; });
+                }
+
+                grid.appendChild(pill);
             });
-            list.appendChild(row);
+
+            card.appendChild(grid);
+
+            // Bouton "Tout confirmer"
+            header.querySelector('.btn-confirm-all').addEventListener('click', () => {
+                confirmAllForStaff(staffDispos, card);
+            });
+
+            list.appendChild(card);
         });
+
     } catch (e) {
         list.innerHTML = '<div style="padding:16px;text-align:center;color:#e74c3c;font-size:13px">' + e.message + '</div>';
     }
 }
 
-function openConfirmDispo(dispo, row) {
+async function confirmAllForStaff(dispos, card) {
+    // Ouvrir la modale de confirmation avec l'établissement, puis confirmer tout
     const modal  = document.getElementById('confirm-dispo-modal');
     if (!modal) return;
     modal.style.display = 'flex';
+    buildEstablishmentSelect();
+
+    document.getElementById('confirm-dispo-btn').onclick = async () => {
+        const establishmentId = document.getElementById('confirm-dispo-establishment').value;
+        const createShift     = document.getElementById('confirm-create-shift').checked;
+        modal.style.display   = 'none';
+
+        let confirmed = 0;
+        for (const dispo of dispos) {
+            try {
+                await fetch('/api/dispos/' + dispo._id + '/confirm', {
+                    credentials: 'include', method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ establishment_id: establishmentId, create_shift: createShift }),
+                });
+                confirmed++;
+            } catch { }
+        }
+        card.remove();
+        loadDisposBadge();
+        if (createShift) await refreshWeek();
+        showToast(confirmed + ' dispo(s) confirmée(s)');
+    };
+    document.getElementById('confirm-dispo-cancel').onclick = () => { modal.style.display = 'none'; };
+}
+
+function openConfirmDispo(dispo, pill, card, staffId) {
+    const modal = document.getElementById('confirm-dispo-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    buildEstablishmentSelect();
+
+    document.getElementById('confirm-dispo-btn').onclick = async () => {
+        const establishmentId = document.getElementById('confirm-dispo-establishment').value;
+        const createShift     = document.getElementById('confirm-create-shift').checked;
+        try {
+            const res = await fetch('/api/dispos/' + dispo._id + '/confirm', {
+                credentials: 'include', method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ establishment_id: establishmentId, create_shift: createShift }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            modal.style.display = 'none';
+            // Marquer la pill comme confirmée
+            pill.style.background    = '#eafaf1';
+            pill.style.borderColor   = '#2ecc71';
+            pill.dataset.confirmed   = '1';
+            pill.style.cursor        = 'default';
+            pill.style.pointerEvents = 'none';
+            loadDisposBadge();
+            if (createShift) await refreshWeek();
+            showToast(data.message);
+        } catch (e) { showToast(e.message, true); }
+    };
+
+    // Bouton refus
+    document.getElementById('confirm-dispo-cancel').onclick = async () => {
+        if (!confirm('Refuser cette dispo ?')) return;
+        modal.style.display = 'none';
+        await fetch('/api/dispos/' + dispo._id + '/reject', { credentials: 'include', method: 'PATCH' });
+        pill.style.background    = '#fff5f5';
+        pill.style.borderColor   = '#e74c3c';
+        pill.style.pointerEvents = 'none';
+        pill.style.opacity       = '0.5';
+        loadDisposBadge();
+    };
+}
+
+function buildEstablishmentSelect() {
     const select = document.getElementById('confirm-dispo-establishment');
     select.innerHTML = '';
     [
@@ -1262,26 +1385,6 @@ function openConfirmDispo(dispo, row) {
         select.appendChild(opt);
     });
     if (currentVenueId) select.value = currentVenueId;
-
-    document.getElementById('confirm-dispo-btn').onclick = async () => {
-        const establishmentId = select.value;
-        const createShift     = document.getElementById('confirm-create-shift').checked;
-        try {
-            const res = await fetch('/api/dispos/' + dispo._id + '/confirm', {
-                credentials: 'include', method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ establishment_id: establishmentId, create_shift: createShift }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
-            modal.style.display = 'none';
-            row.remove();
-            loadDisposBadge();
-            if (createShift) await refreshWeek();
-            showToast(data.message);
-        } catch (e) { showToast(e.message, true); }
-    };
-    document.getElementById('confirm-dispo-cancel').onclick = () => { modal.style.display = 'none'; };
 }
 
 async function loadDispoControl() {

@@ -14,10 +14,10 @@ async function main() {
         await db.collection('sessions').deleteMany({});
 
         await db.collection('establishments').insertMany([
-            { id: 'Josy_pub',          name: 'Josy',   type: 'pub',        hours: { open: 12, close: 26 } },
-            { id: 'Poni_restaurant',   name: 'Poni',   type: 'restaurant', hours: { open: 12, close: 26 } },
-            { id: 'FanFan_restaurant', name: 'FanFan', type: 'restaurant', hours: { open: 12, close: 26 } },
-            { id: 'Caval_restaurant',  name: 'Caval',  type: 'restaurant', hours: { open: 12, close: 26 } },
+            { id: 'Josy_pub',          name: 'Josy',   type: 'pub',        hours: { open: 10, close: 26 } },
+            { id: 'Poni_restaurant',   name: 'Poni',   type: 'restaurant', hours: { open: 10, close: 26 } },
+            { id: 'FanFan_restaurant', name: 'FanFan', type: 'restaurant', hours: { open: 10, close: 26 } },
+            { id: 'Caval_restaurant',  name: 'Caval',  type: 'restaurant', hours: { open: 10, close: 26 } },
         ]);
         console.log('✅ 4 établissements créés');
 
