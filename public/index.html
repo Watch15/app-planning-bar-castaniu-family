@@ -19,6 +19,14 @@
             <span class="date-display" id="date-display"></span>
             <button class="btn-manage-staff" id="btn-manage-staff">Gérer le staff</button>
             <button class="btn-manage-staff" id="btn-manage-accounts" style="background:#f0effe;border-color:#7F77DD;color:#534AB7">Comptes</button>
+            <button class="btn-manage-staff" id="btn-dispos" style="position:relative">
+                Dispos
+                <span id="dispos-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e74c3c;color:white;font-size:10px;font-weight:700;width:18px;height:18px;border-radius:50%;align-items:center;justify-content:center">0</span>
+            </button>
+            <div style="display:flex;align-items:center;gap:8px;padding:0 8px;border-left:1px solid #f0f0f0">
+                <label style="font-size:12px;color:#888" id="dispo-toggle-label">Saisie dispos</label>
+                <input type="checkbox" id="dispo-toggle" style="cursor:pointer">
+            </div>
             <div class="user-badge-wrap">
                 <span class="user-badge" id="user-badge"></span>
                 <button class="btn-logout" onclick="logout()">Déconnexion</button>
@@ -106,28 +114,6 @@
     </div>
 </div>
 
-<!-- ── Modale gestion des comptes ── -->
-<div class="modal-overlay" id="accounts-modal" style="display:none">
-    <div class="modal" style="width:500px;max-width:95vw">
-        <div class="modal-header">
-            <span class="modal-title">Comptes du staff</span>
-            <button class="modal-close" id="accounts-modal-close">×</button>
-        </div>
-        <div id="accounts-list"></div>
-        <div class="staff-add-form">
-            <div class="staff-add-title">Inviter un membre du staff</div>
-            <div class="staff-add-fields">
-                <select id="new-account-staff" class="staff-input" style="flex:1.2">
-                    <option value="">— Lier à un membre du staff —</option>
-                </select>
-                <input type="email" id="new-account-email" class="staff-input" placeholder="email@exemple.com">
-                <button class="btn-add-staff" id="btn-invite-account">Inviter</button>
-            </div>
-            <p style="font-size:11px;color:#bbb;margin-top:8px">Un email avec un lien de création de mot de passe sera envoyé automatiquement.</p>
-        </div>
-    </div>
-</div>
-
 <!-- ── Modale copie de jour ── -->
 <div class="modal-overlay" id="copy-modal" style="display:none">
     <div class="modal">
@@ -145,6 +131,38 @@
         <div class="modal-actions">
             <button class="btn-cancel" id="copy-modal-cancel">Annuler</button>
             <button class="btn-confirm" id="copy-modal-confirm">Copier</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modale disponibilités -->
+<div class="modal-overlay" id="dispos-modal" style="display:none">
+    <div class="modal" style="width:560px;max-width:95vw">
+        <div class="modal-header">
+            <span class="modal-title">Disponibilités en attente</span>
+            <button class="modal-close" id="dispos-modal-close">×</button>
+        </div>
+        <div id="dispos-list"></div>
+    </div>
+</div>
+
+<!-- Modale confirmation dispo -->
+<div class="modal-overlay" id="confirm-dispo-modal" style="display:none">
+    <div class="modal" style="width:400px;max-width:95vw">
+        <div class="modal-header">
+            <span class="modal-title">Confirmer la dispo</span>
+        </div>
+        <div style="padding:4px 0 16px">
+            <p class="modal-hint" style="margin-bottom:8px">Assigner à quel établissement ?</p>
+            <select id="confirm-dispo-establishment" class="staff-input" style="width:100%;margin-bottom:14px"></select>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;cursor:pointer">
+                <input type="checkbox" id="confirm-create-shift" checked>
+                Créer le shift automatiquement
+            </label>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" id="confirm-dispo-cancel">Annuler</button>
+            <button class="btn-confirm" id="confirm-dispo-btn">Confirmer</button>
         </div>
     </div>
 </div>

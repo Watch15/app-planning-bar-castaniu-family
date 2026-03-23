@@ -205,6 +205,109 @@
         }
         .state-msg.error { color: #e74c3c; }
 
+        /* ── Onglets ── */
+        .tabs-bar {
+            display: flex;
+            gap: 0;
+            background: white;
+            border-bottom: 1px solid #f0f0f0;
+            padding: 0 20px;
+            position: sticky;
+            top: 56px;
+            z-index: 9;
+        }
+        .tab-btn {
+            padding: 12px 20px;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            font-weight: 500;
+            color: #aaa;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            transition: all 0.15s;
+            position: relative;
+        }
+        .tab-btn.active { color: #1a1a2e; border-bottom-color: #1a1a2e; }
+        .tab-btn:disabled { color: #ccc; cursor: not-allowed; }
+        .tab-btn .tab-badge {
+            position: absolute;
+            top: 8px; right: 6px;
+            background: #e74c3c;
+            color: white;
+            font-size: 9px;
+            font-weight: 700;
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* ── Carte dispo ── */
+        .dispo-card {
+            background: white;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .dispo-card.today { border: 2px solid #534AB7; }
+        .dispo-day-header {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            gap: 12px;
+            border-bottom: 1px solid #f5f5f5;
+        }
+        .dispo-day-num { font-size: 22px; font-weight: 700; color: #1a1a2e; min-width: 32px; }
+        .dispo-day-name { font-size: 12px; font-weight: 600; color: #aaa; text-transform: uppercase; }
+        .dispo-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+
+        .dispo-type-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .dispo-type-btn {
+            padding: 8px 14px;
+            border-radius: 20px;
+            border: 1.5px solid #e0e0e0;
+            background: white;
+            font-size: 13px;
+            font-weight: 500;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .dispo-type-btn.selected-soir   { background: #1a1a2e; border-color: #1a1a2e; color: white; }
+        .dispo-type-btn.selected-midi   { background: #534AB7; border-color: #534AB7; color: white; }
+        .dispo-type-btn.selected-custom { background: #2ecc71; border-color: #2ecc71; color: white; }
+        .dispo-type-btn.selected-off    { background: #f5f5f5; border-color: #ddd; color: #bbb; }
+
+        .dispo-custom-row {
+            display: none;
+            gap: 8px;
+            align-items: center;
+        }
+        .dispo-custom-row.visible { display: flex; }
+        .dispo-time-input {
+            flex: 1;
+            padding: 8px 10px;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
+            outline: none;
+        }
+        .dispo-time-input:focus { border-color: #2ecc71; }
+        .dispo-note-input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1.5px solid #f0f0f0;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            color: #555;
+            outline: none;
+            resize: none;
+        }
+        .dispo-note-input:focus { border-color: #aaa; }
+
         /* ── Empty week ── */
         .empty-week {
             padding: 48px 20px;
@@ -238,6 +341,11 @@
     <button class="btn-logout" onclick="logout()">Déconnexion</button>
 </div>
 
+<div class="tabs-bar">
+    <button class="tab-btn active" data-tab="planning">Mon planning</button>
+    <button class="tab-btn" data-tab="dispos" id="tab-dispos">Mes dispos</button>
+</div>
+
 <div class="greeting">
     <div class="greeting-name" id="greeting-name">Bonjour !</div>
     <div class="greeting-sub" id="greeting-sub">Voici ton planning de la semaine</div>
@@ -245,14 +353,31 @@
 
 <div class="week-stats" id="week-stats"></div>
 
+<div id="view-planning">
+<div class="week-stats" id="week-stats-wrap" style="display:none"></div>
 <div class="days-list" id="days-list">
     <div class="state-msg">Chargement…</div>
+</div>
+</div>
+
+<!-- ── Vue disponibilités ── -->
+<div id="view-dispos" style="display:none">
+    <div class="greeting">
+        <div class="greeting-name" id="dispos-title">Mes dispos — semaine prochaine</div>
+        <div class="greeting-sub" id="dispos-status"></div>
+    </div>
+    <div id="dispos-form" style="padding:0 20px 24px;display:flex;flex-direction:column;gap:10px"></div>
+    <div style="padding:0 20px 32px">
+        <button id="btn-submit-dispos" style="width:100%;padding:14px;border-radius:12px;border:none;background:#1a1a2e;color:white;font-size:15px;font-weight:600;cursor:pointer">
+            Envoyer mes dispos
+        </button>
+    </div>
 </div>
 
 <script>
 // ── Constantes ────────────────────────────────────────────────────────────────
 
-const DAY_NAMES  = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const DAY_NAMES  = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 const MONTH_NAMES = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'];
 
 // ── Utilitaires ───────────────────────────────────────────────────────────────
@@ -319,6 +444,13 @@ async function init() {
 
     document.getElementById('greeting-name').textContent = 'Bonjour ' + (user.name || '') + ' !';
 
+    initTabs();
+
+    // Charger les dispos quand on clique sur l'onglet
+    document.querySelector('[data-tab="dispos"]').addEventListener('click', () => {
+        loadDisposTab();
+    });
+
     const monday = getMondayOf(new Date());
     const sunday = addDays(monday, 6);
     const from   = toDateStr(monday);
@@ -381,7 +513,8 @@ function renderStats(shifts) {
     const nbShifts  = shifts.length;
     const totalH    = shifts.reduce((a, s) => a + (s.end_time - s.start_time), 0);
     const nbJours   = new Set(shifts.map(s => s.date)).size;
-    const statsEl   = document.getElementById('week-stats');
+    const statsEl   = document.getElementById('week-stats') || document.getElementById('week-stats-wrap');
+    if (statsEl) statsEl.style.display = '';
     statsEl.innerHTML =
         statCard(nbJours,              'Jours') +
         statCard(nbShifts,             'Shifts') +
@@ -487,6 +620,221 @@ function formatEstablishment(id) {
         'Caval_restaurant':  'Caval — Restaurant',
     };
     return map[id] || id;
+}
+
+// ── Navigation onglets ───────────────────────────────────────────────────────
+
+function initTabs() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (btn.disabled) return;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const tab = btn.dataset.tab;
+            document.getElementById('view-planning').style.display = tab === 'planning' ? '' : 'none';
+            document.getElementById('view-dispos').style.display   = tab === 'dispos'   ? '' : 'none';
+        });
+    });
+}
+
+// ── Disponibilités ────────────────────────────────────────────────────────────
+
+const DISPO_TYPES = {
+    soir:   { label: 'Soir',   start: 16, end: 26 },
+    midi:   { label: 'Midi',   start: 10, end: 17 },
+    custom: { label: 'Horaires précis', start: null, end: null },
+    off:    { label: 'Indisponible', start: null, end: null },
+};
+
+let dispoSettings  = null;
+let dispoSelections = {}; // { "2025-06-23": { type, start_time, end_time, note } }
+
+async function loadDisposTab() {
+    // Charger les paramètres
+    const sRes = await fetch('/api/dispo-settings', { credentials: 'include' });
+    dispoSettings = await sRes.json();
+
+    const statusEl = document.getElementById('dispos-status');
+    const formEl   = document.getElementById('dispos-form');
+    const btnSubmit = document.getElementById('btn-submit-dispos');
+
+    // Deadline
+    const deadline = new Date(dispoSettings.deadline);
+    const fmtDate  = deadline.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+
+    if (!dispoSettings.canSubmit) {
+        statusEl.textContent   = dispoSettings.deadlinePassed
+            ? 'Deadline dépassée (vendredi 13h). Réouverture la semaine prochaine.'
+            : 'Saisie fermée par le responsable.';
+        statusEl.style.color   = '#e74c3c';
+        formEl.innerHTML       = '<div style="padding:20px 0;text-align:center;color:#ccc;font-size:14px">La saisie des disponibilités n est pas disponible.</div>';
+        btnSubmit.disabled     = true;
+        btnSubmit.style.background = '#ccc';
+        return;
+    }
+
+    statusEl.textContent = 'Deadline : ' + fmtDate;
+    statusEl.style.color = '#aaa';
+
+    // Semaine suivante
+    const nextMonday = getMondayOf(addDays(new Date(), 7));
+
+    // Charger les dispos existantes
+    const from = toDateStr(nextMonday);
+    const to   = toDateStr(addDays(nextMonday, 6));
+    const dRes = await fetch('/api/dispos/mine?from=' + from + '&to=' + to, { credentials: 'include' });
+    const existingDispos = dRes.ok ? await dRes.json() : [];
+
+    // Pré-remplir les sélections
+    dispoSelections = {};
+    existingDispos.forEach(d => {
+        dispoSelections[d.date] = { type: d.type, start_time: d.start_time, end_time: d.end_time, note: d.note || '' };
+    });
+
+    // Générer les 7 cartes
+    formEl.innerHTML = '';
+    for (let i = 0; i < 7; i++) {
+        const date = toDateStr(addDays(nextMonday, i));
+        const d    = addDays(nextMonday, i);
+        formEl.appendChild(createDispoCard(date, d));
+    }
+
+    btnSubmit.addEventListener('click', submitDispos);
+}
+
+function createDispoCard(date, d) {
+    const sel    = dispoSelections[date] || { type: null };
+    const card   = document.createElement('div');
+    card.className = 'dispo-card';
+
+    const fmt = h => String(Math.floor(h % 24)).padStart(2, '0') + ':00';
+
+    card.innerHTML =
+        '<div class="dispo-day-header">' +
+            '<div>' +
+                '<div class="dispo-day-name">' + DAY_NAMES[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + '</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="dispo-body">' +
+            '<div class="dispo-type-row">' +
+                ['soir', 'midi', 'custom', 'off'].map(type => {
+                    const active = sel.type === type ? ' selected-' + type : '';
+                    return '<button class="dispo-type-btn' + active + '" data-date="' + date + '" data-type="' + type + '">' +
+                        DISPO_TYPES[type].label + '</button>';
+                }).join('') +
+            '</div>' +
+            '<div class="dispo-custom-row' + (sel.type === 'custom' ? ' visible' : '') + '" id="custom-' + date + '">' +
+                '<input class="dispo-time-input" id="start-' + date + '" type="text" placeholder="10:00" value="' + (sel.start_time ? fmt(sel.start_time) : '') + '">' +
+                '<span style="color:#aaa">→</span>' +
+                '<input class="dispo-time-input" id="end-' + date + '" type="text" placeholder="18:00" value="' + (sel.end_time ? fmt(sel.end_time) : '') + '">' +
+            '</div>' +
+            '<textarea class="dispo-note-input" id="note-' + date + '" placeholder="Note (optionnel)..." rows="1">' + (sel.note || '') + '</textarea>' +
+        '</div>';
+
+    // Listeners boutons type
+    card.querySelectorAll('.dispo-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const type = btn.dataset.type;
+            const date = btn.dataset.date;
+
+            // Reset tous les boutons de cette carte
+            card.querySelectorAll('.dispo-type-btn').forEach(b => {
+                b.className = 'dispo-type-btn';
+            });
+            btn.classList.add('selected-' + type);
+
+            // Afficher/masquer les horaires précis
+            const customRow = document.getElementById('custom-' + date);
+            customRow.classList.toggle('visible', type === 'custom');
+
+            // Mettre à jour la sélection
+            if (type === 'off') {
+                dispoSelections[date] = { type: 'off', start_time: null, end_time: null, note: '' };
+            } else if (type === 'custom') {
+                dispoSelections[date] = { type: 'custom', start_time: null, end_time: null, note: '' };
+            } else {
+                dispoSelections[date] = {
+                    type,
+                    start_time: DISPO_TYPES[type].start,
+                    end_time:   DISPO_TYPES[type].end,
+                    note: '',
+                };
+            }
+        });
+    });
+
+    return card;
+}
+
+async function submitDispos() {
+    const btn    = document.getElementById('btn-submit-dispos');
+    btn.disabled = true;
+    btn.textContent = 'Envoi…';
+
+    const dispos = [];
+    const nextMonday = getMondayOf(addDays(new Date(), 7));
+
+    for (let i = 0; i < 7; i++) {
+        const date = toDateStr(addDays(nextMonday, i));
+        const sel  = dispoSelections[date];
+        if (!sel || sel.type === null || sel.type === 'off') continue;
+
+        // Horaires précis : lire les champs
+        let start = sel.start_time;
+        let end   = sel.end_time;
+        if (sel.type === 'custom') {
+            const startVal = document.getElementById('start-' + date)?.value;
+            const endVal   = document.getElementById('end-'   + date)?.value;
+            start = parseFloat(startVal?.split(':')[0]) || null;
+            end   = parseFloat(endVal?.split(':')[0])   || null;
+            if (!start || !end || end <= start) {
+                showMsg('Horaires invalides pour le ' + date, 'error');
+                btn.disabled    = false;
+                btn.textContent = 'Envoyer mes dispos';
+                return;
+            }
+        }
+
+        const note = document.getElementById('note-' + date)?.value || '';
+        dispos.push({ date, type: sel.type, start_time: start, end_time: end, note });
+    }
+
+    if (dispos.length === 0) {
+        showMsg('Sélectionne au moins un jour disponible.', 'error');
+        btn.disabled    = false;
+        btn.textContent = 'Envoyer mes dispos';
+        return;
+    }
+
+    try {
+        const res  = await fetch('/api/dispos', {
+            credentials: 'include',
+            method:      'POST',
+            headers:     { 'Content-Type': 'application/json' },
+            body:        JSON.stringify({ dispos }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showMsg(data.message, 'success');
+        btn.textContent = 'Dispos envoyées ✓';
+    } catch (e) {
+        showMsg(e.message, 'error');
+        btn.disabled    = false;
+        btn.textContent = 'Envoyer mes dispos';
+    }
+}
+
+function showMsg(text, type) {
+    const existing = document.getElementById('dispo-msg');
+    if (existing) existing.remove();
+    const el = document.createElement('div');
+    el.id = 'dispo-msg';
+    el.style.cssText = 'margin:0 20px 12px;padding:10px 14px;border-radius:8px;font-size:13px;' +
+        (type === 'error'
+            ? 'background:#fff5f5;border:1px solid #f5c6c6;color:#c0392b;'
+            : 'background:#f0faf5;border:1px solid #a8dfc7;color:#1a7a4a;');
+    el.textContent = text;
+    document.getElementById('dispos-form').before(el);
 }
 
 // ── Démarrage ─────────────────────────────────────────────────────────────────

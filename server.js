@@ -27,27 +27,14 @@ async function connectDB() {
 }
 
 // ── Mailer ────────────────────────────────────────────────────────────────────
-console.log('Clé Resend utilisée:', process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.substring(0, 10) + '...' : 'NON DÉFINIE');
 
-async function sendEmail(to, subject, html) {
-    const res = await fetch('https://api.resend.com/emails', {
-        method:  'POST',
-        headers: {
-            'Authorization': 'Bearer ' + process.env.RESEND_API_KEY,
-            'Content-Type':  'application/json',
-        },
-        body: JSON.stringify({
-            from:    'Planning Bar <onboarding@resend.dev>',
-            to,
-            subject,
-            html,
-        }),
-    });
-    if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Erreur Resend');
-    }
-}
+const mailer = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_PASS,
+    },
+});
 
 // ── Session ───────────────────────────────────────────────────────────────────
 
@@ -217,28 +204,16 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
 
         const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token;
 
-        console.log('Tentative envoi email vers:', email);
-        console.log('Gmail user configuré:', process.env.GMAIL_USER ? 'OUI' : 'NON');
-        console.log('Gmail pass configuré:', process.env.GMAIL_PASS ? 'OUI' : 'NON');
-        
-        try {
-            await sendEmail(
-                email,
-                'Ton accès Planning Bar',
+        await mailer.sendMail({
+            from:    '"Planning Bar" <' + process.env.GMAIL_USER + '>',
+            to:      email,
+            subject: 'Ton accès Planning Bar',
+            html:
                 '<p>Bonjour ' + (name || '') + ',</p>' +
                 '<p>Tu as été invité(e) à rejoindre <strong>Planning Bar</strong>.</p>' +
                 '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
-                '<p style="color:#999;font-size:12px">Ce lien expire dans 24h.</p>'
-            );
-            console.log('✅ Email envoyé à', email);
-            } catch (mailErr) {
-                console.error('❌ Erreur envoi email:', mailErr.message);
-                return res.status(201).json({
-                message: 'Compte créé mais email non envoyé.',
-                link,
-                manual: true,
-                });
-            }
+                '<p style="color:#999;font-size:12px">Ce lien expire dans 24h.</p>',
+        });
 
         res.status(201).json({ message: 'Invitation envoyée à ' + email });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -442,76 +417,173 @@ app.post('/api/copy-day', checkDB, requirePatron, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST /auth/forgot-password — demande de reset
-app.post('/auth/forgot-password', checkDB, async (req, res) => {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email requis' });
+// ── Disponibilités ───────────────────────────────────────────────────────────
+
+// GET paramètres saisie dispos (ouvert/fermé, deadline)
+app.get('/api/dispo-settings', checkDB, requireAuth, async (req, res) => {
     try {
-        const user = await db.collection('users').findOne({ email: email.toLowerCase().trim() });
-        // Toujours répondre OK pour ne pas révéler si l'email existe
-        if (!user) return res.json({ message: 'Si cet email existe, un lien a été envoyé.' });
+        const settings = await db.collection('settings').findOne({ key: 'dispo' }) || {
+            open:     true,
+            message:  null,
+        };
 
-        const token   = crypto.randomBytes(32).toString('hex');
-        const expires = new Date(Date.now() + 60 * 60 * 1000); // 1h
+        // Calcul deadline automatique : vendredi 13h de la semaine courante
+        const now    = new Date();
+        const day    = now.getDay(); // 0=dim, 5=ven
+        const diff   = day <= 5 ? 5 - day : 5 - day + 7;
+        const friday = new Date(now);
+        friday.setDate(now.getDate() + diff);
+        friday.setHours(13, 0, 0, 0);
 
-        await db.collection('users').updateOne(
-            { _id: user._id },
-            { $set: { reset_token: token, reset_expires: expires } }
-        );
-
-        const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token + '&mode=reset';
-        const html =
-            '<p>Bonjour ' + (user.name || '') + ',</p>' +
-            '<p>Tu as demandé à réinitialiser ton mot de passe.</p>' +
-            '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Réinitialiser mon mot de passe</a></p>' +
-            '<p style="color:#999;font-size:12px">Ce lien expire dans 1h. Si tu n\'as pas fait cette demande, ignore cet email.</p>';
-
-        let manual = false;
-        try {
-            await sendEmail(email, 'Réinitialisation de ton mot de passe', html);
-        } catch (mailErr) {
-            console.error('❌ Reset email failed:', mailErr.message);
-            manual = true;
-        }
+        const deadlinePassed = now > friday;
 
         res.json({
-            message: 'Si cet email existe, un lien a été envoyé.',
-            ...(manual && { link, manual: true }),
+            open:            settings.open,
+            message:         settings.message,
+            deadline:        friday.toISOString(),
+            deadlinePassed,
+            // Saisie possible si ouvert par le patron ET deadline non passée
+            canSubmit:       settings.open && !deadlinePassed,
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PATCH /auth/reset-password — définir le nouveau mot de passe (reset)
-app.patch('/auth/reset-password', checkDB, async (req, res) => {
-    const { token, password } = req.body;
-    if (!token || !password) return res.status(400).json({ error: 'Token et mot de passe requis' });
-    if (password.length < 8) return res.status(400).json({ error: 'Minimum 8 caractères' });
+// PATCH paramètres saisie (patron ouvre/ferme manuellement)
+app.patch('/api/dispo-settings', checkDB, requirePatron, async (req, res) => {
+    const { open, message } = req.body;
     try {
-        const user = await db.collection('users').findOne({ reset_token: token });
-        if (!user)                          return res.status(404).json({ error: 'Lien invalide' });
-        if (user.reset_expires < new Date()) return res.status(410).json({ error: 'Lien expiré (1h)' });
-
-        const hash = await bcrypt.hash(password, 12);
-        await db.collection('users').updateOne(
-            { reset_token: token },
-            { $set: { password_hash: hash }, $unset: { reset_token: '', reset_expires: '' } }
+        await db.collection('settings').updateOne(
+            { key: 'dispo' },
+            { $set: { key: 'dispo', open: !!open, message: message || null } },
+            { upsert: true }
         );
-        res.json({ message: 'Mot de passe mis à jour, tu peux te connecter' });
+        res.json({ message: 'Paramètres mis à jour' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PATCH /api/users/:id/reset-password — le patron remet un mdp manuellement
-app.patch('/api/users/:id/reset-password', checkDB, requirePatron, async (req, res) => {
-    const { password } = req.body;
-    if (!password || password.length < 8) return res.status(400).json({ error: 'Minimum 8 caractères' });
+// GET dispos du staff connecté pour une semaine
+app.get('/api/dispos/mine', checkDB, requireAuth, async (req, res) => {
+    const { from, to } = req.query;
+    if (!from || !to) return res.status(400).json({ error: 'from et to requis' });
+    const staffId = req.session.user.staff_id;
+    if (!staffId) return res.status(400).json({ error: 'Aucun profil staff lié' });
     try {
-        const hash   = await bcrypt.hash(password, 12);
-        const result = await db.collection('users').updateOne(
+        const dispos = await db.collection('availabilities').find({
+            staff_id: staffId,
+            date:     { $gte: from, $lte: to },
+        }).toArray();
+        res.json(dispos);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST soumettre les dispos de la semaine
+app.post('/api/dispos', checkDB, requireAuth, async (req, res) => {
+    const staffId = req.session.user.staff_id;
+    if (!staffId) return res.status(400).json({ error: 'Aucun profil staff lié' });
+
+    // Vérifier que la saisie est ouverte
+    const settings = await db.collection('settings').findOne({ key: 'dispo' }) || { open: true };
+    const now      = new Date();
+    const day      = now.getDay();
+    const diff     = day <= 5 ? 5 - day : 5 - day + 7;
+    const friday   = new Date(now);
+    friday.setDate(now.getDate() + diff);
+    friday.setHours(13, 0, 0, 0);
+
+    if (!settings.open)  return res.status(403).json({ error: 'La saisie des disponibilités est fermée.' });
+    if (now > friday)    return res.status(403).json({ error: 'La deadline est passée (vendredi 13h).' });
+
+    const { dispos } = req.body; // [{ date, type, start_time, end_time, note }]
+    if (!Array.isArray(dispos) || dispos.length === 0)
+        return res.status(400).json({ error: 'Aucune disponibilité fournie' });
+
+    try {
+        // Supprimer les anciennes dispos de cette semaine pour ce staff
+        const dates = dispos.map(d => d.date);
+        await db.collection('availabilities').deleteMany({
+            staff_id: staffId,
+            date:     { $in: dates },
+            status:   'pending',
+        });
+
+        const docs = dispos.map(d => ({
+            staff_id:   staffId,
+            staff_name: req.session.user.name || '',
+            date:       d.date,
+            type:       d.type || 'custom',   // soir | midi | custom
+            start_time: parseFloat(d.start_time),
+            end_time:   parseFloat(d.end_time),
+            note:       d.note || '',
+            status:     'pending',
+            created_at: new Date(),
+        }));
+
+        await db.collection('availabilities').insertMany(docs);
+        res.status(201).json({ message: docs.length + ' disponibilité(s) enregistrée(s)' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET toutes les dispos en attente (patron)
+app.get('/api/dispos/pending', checkDB, requirePatron, async (req, res) => {
+    const { from, to } = req.query;
+    if (!from || !to) return res.status(400).json({ error: 'from et to requis' });
+    try {
+        const dispos = await db.collection('availabilities').find({
+            date:   { $gte: from, $lte: to },
+            status: 'pending',
+        }).sort({ date: 1, start_time: 1 }).toArray();
+        res.json(dispos);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET nombre de dispos en attente (pour le badge)
+app.get('/api/dispos/count', checkDB, requirePatron, async (req, res) => {
+    try {
+        const count = await db.collection('availabilities').countDocuments({ status: 'pending' });
+        res.json({ count });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH confirmer une dispo → crée un shift si demandé
+app.patch('/api/dispos/:id/confirm', checkDB, requirePatron, async (req, res) => {
+    const { establishment_id, create_shift } = req.body;
+    if (!establishment_id) return res.status(400).json({ error: 'establishment_id requis' });
+    try {
+        const dispo = await db.collection('availabilities').findOne({ _id: new ObjectId(req.params.id) });
+        if (!dispo) return res.status(404).json({ error: 'Dispo introuvable' });
+
+        await db.collection('availabilities').updateOne(
             { _id: new ObjectId(req.params.id) },
-            { $set: { password_hash: hash, active: true }, $unset: { reset_token: '', reset_expires: '' } }
+            { $set: { status: 'confirmed', establishment_id } }
         );
-        if (result.matchedCount === 0) return res.status(404).json({ error: 'Utilisateur introuvable' });
-        res.json({ message: 'Mot de passe mis à jour' });
+
+        if (create_shift) {
+            // Récupérer la couleur du staff
+            const staffMember = await db.collection('staff').findOne({ _id: new ObjectId(dispo.staff_id) });
+            await db.collection('shifts').insertOne({
+                staff_id:         dispo.staff_id,
+                staff_name:       dispo.staff_name,
+                establishment_id,
+                date:             dispo.date,
+                start_time:       dispo.start_time,
+                end_time:         dispo.end_time,
+                color:            staffMember?.color || '#3498db',
+            });
+        }
+
+        res.json({ message: 'Dispo confirmée' + (create_shift ? ' et shift créé' : '') });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH refuser une dispo
+app.patch('/api/dispos/:id/reject', checkDB, requirePatron, async (req, res) => {
+    try {
+        const result = await db.collection('availabilities').updateOne(
+            { _id: new ObjectId(req.params.id) },
+            { $set: { status: 'rejected' } }
+        );
+        if (result.matchedCount === 0) return res.status(404).json({ error: 'Dispo introuvable' });
+        res.json({ message: 'Dispo refusée' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -519,10 +591,6 @@ app.patch('/api/users/:id/reset-password', checkDB, requirePatron, async (req, r
 
 app.get('/', (req, res) => {
     res.redirect(req.session?.user ? '/index.html' : '/login.html');
-});
-
-app.get('/planning', (req, res) => {
-    res.sendFile('planning.html', { root: 'public' });
 });
 
 // ── Lancement ─────────────────────────────────────────────────────────────────
