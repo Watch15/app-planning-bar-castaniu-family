@@ -1070,14 +1070,10 @@ async function renderAccountsList() {
                     '<div style="font-size:12px;color:#999">' + user.email + '</div>' +
                 '</div>' +
                 '<span class="staff-login-badge ' + badge + '" style="margin-right:8px">' + status + '</span>' +
-                (!isP
-                    ? '<button class="staff-manage-save" data-action="reset">Reset mdp</button>' +
-                      '<button class="staff-manage-delete" data-action="delete">×</button>'
-                    : '');
-            if (!isP) {
+                    '<button class="staff-manage-save" data-action="reset">Reset mdp</button>' +
+                    '<button class="staff-manage-delete" data-action="delete">×</button>';
                 row.querySelector('[data-action="reset"]').addEventListener('click',  () => patronResetPassword(user._id, user.name || user.email));
                 row.querySelector('[data-action="delete"]').addEventListener('click', () => deleteAccount(user._id, user.name || user.email));
-            }
             list.appendChild(row);
         });
     } catch (e) {
