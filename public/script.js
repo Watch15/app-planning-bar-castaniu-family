@@ -1,7 +1,7 @@
 // ── Constantes ───────────────────────────────────────────────────────────────
 
 const PX_PER_HOUR = 60;
-const START_HOUR  = 12;
+const START_HOUR  = 10;
 const END_HOUR    = 26;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
 
@@ -43,7 +43,10 @@ function parseDate(str) {
 }
 
 function toDateStr(d) {
-    return d.toISOString().slice(0, 10);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const j = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + j;
 }
 
 function getMondayOf(d) {
@@ -1243,7 +1246,7 @@ function getMondayOf(d) {
     return mon;
 }
 function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
-function toDateStr(d)  { return d.toISOString().slice(0, 10); }
+function toDateStr(d)  { const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),j=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+j; }
 
 async function loadDisposBadge() {
     try {

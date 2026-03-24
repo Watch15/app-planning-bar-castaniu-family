@@ -383,7 +383,10 @@ const MONTH_NAMES = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','
 // ── Utilitaires ───────────────────────────────────────────────────────────────
 
 function toDateStr(d) {
-    return d.toISOString().slice(0, 10);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const j = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + j;
 }
 
 function getMondayOf(d) {
