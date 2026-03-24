@@ -377,7 +377,7 @@
 <script>
 // ── Constantes ────────────────────────────────────────────────────────────────
 
-const DAY_NAMES  = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+const DAY_NAMES  = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MONTH_NAMES = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'];
 
 // ── Utilitaires ───────────────────────────────────────────────────────────────
@@ -451,17 +451,81 @@ async function init() {
         loadDisposTab();
     });
 
+    // Semaine en cours
     const monday = getMondayOf(new Date());
     const sunday = addDays(monday, 6);
     const from   = toDateStr(monday);
     const to     = toDateStr(sunday);
 
-    // Label semaine dans le header
     document.getElementById('header-week').textContent =
         'Semaine du ' + monday.getDate() + ' ' + MONTH_NAMES[monday.getMonth()] +
         ' au ' + sunday.getDate() + ' ' + MONTH_NAMES[sunday.getMonth()];
 
     await loadPlanning(from, to, user);
+
+    // Vérifier si la semaine suivante est publiée
+    const nextMonday = getMondayOf(addDays(new Date(), 7));
+    const nextWeekStart = toDateStr(nextMonday);
+    try {
+        const pubRes  = await fetch('/api/publish/' + nextWeekStart, { credentials: 'include' });
+        const pubData = await pubRes.json();
+        if (pubData.published) {
+            // Ajouter onglet semaine suivante
+            const tabBar = document.querySelector('.tabs-bar');
+            const tabNext = document.createElement('button');
+            tabNext.className    = 'tab-btn';
+            tabNext.dataset.tab  = 'next-week';
+            tabNext.textContent  = 'Semaine prochaine';
+            tabBar.appendChild(tabNext);
+
+            // Créer la vue semaine suivante
+            const viewNext = document.createElement('div');
+            viewNext.id           = 'view-next-week';
+            viewNext.style.display = 'none';
+            document.getElementById('view-dispos').after(viewNext);
+
+            tabNext.addEventListener('click', async () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                tabNext.classList.add('active');
+                document.getElementById('view-planning').style.display  = 'none';
+                document.getElementById('view-dispos').style.display    = 'none';
+                viewNext.style.display = '';
+
+                if (!viewNext.dataset.loaded) {
+                    viewNext.innerHTML = '<div style="padding:20px;text-align:center;color:#ccc">Chargement…</div>';
+                    const nextSunday = addDays(nextMonday, 6);
+                    const nFrom = toDateStr(nextMonday);
+                    const nTo   = toDateStr(nextSunday);
+
+                    // Mettre à jour le label semaine
+                    document.getElementById('header-week').textContent =
+                        'Semaine du ' + nextMonday.getDate() + ' ' + MONTH_NAMES[nextMonday.getMonth()] +
+                        ' au ' + nextSunday.getDate() + ' ' + MONTH_NAMES[nextSunday.getMonth()];
+
+                    // Charger les shifts de la semaine suivante
+                    const tempStats = document.createElement('div');
+                    tempStats.className = 'week-stats';
+                    tempStats.id = 'week-stats-next';
+                    const tempList = document.createElement('div');
+                    tempList.className = 'days-list';
+                    tempList.id = 'days-list-next';
+                    viewNext.appendChild(tempStats);
+                    viewNext.appendChild(tempList);
+
+                    try {
+                        const res  = await fetch('/api/my-shifts?from=' + nFrom + '&to=' + nTo, { credentials: 'include' });
+                        const data = await res.json();
+                        // Réutiliser renderStats et renderDays avec les bons conteneurs
+                        renderStatsInto(data.shifts, tempStats);
+                        renderDaysInto(nFrom, data.shifts, data.colleagues, tempList);
+                        viewNext.dataset.loaded = '1';
+                    } catch (e) {
+                        viewNext.innerHTML = '<div style="padding:20px;text-align:center;color:#e74c3c">' + e.message + '</div>';
+                    }
+                }
+            });
+        }
+    } catch { }
 }
 
 // ── Chargement ────────────────────────────────────────────────────────────────
@@ -510,15 +574,19 @@ async function loadPlanning(from, to, user) {
 // ── Stats semaine ─────────────────────────────────────────────────────────────
 
 function renderStats(shifts) {
-    const nbShifts  = shifts.length;
-    const totalH    = shifts.reduce((a, s) => a + (s.end_time - s.start_time), 0);
-    const nbJours   = new Set(shifts.map(s => s.date)).size;
-    const statsEl   = document.getElementById('week-stats') || document.getElementById('week-stats-wrap');
-    if (statsEl) statsEl.style.display = '';
-    statsEl.innerHTML =
-        statCard(nbJours,              'Jours') +
-        statCard(nbShifts,             'Shifts') +
-        statCard(fmtDuration(totalH),  'Heures');
+    const el = document.getElementById('week-stats') || document.getElementById('week-stats-wrap');
+    if (el) renderStatsInto(shifts, el);
+}
+
+function renderStatsInto(shifts, el) {
+    const nbShifts = shifts.length;
+    const totalH   = shifts.reduce((a, s) => a + (s.end_time - s.start_time), 0);
+    const nbJours  = new Set(shifts.map(s => s.date)).size;
+    el.style.display = '';
+    el.innerHTML =
+        statCard(nbJours,             'Jours') +
+        statCard(nbShifts,            'Shifts') +
+        statCard(fmtDuration(totalH), 'Heures');
 }
 
 function statCard(value, label) {
@@ -531,7 +599,11 @@ function statCard(value, label) {
 // ── Rendu des jours ───────────────────────────────────────────────────────────
 
 function renderDays(from, shifts, colleagues) {
-    const list   = document.getElementById('days-list');
+    const list = document.getElementById('days-list');
+    renderDaysInto(from, shifts, colleagues, list);
+}
+
+function renderDaysInto(from, shifts, colleagues, list) {
     const today  = toDateStr(new Date());
     const monday = new Date(from + 'T00:00:00');
 

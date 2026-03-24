@@ -13,7 +13,8 @@ const MONTH_NAMES     = ['janvier','février','mars','avril','mai','juin','juill
 
 let currentUser    = null;  // utilisateur connecté
 let allStaff       = [];
-let currentVenueId = null;
+let currentVenueId    = null;
+let confirmedDispos   = []; // dispos confirmées du jour affiché
 let currentShifts  = [];
 let displayedStaff = [];
 
@@ -304,10 +305,15 @@ async function loadDayDetail(dateStr) {
         formatDateLong(date);
     document.getElementById('day-detail').style.display = 'block';
 
-    currentShifts = [];
+    currentShifts  = [];
+    confirmedDispos = [];
     try {
-        const res = await fetch(`/api/shifts/${currentVenueId}/${dateStr}`);
-        if (res.ok) currentShifts = await res.json();
+        const [shiftsRes, disposRes] = await Promise.all([
+            fetch('/api/shifts/' + currentVenueId + '/' + dateStr, { credentials: 'include' }),
+            fetch('/api/dispos/confirmed?from=' + dateStr + '&to=' + dateStr, { credentials: 'include' }),
+        ]);
+        if (shiftsRes.ok) currentShifts   = await shiftsRes.json();
+        if (disposRes.ok) confirmedDispos = await disposRes.json();
     } catch { /* silencieux */ }
 
     buildDisplayedStaff();
@@ -315,6 +321,45 @@ async function loadDayDetail(dateStr) {
     renderBody();
     renderStats();
     document.getElementById('day-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Charger et afficher le bouton Publier pour la semaine courante
+    loadPublishButton(dateStr);
+}
+
+async function loadPublishButton(dateStr) {
+    const weekStart = toDateStr(getMondayOf(new Date(dateStr + 'T00:00:00')));
+    const btn = document.getElementById('btn-publish-week');
+    if (!btn) return;
+    try {
+        const res  = await fetch('/api/publish/' + weekStart, { credentials: 'include' });
+        const data = await res.json();
+        updatePublishBtn(btn, data.published, weekStart);
+    } catch { }
+}
+
+function updatePublishBtn(btn, published, weekStart) {
+    if (published) {
+        btn.textContent       = '✓ Planning publié';
+        btn.style.background  = '#eafaf1';
+        btn.style.borderColor = '#2ecc71';
+        btn.style.color       = '#27ae60';
+    } else {
+        btn.textContent       = 'Publier la semaine';
+        btn.style.background  = '#f0effe';
+        btn.style.borderColor = '#7F77DD';
+        btn.style.color       = '#534AB7';
+    }
+    btn.onclick = async () => {
+        const newState = !published;
+        await fetch('/api/publish/' + weekStart, {
+            credentials: 'include', method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ published: newState }),
+        });
+        published = newState;
+        updatePublishBtn(btn, newState, weekStart);
+        showToast(newState ? 'Planning publié — le staff peut voir la semaine' : 'Planning dépublié');
+    };
 }
 
 document.getElementById('day-detail-close').addEventListener('click', () => {
@@ -480,6 +525,22 @@ function createStaffRow(staff) {
     rail.className      = 'row-rail';
     rail.dataset.staffId = staff._id;
     rail.style.width    = (TOTAL_HOURS + 1) * PX_PER_HOUR + 'px';
+
+    // Dispos confirmées en fond (semi-transparent)
+    confirmedDispos
+        .filter(d => d.staff_id === String(staff._id))
+        .forEach(dispo => {
+            const bg = document.createElement('div');
+            bg.className = 'dispo-bg';
+            const left  = (dispo.start_time - START_HOUR) * PX_PER_HOUR;
+            const width = (dispo.end_time - dispo.start_time) * PX_PER_HOUR;
+            bg.style.left   = Math.max(0, left) + 'px';
+            bg.style.width  = Math.max(PX_PER_HOUR, width) + 'px';
+            bg.style.background = (staff.color || '#3498db') + '33'; // 20% opacité
+            bg.style.borderTop  = '2px dashed ' + (staff.color || '#3498db') + '88';
+            bg.title = 'Dispo confirmée : ' + Math.floor(dispo.start_time % 24) + 'h → ' + Math.floor(dispo.end_time % 24) + 'h';
+            rail.appendChild(bg);
+        });
 
     currentShifts
         .filter(s => s.staff_id === staff._id)

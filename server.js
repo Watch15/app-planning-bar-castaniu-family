@@ -603,6 +603,42 @@ app.patch('/api/dispos/:id/reject', checkDB, requirePatron, async (req, res) => 
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Publication du planning ───────────────────────────────────────────────────
+
+// GET statut publication d'une semaine
+app.get('/api/publish/:weekStart', checkDB, requireAuth, async (req, res) => {
+    try {
+        const pub = await db.collection('settings').findOne({ key: 'publish_' + req.params.weekStart });
+        res.json({ published: !!(pub && pub.published) });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH publier/dépublier une semaine (patron)
+app.patch('/api/publish/:weekStart', checkDB, requirePatron, async (req, res) => {
+    const { published } = req.body;
+    try {
+        await db.collection('settings').updateOne(
+            { key: 'publish_' + req.params.weekStart },
+            { $set: { key: 'publish_' + req.params.weekStart, published: !!published, updated_at: new Date() } },
+            { upsert: true }
+        );
+        res.json({ message: published ? 'Planning publié' : 'Planning dépublié' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET dispos confirmées pour une semaine (affichage fond planning patron)
+app.get('/api/dispos/confirmed', checkDB, requirePatron, async (req, res) => {
+    const { from, to } = req.query;
+    if (!from || !to) return res.status(400).json({ error: 'from et to requis' });
+    try {
+        const dispos = await db.collection('availabilities').find({
+            date:   { $gte: from, $lte: to },
+            status: 'confirmed',
+        }).toArray();
+        res.json(dispos);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Route racine ──────────────────────────────────────────────────────────────
 
 app.get('/', (req, res) => {
