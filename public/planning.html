@@ -16,9 +16,9 @@
 
         /* ── Header ── */
         .header {
-            background: #1a1a2e;
-            color: white;
-            padding: 16px 20px;
+            background: white;
+            border-bottom: 0.5px solid #e8e8e8;
+            padding: 12px 20px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -27,306 +27,184 @@
             z-index: 10;
         }
         .header-left  { display: flex; align-items: center; gap: 10px; }
-        .header-logo  { font-size: 16px; font-weight: 700; }
-        .header-week  { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 2px; }
+        .header-logo  { font-size: 15px; font-weight: 600; color: #1a1a2e; }
+        .header-week  { font-size: 11px; color: #aaa; margin-top: 1px; }
         .btn-logout {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: white; font-size: 12px;
-            padding: 6px 12px; border-radius: 8px;
-            cursor: pointer; transition: background 0.15s;
+            background: transparent;
+            border: 0.5px solid #e74c3c;
+            color: #e74c3c; font-size: 11px;
+            padding: 5px 10px; border-radius: 8px;
+            cursor: pointer;
         }
-        .btn-logout:hover { background: rgba(255,255,255,0.2); }
+        .user-avatar-sm {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #EEEDFE; display: flex; align-items: center;
+            justify-content: center; font-size: 12px; font-weight: 600; color: #534AB7;
+            flex-shrink: 0;
+        }
+        .header-user { display: flex; align-items: center; gap: 8px; }
+
+        /* ── Onglets ── */
+        .tabs-bar {
+            display: flex;
+            background: white;
+            border-bottom: 0.5px solid #f0f0f0;
+            padding: 0 20px;
+            position: sticky;
+            top: 53px;
+            z-index: 9;
+        }
+        .tab-btn {
+            padding: 10px 18px;
+            border: none; background: transparent;
+            font-size: 13px; font-weight: 500; color: #aaa;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            transition: all 0.15s;
+        }
+        .tab-btn.active { color: #1a1a2e; border-bottom-color: #1a1a2e; }
+        .tab-btn:disabled { color: #ddd; cursor: not-allowed; }
 
         /* ── Bonjour ── */
-        .greeting {
-            padding: 20px 20px 8px;
-        }
-        .greeting-name {
-            font-size: 22px;
-            font-weight: 700;
-            color: #1a1a2e;
-        }
-        .greeting-sub {
-            font-size: 13px;
-            color: #999;
-            margin-top: 2px;
-        }
+        .greeting { padding: 16px 20px 4px; }
+        .greeting-name { font-size: 20px; font-weight: 600; color: #1a1a2e; }
+        .greeting-sub  { font-size: 12px; color: #aaa; margin-top: 2px; }
 
         /* ── Stats semaine ── */
         .week-stats {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
+            gap: 8px;
             padding: 12px 20px;
         }
         .stat-card {
-            background: white;
-            border-radius: 12px;
-            padding: 12px;
-            text-align: center;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            background: #f8f8f8;
+            border-radius: 10px;
+            padding: 10px 14px;
+            display: flex; align-items: center; gap: 10px;
         }
-        .stat-value { font-size: 22px; font-weight: 700; color: #1a1a2e; }
-        .stat-label { font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+        .stat-value { font-size: 20px; font-weight: 600; color: #1a1a2e; }
+        .stat-label { font-size: 10px; color: #bbb; text-transform: uppercase; letter-spacing: 0.4px; }
 
         /* ── Liste des jours ── */
-        .days-list {
-            padding: 0 20px 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
+        .days-list { padding: 0 20px 32px; display: flex; flex-direction: column; gap: 6px; }
 
-        /* ── Carte jour ── */
+        /* ── Carte jour avec shift ── */
         .day-card {
             background: white;
-            border-radius: 14px;
+            border: 0.5px solid #e8e8e8;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
         }
-        .day-card.today {
-            box-shadow: 0 2px 12px rgba(83,74,183,0.15);
-            border: 2px solid #534AB7;
-        }
-        .day-card.no-shift { opacity: 0.5; }
+        .day-card.has-shift { border-left: 3px solid #3498db; }
+        .day-card.today     { border: 2px solid #534AB7; }
+        .day-card.today.has-shift { border-left-width: 2px; border-color: #534AB7; }
 
         .day-header {
-            display: flex;
-            align-items: center;
-            padding: 12px 16px;
-            border-bottom: 1px solid #f5f5f5;
-            gap: 12px;
+            display: flex; align-items: center;
+            padding: 12px 16px; gap: 14px;
         }
-        .day-date-block { min-width: 44px; text-align: center; }
-        .day-weekday {
-            font-size: 11px;
-            font-weight: 600;
-            color: #aaa;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
+        .day-date-block { min-width: 36px; }
+        .day-weekday { font-size: 10px; font-weight: 600; color: #aaa; text-transform: uppercase; letter-spacing: 0.4px; }
+        .day-num { font-size: 20px; font-weight: 600; color: #1a1a2e; line-height: 1.1; }
+        .day-card.today .day-weekday { color: #534AB7; }
+        .day-card.today .day-num     { color: #534AB7; }
+        .day-divider { width: 0.5px; height: 32px; background: #eee; flex-shrink: 0; }
+        .day-header-info { flex: 1; }
+        .day-establishment { font-size: 13px; font-weight: 600; color: #1a1a2e; }
+        .day-duration { font-size: 11px; color: #aaa; margin-top: 1px; }
+        .today-chip {
+            display: none; background: #534AB7; color: white;
+            font-size: 9px; font-weight: 600; padding: 2px 7px;
+            border-radius: 10px; white-space: nowrap;
         }
-        .day-num {
-            font-size: 24px;
-            font-weight: 700;
-            color: #1a1a2e;
-            line-height: 1;
-        }
-        .day-card.today .day-weekday,
-        .day-card.today .day-num { color: #534AB7; }
-        .day-card.no-shift .day-num { color: #ccc; }
-
-        .day-header-right { flex: 1; }
-        .day-rest {
-            font-size: 13px;
-            color: #ccc;
-            font-style: italic;
-        }
-        .today-badge {
-            display: none;
-            background: #534AB7;
-            color: white;
-            font-size: 10px;
-            font-weight: 600;
-            padding: 2px 8px;
-            border-radius: 10px;
-        }
-        .day-card.today .today-badge { display: inline-block; }
-
-        /* ── Shift block ── */
-        .shift-block {
-            padding: 12px 16px;
-            border-bottom: 1px solid #f8f8f8;
-        }
-        .shift-block:last-child { border-bottom: none; }
-
-        .shift-top {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 8px;
-        }
-        .shift-establishment {
-            flex: 1;
-            font-size: 15px;
-            font-weight: 700;
-            color: #1a1a2e;
-        }
+        .day-card.today .today-chip { display: inline-block; }
         .shift-hours-badge {
-            background: #f0f2f5;
-            color: #555;
-            font-size: 13px;
-            font-weight: 600;
-            padding: 4px 10px;
-            border-radius: 8px;
-            white-space: nowrap;
-        }
-        .shift-duration {
-            font-size: 12px;
-            color: #aaa;
+            background: #f0f2f5; color: #333; font-size: 12px; font-weight: 600;
+            padding: 5px 10px; border-radius: 8px; white-space: nowrap; flex-shrink: 0;
         }
 
-        /* Collègues */
-        .colleagues-label {
-            font-size: 11px;
-            color: #bbb;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-            margin-bottom: 6px;
+        /* Collègues dans shift */
+        .shift-block { padding: 0 16px 12px; }
+        .colleagues-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .colleagues-lbl { font-size: 10px; color: #bbb; text-transform: uppercase; letter-spacing: 0.4px; }
+        .colleague-pill {
+            display: flex; align-items: center; gap: 4px;
+            background: #f5f5f5; border-radius: 20px;
+            padding: 3px 8px; font-size: 11px; color: #555;
         }
-        .colleagues-list {
-            display: flex;
-            flex-wrap: wrap;
+        .colleague-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+        /* ── Jours repos — grille compacte ── */
+        .rest-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: 6px;
         }
-        .colleague-pill {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            background: #f8f8f8;
-            border-radius: 20px;
-            padding: 4px 10px;
-            font-size: 12px;
-            color: #555;
+        .rest-card {
+            background: #f8f8f8; border-radius: 10px;
+            padding: 10px 8px; text-align: center; opacity: 0.6;
         }
-        .colleague-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
+        .rest-weekday { font-size: 10px; color: #bbb; text-transform: uppercase; }
+        .rest-num     { font-size: 16px; font-weight: 600; color: #aaa; }
 
         /* ── État chargement / erreur ── */
-        .state-msg {
-            padding: 40px 20px;
-            text-align: center;
-            font-size: 14px;
-            color: #aaa;
-        }
+        .state-msg { padding: 40px 20px; text-align: center; font-size: 14px; color: #aaa; }
         .state-msg.error { color: #e74c3c; }
-
-        /* ── Onglets ── */
-        .tabs-bar {
-            display: flex;
-            gap: 0;
-            background: white;
-            border-bottom: 1px solid #f0f0f0;
-            padding: 0 20px;
-            position: sticky;
-            top: 56px;
-            z-index: 9;
-        }
-        .tab-btn {
-            padding: 12px 20px;
-            border: none;
-            background: transparent;
-            font-size: 14px;
-            font-weight: 500;
-            color: #aaa;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            margin-bottom: -1px;
-            transition: all 0.15s;
-            position: relative;
-        }
-        .tab-btn.active { color: #1a1a2e; border-bottom-color: #1a1a2e; }
-        .tab-btn:disabled { color: #ccc; cursor: not-allowed; }
-        .tab-btn .tab-badge {
-            position: absolute;
-            top: 8px; right: 6px;
-            background: #e74c3c;
-            color: white;
-            font-size: 9px;
-            font-weight: 700;
-            width: 16px; height: 16px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-        }
 
         /* ── Carte dispo ── */
         .dispo-card {
-            background: white;
-            border-radius: 14px;
-            overflow: hidden;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            background: white; border: 0.5px solid #e8e8e8;
+            border-left: 3px solid #534AB7; border-radius: 12px;
         }
-        .dispo-card.today { border: 2px solid #534AB7; }
-        .dispo-day-header {
-            display: flex;
-            align-items: center;
-            padding: 12px 16px;
-            gap: 12px;
-            border-bottom: 1px solid #f5f5f5;
-        }
-        .dispo-day-num { font-size: 22px; font-weight: 700; color: #1a1a2e; min-width: 32px; }
-        .dispo-day-name { font-size: 12px; font-weight: 600; color: #aaa; text-transform: uppercase; }
-        .dispo-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+        .dispo-day-header { padding: 10px 16px; border-bottom: 0.5px solid #f5f5f5; }
+        .dispo-day-name { font-size: 12px; font-weight: 600; color: #666; }
+        .dispo-body { padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; }
 
-        .dispo-type-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .dispo-type-row { display: flex; gap: 6px; flex-wrap: wrap; }
         .dispo-type-btn {
-            padding: 8px 14px;
-            border-radius: 20px;
-            border: 1.5px solid #e0e0e0;
-            background: white;
-            font-size: 13px;
-            font-weight: 500;
-            color: #666;
-            cursor: pointer;
-            transition: all 0.15s;
+            padding: 7px 14px; border-radius: 20px;
+            border: 0.5px solid #e0e0e0; background: transparent;
+            font-size: 12px; font-weight: 500; color: #666;
+            cursor: pointer; transition: all 0.12s;
         }
+        .dispo-type-btn:hover { border-color: #aaa; color: #333; }
         .dispo-type-btn.selected-soir   { background: #1a1a2e; border-color: #1a1a2e; color: white; }
         .dispo-type-btn.selected-midi   { background: #534AB7; border-color: #534AB7; color: white; }
         .dispo-type-btn.selected-custom { background: #2ecc71; border-color: #2ecc71; color: white; }
-        .dispo-type-btn.selected-off    { background: #f5f5f5; border-color: #ddd; color: #bbb; }
+        .dispo-type-btn.selected-off    { background: #f0f0f0; border-color: #ddd; color: #aaa; }
 
-        .dispo-custom-row {
-            display: none;
-            gap: 8px;
-            align-items: center;
-        }
+        .dispo-custom-row { display: none; gap: 8px; align-items: center; }
         .dispo-custom-row.visible { display: flex; }
         .dispo-time-input {
-            flex: 1;
-            padding: 8px 10px;
-            border: 1.5px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-            text-align: center;
-            outline: none;
+            flex: 1; padding: 7px 10px;
+            border: 0.5px solid #e0e0e0; border-radius: 8px;
+            font-size: 13px; text-align: center; outline: none;
         }
-        .dispo-time-input:focus { border-color: #2ecc71; }
+        .dispo-time-input:focus { border-color: #534AB7; }
         .dispo-note-input {
-            width: 100%;
-            padding: 8px 10px;
-            border: 1.5px solid #f0f0f0;
-            border-radius: 8px;
-            font-size: 13px;
-            font-family: inherit;
-            color: #555;
-            outline: none;
-            resize: none;
+            width: 100%; padding: 7px 10px;
+            border: 0.5px solid #f0f0f0; border-radius: 8px;
+            font-size: 12px; font-family: inherit; color: #555;
+            outline: none; resize: none;
         }
-        .dispo-note-input:focus { border-color: #aaa; }
+        .dispo-note-input:focus { border-color: #ccc; }
+
+        /* ── Bouton envoi dispos ── */
+        .btn-submit-dispos {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            padding: 14px 20px; background: #1a1a2e; color: white;
+            border: none; font-size: 14px; font-weight: 600;
+            cursor: pointer; z-index: 20;
+        }
+        .btn-submit-dispos:disabled { background: #ccc; cursor: not-allowed; }
 
         /* ── Empty week ── */
-        .empty-week {
-            padding: 48px 20px;
-            text-align: center;
-        }
-        .empty-week-icon {
-            font-size: 40px;
-            margin-bottom: 12px;
-        }
-        .empty-week-text {
-            font-size: 15px;
-            font-weight: 600;
-            color: #aaa;
-        }
-        .empty-week-sub {
-            font-size: 13px;
-            color: #ccc;
-            margin-top: 4px;
-        }
+        .empty-week { padding: 48px 20px; text-align: center; }
+        .empty-week-icon  { font-size: 36px; margin-bottom: 12px; }
+        .empty-week-text  { font-size: 15px; font-weight: 600; color: #aaa; }
+        .empty-week-sub   { font-size: 13px; color: #ccc; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -338,7 +216,10 @@
             <div class="header-week" id="header-week"></div>
         </div>
     </div>
-    <button class="btn-logout" onclick="logout()">Déconnexion</button>
+    <div class="header-user">
+        <div class="user-avatar-sm" id="staff-avatar">?</div>
+        <button class="btn-logout" onclick="logout()">Déconnexion</button>
+    </div>
 </div>
 
 <div class="tabs-bar">
@@ -367,11 +248,10 @@
         <div class="greeting-sub" id="dispos-status"></div>
     </div>
     <div id="dispos-form" style="padding:0 20px 24px;display:flex;flex-direction:column;gap:10px"></div>
-    <div style="padding:0 20px 32px">
-        <button id="btn-submit-dispos" style="width:100%;padding:14px;border-radius:12px;border:none;background:#1a1a2e;color:white;font-size:15px;font-weight:600;cursor:pointer">
-            Envoyer mes dispos
-        </button>
-    </div>
+    <div style="height:64px"></div>
+    <button id="btn-submit-dispos" class="btn-submit-dispos">
+        Envoyer mes dispos
+    </button>
 </div>
 
 <script>
@@ -383,10 +263,7 @@ const MONTH_NAMES = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','
 // ── Utilitaires ───────────────────────────────────────────────────────────────
 
 function toDateStr(d) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const j = String(d.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + j;
+    return d.toISOString().slice(0, 10);
 }
 
 function getMondayOf(d) {
@@ -435,6 +312,8 @@ async function logout() {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
+let allStaff = [];
+
 async function init() {
     const user = await checkAuth();
     if (!user) return;
@@ -446,6 +325,8 @@ async function init() {
     }
 
     document.getElementById('greeting-name').textContent = 'Bonjour ' + (user.name || '') + ' !';
+    const av = document.getElementById('staff-avatar');
+    if (av) av.textContent = (user.name || user.email || '?').charAt(0).toUpperCase();
 
     initTabs();
 
@@ -608,11 +489,9 @@ function renderDays(from, shifts, colleagues) {
 
 function renderDaysInto(from, shifts, colleagues, list) {
     const today  = toDateStr(new Date());
-    // Parser la date YYYY-MM-DD sans risque de décalage timezone
     const [fy, fm, fd] = from.split('-').map(Number);
     const monday = new Date(fy, fm - 1, fd, 0, 0, 0, 0);
 
-    // Si aucun shift toute la semaine
     if (shifts.length === 0) {
         list.innerHTML =
             '<div class="empty-week">' +
@@ -625,17 +504,72 @@ function renderDaysInto(from, shifts, colleagues, list) {
 
     list.innerHTML = '';
 
+    // Séparer jours avec shifts et jours repos
+    const restDays = [];
+
     for (let i = 0; i < 7; i++) {
         const date      = toDateStr(addDays(monday, i));
         const d         = addDays(monday, i);
         const dayShifts = shifts.filter(s => s.date === date);
         const isToday   = date === today;
-        const hasShift  = dayShifts.length > 0;
+
+        if (dayShifts.length === 0) {
+            // Accumuler les jours de repos
+            restDays.push({ d, isToday });
+
+            // Flush si c'est le dernier jour ou si le prochain a un shift
+            const nextDate = toDateStr(addDays(monday, i + 1));
+            const nextHasShift = i < 6 && shifts.some(s => s.date === nextDate);
+            const isLast = i === 6;
+
+            if ((nextHasShift || isLast) && restDays.length > 0) {
+                // Afficher les jours repos accumulés
+                if (restDays.length === 1 && restDays[0].isToday) {
+                    // Aujourd'hui sans shift — carte pleine avec "Aujourd'hui"
+                    const rc = document.createElement('div');
+                    rc.className = 'day-card today';
+                    rc.innerHTML =
+                        '<div class="day-header">' +
+                            '<div class="day-date-block">' +
+                                '<div class="day-weekday" style="color:#534AB7">' + DAY_NAMES[restDays[0].d.getDay()] + '</div>' +
+                                '<div class="day-num" style="color:#534AB7">' + restDays[0].d.getDate() + '</div>' +
+                            '</div>' +
+                            '<div class="day-divider"></div>' +
+                            '<div class="day-header-info">' +
+                                '<span class="today-chip">Aujourd hui</span>' +
+                                '<div class="day-duration" style="margin-top:2px">Repos</div>' +
+                            '</div>' +
+                        '</div>';
+                    list.appendChild(rc);
+                } else {
+                    const grid = document.createElement('div');
+                    grid.className = 'rest-grid';
+                    restDays.forEach(r => {
+                        const rc = document.createElement('div');
+                        rc.className = 'rest-card' + (r.isToday ? ' today' : '');
+                        if (r.isToday) rc.style.cssText = 'background:white;border:2px solid #534AB7;border-radius:10px;opacity:1;padding:10px 8px;text-align:center';
+                        rc.innerHTML =
+                            '<div class="rest-weekday" style="' + (r.isToday ? 'color:#534AB7' : '') + '">' + DAY_NAMES[r.d.getDay()] + '</div>' +
+                            '<div class="rest-num"    style="' + (r.isToday ? 'color:#534AB7' : '') + '">' + r.d.getDate() + '</div>';
+                        grid.appendChild(rc);
+                    });
+                    list.appendChild(grid);
+                }
+                restDays.length = 0;
+            }
+            continue;
+        }
+
+        // Jour avec shift(s)
+        const firstShift = dayShifts[0];
+        const sm = allStaff ? allStaff.find(s => String(s._id) === firstShift.staff_id) : null;
+        const staffColor = sm ? sm.color : (firstShift.color || '#534AB7');
 
         const card = document.createElement('div');
-        card.className = 'day-card' + (isToday ? ' today' : '') + (!hasShift ? ' no-shift' : '');
+        card.className = 'day-card has-shift' + (isToday ? ' today' : '');
+        if (!isToday) card.style.borderLeftColor = staffColor;
 
-        // En-tête du jour
+        // En-tête
         const header = document.createElement('div');
         header.className = 'day-header';
         header.innerHTML =
@@ -643,44 +577,32 @@ function renderDaysInto(from, shifts, colleagues, list) {
                 '<div class="day-weekday">' + DAY_NAMES[d.getDay()] + '</div>' +
                 '<div class="day-num">' + d.getDate() + '</div>' +
             '</div>' +
-            '<div class="day-header-right">' +
-                (!hasShift
-                    ? '<span class="day-rest">Repos</span>'
-                    : '<span class="today-badge">Aujourd\'hui</span>') +
-            '</div>';
+            '<div class="day-divider"></div>' +
+            '<div class="day-header-info">' +
+                '<div class="day-establishment">' + formatEstablishment(firstShift.establishment_id) + '</div>' +
+                '<div class="day-duration">' + fmtDuration(firstShift.end_time - firstShift.start_time) + ' de service</div>' +
+            '</div>' +
+            (isToday ? '<span class="today-chip">Aujourd hui</span>' : '') +
+            '<span class="shift-hours-badge">' + fmtHour(firstShift.start_time) + ' → ' + fmtHour(firstShift.end_time) + '</span>';
         card.appendChild(header);
 
-        // Shifts du jour
-        dayShifts.forEach(shift => {
-            const block = document.createElement('div');
-            block.className = 'shift-block';
-
-            const duration     = shift.end_time - shift.start_time;
-            const dayColleagues = (colleagues[date] || [])
-                .filter(c => c.establishment_id === shift.establishment_id);
-
-            let colleaguesHTML = '';
-            if (dayColleagues.length > 0) {
-                const pills = dayColleagues.map(c =>
-                    '<span class="colleague-pill">' +
-                        '<span class="colleague-dot" style="background:' + (c.color || '#888') + '"></span>' +
-                        c.staff_name +
-                    '</span>'
-                ).join('');
-                colleaguesHTML =
-                    '<div class="colleagues-label">Collègues</div>' +
-                    '<div class="colleagues-list">' + pills + '</div>';
+        // Collègues + shifts supplémentaires
+        dayShifts.forEach((shift, idx) => {
+            const dayColleagues = (colleagues[date] || []).filter(c => c.establishment_id === shift.establishment_id);
+            if (idx > 0 || dayColleagues.length > 0) {
+                const block = document.createElement('div');
+                block.className = 'shift-block';
+                let html = '';
+                if (idx > 0) html += '<div class="day-establishment" style="font-size:12px;color:#888;margin-bottom:4px">' + formatEstablishment(shift.establishment_id) + ' · ' + fmtHour(shift.start_time) + '→' + fmtHour(shift.end_time) + '</div>';
+                if (dayColleagues.length > 0) {
+                    const pills = dayColleagues.map(c =>
+                        '<span class="colleague-pill"><span class="colleague-dot" style="background:' + (c.color || '#888') + '"></span>' + c.staff_name + '</span>'
+                    ).join('');
+                    html += '<div class="colleagues-row"><span class="colleagues-lbl">Collègues</span>' + pills + '</div>';
+                }
+                block.innerHTML = html;
+                card.appendChild(block);
             }
-
-            block.innerHTML =
-                '<div class="shift-top">' +
-                    '<span class="shift-establishment">' + formatEstablishment(shift.establishment_id) + '</span>' +
-                    '<span class="shift-hours-badge">' + fmtHour(shift.start_time) + ' → ' + fmtHour(shift.end_time) + '</span>' +
-                '</div>' +
-                '<div class="shift-duration">' + fmtDuration(duration) + ' de service</div>' +
-                (colleaguesHTML ? '<div style="margin-top:10px">' + colleaguesHTML + '</div>' : '');
-
-            card.appendChild(block);
         });
 
         list.appendChild(card);

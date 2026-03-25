@@ -43,10 +43,7 @@ function parseDate(str) {
 }
 
 function toDateStr(d) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const j = String(d.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + j;
+    return d.toISOString().slice(0, 10);
 }
 
 function getMondayOf(d) {
@@ -126,9 +123,11 @@ async function checkAuth() {
 }
 
 function renderUserBadge(user) {
-    const badge = document.getElementById('user-badge');
-    if (!badge) return;
-    badge.textContent = user.name || user.email;
+    const badge  = document.getElementById('user-badge');
+    const avatar = document.getElementById('user-avatar');
+    const name   = user.name || user.email || '';
+    if (badge)  badge.textContent  = name;
+    if (avatar) avatar.textContent = name.charAt(0).toUpperCase();
 }
 
 function renderDateDisplay() {
@@ -1246,7 +1245,7 @@ function getMondayOf(d) {
     return mon;
 }
 function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
-function toDateStr(d)  { const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),j=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+j; }
+function toDateStr(d)  { return d.toISOString().slice(0, 10); }
 
 async function loadDisposBadge() {
     try {

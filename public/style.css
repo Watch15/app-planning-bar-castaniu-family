@@ -19,35 +19,65 @@ body {
 /* ── Header ──────────────────────────────────────────────────────────────────*/
 
 .header {
+    background: white;
+    border-radius: 12px 12px 0 0;
+    border: 0.5px solid #e8e8e8;
+    padding: 10px 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: white;
-    border-radius: 12px;
-    padding: 14px 20px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
-.header-left  { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
-.header-right { display: flex; align-items: center; gap: 12px; }
+.header-left  { display: flex; align-items: center; gap: 10px; }
+.header-right { display: flex; align-items: center; gap: 8px; }
 .app-title    { font-size: 18px; font-weight: 700; }
 .date-display { font-size: 13px; color: #999; }
 
+/* ── Barre établissements (niveau 2 du header) ───────────────────────────────*/
+
+.venue-bar {
+    background: #f8f8f8;
+    border: 0.5px solid #e8e8e8;
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    padding: 7px 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-bottom: 0;
+}
+.venue-bar::-webkit-scrollbar { display: none; }
+.venue-bar-label { font-size: 11px; color: #bbb; white-space: nowrap; margin-right: 2px; flex-shrink: 0; }
+
+/* ── Avatar utilisateur ──────────────────────────────────────────────────────*/
+
+.user-avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: #EEEDFE;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; color: #534AB7;
+    flex-shrink: 0;
+}
+
 /* ── Onglets établissement ───────────────────────────────────────────────────*/
 
-.venue-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.venue-tabs { display: none; } /* remplacé par .venue-bar */
 .venue-tab {
-    padding: 5px 13px;
+    padding: 5px 14px;
     border-radius: 20px;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
-    border: 1.5px solid #e0e0e0;
-    background: white;
+    border: 0.5px solid #e0e0e0;
+    background: transparent;
     color: #666;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all 0.12s;
     white-space: nowrap;
+    flex-shrink: 0;
 }
-.venue-tab:hover { border-color: #aaa; color: #333; }
+.venue-tab:hover { border-color: #999; color: #333; }
 .venue-tab.active { background: #1a1a2e; border-color: #1a1a2e; color: white; }
 .venue-tab .badge { font-size: 10px; background: rgba(255,255,255,0.2); padding: 1px 5px; border-radius: 8px; margin-left: 4px; }
 .venue-tab:not(.active) .badge { background: #f0f0f0; color: #999; }
@@ -462,18 +492,18 @@ body {
 /* ── Bouton gérer le staff ───────────────────────────────────────────────────*/
 
 .btn-manage-staff {
-    padding: 6px 14px;
+    padding: 6px 12px;
     border-radius: 8px;
-    border: 1.5px solid #e0e0e0;
-    background: white;
-    font-size: 13px;
-    font-weight: 600;
+    border: 0.5px solid #e0e0e0;
+    background: #f5f5f5;
+    font-size: 12px;
+    font-weight: 500;
     color: #555;
     cursor: pointer;
     transition: all 0.12s;
     white-space: nowrap;
 }
-.btn-manage-staff:hover { border-color: #1a1a2e; color: #1a1a2e; }
+.btn-manage-staff:hover { border-color: #1a1a2e; color: #1a1a2e; background: white; }
 
 /* ── Modale gestion staff ────────────────────────────────────────────────────*/
 

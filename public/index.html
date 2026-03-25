@@ -9,30 +9,35 @@
 <body>
 <div class="app">
 
-    <!-- ── Header ── -->
+    <!-- ── Header niveau 1 : actions ── -->
     <header class="header">
         <div class="header-left">
-            <h1 class="app-title">Planning</h1>
-            <div class="venue-tabs" id="venue-tabs"></div>
+            <button class="btn-manage-staff" id="btn-manage-staff">Staff</button>
+            <button class="btn-manage-staff" id="btn-manage-accounts" style="background:#f0effe;border-color:#7F77DD;color:#534AB7">Comptes</button>
+            <div style="position:relative;display:inline-block">
+                <button class="btn-manage-staff" id="btn-dispos">Dispos</button>
+                <span id="dispos-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:#e74c3c;color:white;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;align-items:center;justify-content:center;pointer-events:none;z-index:1">0</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;padding:0 8px;border-left:1px solid #eee">
+                <span id="dispo-toggle-label" style="font-size:11px;color:#bbb;white-space:nowrap">Dispos</span>
+                <input type="checkbox" id="dispo-toggle" style="cursor:pointer">
+            </div>
         </div>
         <div class="header-right">
             <span class="date-display" id="date-display"></span>
-            <button class="btn-manage-staff" id="btn-manage-staff">Gérer le staff</button>
-            <button class="btn-manage-staff" id="btn-manage-accounts" style="background:#f0effe;border-color:#7F77DD;color:#534AB7">Comptes</button>
-            <button class="btn-manage-staff" id="btn-dispos" style="position:relative">
-                Dispos
-                <span id="dispos-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e74c3c;color:white;font-size:10px;font-weight:700;width:18px;height:18px;border-radius:50%;align-items:center;justify-content:center;pointer-events:none">0</span>
-            </button>
-            <div style="display:flex;align-items:center;gap:6px;padding:0 10px;border-left:1px solid #f0f0f0">
-                <span id="dispo-toggle-label" style="font-size:11px;color:#aaa;white-space:nowrap">Dispos</span>
-                <input type="checkbox" id="dispo-toggle" style="cursor:pointer">
+            <div style="display:flex;align-items:center;gap:7px">
+                <div class="user-avatar" id="user-avatar">?</div>
+                <span class="user-badge" id="user-badge" style="font-size:13px;font-weight:500;color:#1a1a2e"></span>
             </div>
-            <div class="user-badge-wrap">
-                <span class="user-badge" id="user-badge"></span>
-                <button class="btn-logout" onclick="logout()">Déconnexion</button>
-            </div>
+            <button class="btn-logout" onclick="logout()">Déconnexion</button>
         </div>
     </header>
+
+    <!-- ── Header niveau 2 : établissements ── -->
+    <div class="venue-bar">
+        <span class="venue-bar-label">Bar ·</span>
+        <div id="venue-tabs" style="display:contents"></div>
+    </div>
 
     <!-- ── Barre de navigation + onglets vue ── -->
     <div class="week-nav">
