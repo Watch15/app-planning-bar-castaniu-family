@@ -15,13 +15,13 @@ let currentUser    = null;  // utilisateur connecté
 let allStaff       = [];
 let currentVenueId    = null;
 let confirmedDispos   = []; // dispos confirmées du jour affiché
+let allEstablishments = []; // tous les établissements
 let currentShifts  = [];
 let displayedStaff = [];
 
 let currentWeekStart = getMondayOf(new Date()); // Date du lundi courant
 let selectedDate     = toDateStr(new Date());   // "YYYY-MM-DD" du jour sélectionné
 let weekSummary      = {};                       // { "YYYY-MM-DD": nbShifts }
-let currentShiftsWeek = [];                      // shifts de la semaine pour les couleurs
 let weekFullData     = {};                       // { "YYYY-MM-DD": [shifts...] }
 let currentView      = 'day';                    // 'day' | 'week'
 let currentSubView   = 'dashboard';              // 'dashboard' | 'agenda'
@@ -243,21 +243,10 @@ async function loadWeekSummary() {
     const from = toDateStr(currentWeekStart);
     const to   = toDateStr(addDays(currentWeekStart, 6));
     try {
-        const [summaryRes, shiftsRes] = await Promise.all([
-            fetch('/api/week/' + currentVenueId + '?from=' + from + '&to=' + to, { credentials: 'include' }),
-            fetch('/api/shifts/' + currentVenueId + '/' + toDateStr(currentWeekStart) + '?week=1&from=' + from + '&to=' + to, { credentials: 'include' }),
-        ]);
-        weekSummary = await summaryRes.json();
-        // Charger les shifts de chaque jour pour avoir les couleurs
-        currentShiftsWeek = [];
-        const days = Array.from({ length: 7 }, (_, i) => toDateStr(addDays(currentWeekStart, i)));
-        const allShifts = await Promise.all(
-            days.map(d => fetch('/api/shifts/' + currentVenueId + '/' + d, { credentials: 'include' }).then(r => r.ok ? r.json() : []))
-        );
-        currentShiftsWeek = allShifts.flat();
+        const res = await fetch(`/api/week/${currentVenueId}?from=${from}&to=${to}`);
+        weekSummary = await res.json();
     } catch {
         weekSummary = {};
-        currentShiftsWeek = [];
     }
 }
 
@@ -282,12 +271,12 @@ function renderWeekGrid() {
             + (sel   ? ' selected' : '');
         card.dataset.date = dateStr;
 
-        // En-tête : jour + numéro
+        // En-tête
         const header = document.createElement('div');
         header.className = 'day-card-header';
-        header.innerHTML =
-            '<span class="day-name">' + DAY_NAMES_SHORT[date.getDay()] + '</span>' +
-            '<span class="day-num">' + date.getDate() + '</span>';
+        header.innerHTML = `
+            <span class="day-name">${DAY_NAMES_SHORT[date.getDay()]}</span>
+            <span class="day-num">${date.getDate()}</span>`;
         card.appendChild(header);
 
         // Corps
@@ -295,25 +284,12 @@ function renderWeekGrid() {
         body.className = 'day-card-body';
 
         if (empty) {
-            body.innerHTML = '<div class="day-empty-label">Vide</div>';
+            body.innerHTML = `<div class="day-empty-label">Aucun shift</div>`;
         } else {
-            // Points de couleur du staff présent ce jour
-            const shiftsForDay = currentShiftsWeek ? currentShiftsWeek.filter(s => s.date === dateStr) : [];
-            if (shiftsForDay.length > 0) {
-                const seen = new Set();
-                const dots = shiftsForDay
-                    .filter(s => { if (seen.has(s.staff_id)) return false; seen.add(s.staff_id); return true; })
-                    .slice(0, 6)
-                    .map(s => {
-                        const sm = allStaff.find(st => String(st._id) === s.staff_id);
-                        const color = sm ? sm.color : (s.color || '#888');
-                        return '<span style="width:8px;height:8px;border-radius:50%;background:' + color + ';display:inline-block;flex-shrink:0"></span>';
-                    }).join('');
-                body.innerHTML =
-                    '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">' + dots + '</div>' +
-                    '<div class="day-shift-count">' + count + ' shift' + (count > 1 ? 's' : '') + '</div>';
-            } else {
-                body.innerHTML = '<div class="day-shift-count">' + count + ' shift' + (count > 1 ? 's' : '') + '</div>';
+            // Afficher les pills des shifts (max 3 visibles)
+            const shiftsForDay = (weekSummary._shifts || []).filter(s => s.date === dateStr);
+            if (count > 0) {
+                body.innerHTML = `<div class="day-shift-count">${count} shift${count > 1 ? 's' : ''} planifié${count > 1 ? 's' : ''}</div>`;
             }
         }
 
@@ -321,7 +297,7 @@ function renderWeekGrid() {
 
         card.addEventListener('click', async () => {
             selectedDate = dateStr;
-            renderWeekGrid();
+            renderWeekGrid(); // refresh sélection visuelle
             await loadDayDetail(dateStr);
         });
 
@@ -421,19 +397,29 @@ async function loadAllStaff() {
 function renderSidebar() {
     const list = document.getElementById('staff-list');
     list.innerHTML = '';
-    allStaff.forEach(staff => {
+
+    // Trier : staff affecté à l'établissement courant en premier
+    const sorted = [...allStaff].sort((a, b) => {
+        const aHas = a.venues && a.venues.includes(currentVenueId) ? 0 : 1;
+        const bHas = b.venues && b.venues.includes(currentVenueId) ? 0 : 1;
+        return aHas - bHas;
+    });
+
+    sorted.forEach(staff => {
+        const isPref = staff.venues && staff.venues.includes(currentVenueId);
         const card = document.createElement('div');
-        card.className       = 'staff-card';
+        card.className       = 'staff-card' + (isPref ? ' staff-pref' : '');
         card.draggable       = true;
         card.dataset.staffId = staff._id;
 
-        card.innerHTML = `
-            <span class="staff-dot" style="background:${staff.color}"></span>
-            <span class="staff-info-name">${staff.name}</span>
-            <div class="color-controls">
-                <input type="color" class="color-picker" value="${staff.color}" title="Choisir une couleur">
-                <button class="btn-auto-color">Auto</button>
-            </div>`;
+        card.innerHTML =
+            '<span class="staff-dot" style="background:' + staff.color + '"></span>' +
+            (isPref ? '<span class="staff-pref-dot" title="Affecté à cet établissement">★</span>' : '') +
+            '<span class="staff-info-name">' + staff.name + '</span>' +
+            '<div class="color-controls">' +
+                '<input type="color" class="color-picker" value="' + staff.color + '" title="Choisir une couleur">' +
+                '<button class="btn-auto-color">Auto</button>' +
+            '</div>';
 
         card.addEventListener('dragstart', e => {
             if (e.target.closest('.color-controls')) { e.preventDefault(); return; }
@@ -464,6 +450,7 @@ async function loadEstablishments() {
     try {
         const res  = await fetch('/api/establishments');
         const list = await res.json();
+        allEstablishments = list;
         renderTabs(list);
         if (list.length > 0) {
             currentVenueId = list[0].id;
@@ -479,6 +466,7 @@ async function loadEstablishments() {
             { id: 'FanFan_restaurant', name: 'FanFan', type: 'restaurant' },
             { id: 'Caval_restaurant',  name: 'Caval',  type: 'restaurant' },
         ];
+        allEstablishments = fallback;
         renderTabs(fallback);
         currentVenueId = fallback[0].id;
         renderWeekLabel();
@@ -1531,42 +1519,58 @@ function renderStaffManageList() {
 
         const hasLogin = !!staff.email;
 
-        row.innerHTML = `
-            <input type="color" class="staff-manage-color" value="${staff.color}" title="Changer la couleur">
-            <div class="staff-manage-info">
-                <input type="text"  class="staff-manage-name-input"  value="${staff.name}"  placeholder="Nom">
-                <input type="email" class="staff-manage-email-input" value="${staff.email || ''}" placeholder="email (pour le login futur)">
-            </div>
-            <span class="staff-login-badge ${hasLogin ? 'linked' : 'unlinked'}">
-                ${hasLogin ? 'Login lié' : 'Sans login'}
-            </span>
-            <button class="staff-manage-save">Enregistrer</button>
-            <button class="staff-manage-delete" title="Supprimer">×</button>`;
+        // Boutons établissements préférentiels
+        const staffVenues = staff.venues || [];
+        const venueButtons = allEstablishments.map(e =>
+            '<button class="venue-pref-btn' + (staffVenues.includes(e.id) ? ' active' : '') + '" data-venue="' + e.id + '" title="' + e.name + '">' + e.name + '</button>'
+        ).join('');
+
+        row.innerHTML =
+            '<input type="color" class="staff-manage-color" value="' + staff.color + '" title="Changer la couleur">' +
+            '<div class="staff-manage-info">' +
+                '<input type="text"  class="staff-manage-name-input"  value="' + staff.name + '"  placeholder="Nom">' +
+                '<input type="email" class="staff-manage-email-input" value="' + (staff.email || '') + '" placeholder="email (pour le login futur)">' +
+                '<div class="venue-pref-row">' + venueButtons + '</div>' +
+            '</div>' +
+            '<span class="staff-login-badge ' + (hasLogin ? 'linked' : 'unlinked') + '">' +
+                (hasLogin ? 'Login lié' : 'Sans login') +
+            '</span>' +
+            '<button class="staff-manage-save">Enregistrer</button>' +
+            '<button class="staff-manage-delete" title="Supprimer">×</button>';
+
+        // Toggle établissements préférentiels
+        row.querySelectorAll('.venue-pref-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.classList.toggle('active');
+            });
+        });
 
         // Enregistrer
         row.querySelector('.staff-manage-save').addEventListener('click', async () => {
-            const newName  = row.querySelector('.staff-manage-name-input').value.trim();
-            const newEmail = row.querySelector('.staff-manage-email-input').value.trim();
-            const newColor = row.querySelector('.staff-manage-color').value;
+            const newName   = row.querySelector('.staff-manage-name-input').value.trim();
+            const newEmail  = row.querySelector('.staff-manage-email-input').value.trim();
+            const newColor  = row.querySelector('.staff-manage-color').value;
+            const newVenues = Array.from(row.querySelectorAll('.venue-pref-btn.active')).map(b => b.dataset.venue);
 
             if (!newName) { showToast('Le nom ne peut pas être vide', true); return; }
 
             // Vérif doublon couleur
             const dup = allStaff.find(s => s.color === newColor && s._id !== staff._id);
-            if (dup) { showToast(`${dup.name} utilise déjà cette couleur`, true); return; }
+            if (dup) { showToast(dup.name + ' utilise déjà cette couleur', true); return; }
 
             try {
-                const res = await fetch(`/api/staff/${staff._id}`, {
+                const res = await fetch('/api/staff/' + staff._id, {
                     method:  'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body:    JSON.stringify({ name: newName, color: newColor, email: newEmail }),
+                    body:    JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues }),
                 });
                 if (!res.ok) throw new Error((await res.json()).error);
 
                 // Mise à jour locale
-                staff.name  = newName;
-                staff.color = newColor;
-                staff.email = newEmail;
+                staff.name   = newName;
+                staff.color  = newColor;
+                staff.email  = newEmail;
+                staff.venues = newVenues;
 
                 // Propager sur les shifts visibles
                 document.querySelectorAll('.shift').forEach(el => {

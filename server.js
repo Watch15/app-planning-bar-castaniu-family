@@ -338,13 +338,14 @@ app.post('/api/staff', checkDB, requirePatron, async (req, res) => {
 });
 
 app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
-    const { color, name, email } = req.body;
-    if (!color && !name && email === undefined) return res.status(400).json({ error: 'color, name ou email requis' });
+    const { color, name, email, venues } = req.body;
+    if (!color && !name && email === undefined && venues === undefined) return res.status(400).json({ error: 'color, name, email ou venues requis' });
     try {
         const update = {};
-        if (color)               update.color = color;
-        if (name)                update.name  = name;
-        if (email !== undefined) update.email = email;
+        if (color)               update.color  = color;
+        if (name)                update.name   = name;
+        if (email !== undefined) update.email  = email;
+        if (venues !== undefined) update.venues = venues; // établissements préférentiels
         const result = await db.collection('staff').updateOne(
             { _id: new ObjectId(req.params.id) }, { $set: update }
         );
@@ -384,10 +385,8 @@ app.get('/api/week/:establishmentId', checkDB, requireAuth, async (req, res) => 
             date: { $gte: from, $lte: to }
         }).toArray();
         const summary = {};
-        for (let d = new Date(from + 'T12:00:00'); d <= new Date(to + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
-            const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), j = String(d.getDate()).padStart(2,'0');
-            summary[y+'-'+m+'-'+j] = 0;
-        }
+        for (let d = new Date(from); d <= new Date(to); d.setDate(d.getDate() + 1))
+            summary[d.toISOString().slice(0, 10)] = 0;
         shifts.forEach(s => { if (summary[s.date] !== undefined) summary[s.date]++; });
         res.json(summary);
     } catch (e) { res.status(500).json({ error: e.message }); }
