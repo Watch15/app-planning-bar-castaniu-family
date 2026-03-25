@@ -346,6 +346,7 @@ app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
         if (name)                update.name   = name;
         if (email !== undefined) update.email  = email;
         if (venues !== undefined) update.venues = venues; // établissements préférentiels
+        if (req.body.roles !== undefined) update.roles = req.body.roles; // rôles de l'employé
         const result = await db.collection('staff').updateOne(
             { _id: new ObjectId(req.params.id) }, { $set: update }
         );
@@ -637,6 +638,58 @@ app.get('/api/dispos/confirmed', checkDB, requirePatron, async (req, res) => {
             status: 'confirmed',
         }).toArray();
         res.json(dispos);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Rôles ─────────────────────────────────────────────────────────────────────
+
+app.get('/api/roles', checkDB, requireAuth, async (req, res) => {
+    try {
+        const roles = await db.collection('roles').find().sort({ type: 1, name: 1 }).toArray();
+        res.json(roles);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/roles', checkDB, requirePatron, async (req, res) => {
+    const { name, type } = req.body;
+    if (!name) return res.status(400).json({ error: 'Nom requis' });
+    if (!['responsable', 'informatif'].includes(type)) return res.status(400).json({ error: 'Type: responsable ou informatif' });
+    try {
+        const existing = await db.collection('roles').findOne({ name: name.trim() });
+        if (existing) return res.status(409).json({ error: 'Ce rôle existe déjà' });
+        const result = await db.collection('roles').insertOne({ name: name.trim(), type, created_at: new Date() });
+        res.status(201).json({ _id: result.insertedId, name: name.trim(), type });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/roles/:id', checkDB, requirePatron, async (req, res) => {
+    try {
+        await db.collection('roles').deleteOne({ _id: new ObjectId(req.params.id) });
+        // Retirer ce rôle de tous les staffs
+        await db.collection('staff').updateMany(
+            { roles: req.params.id },
+            { $pull: { roles: req.params.id } }
+        );
+        res.json({ message: 'Rôle supprimé' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET shifts du jour avec alerte responsable manquant
+app.get('/api/shifts/:establishmentId/:date/check-responsable', checkDB, requirePatron, async (req, res) => {
+    try {
+        const shifts = await db.collection('shifts')
+            .find({ establishment_id: req.params.establishmentId, date: req.params.date })
+            .toArray();
+
+        const responsableRoles = await db.collection('roles').find({ type: 'responsable' }).toArray();
+        const responsableIds   = responsableRoles.map(r => String(r._id));
+
+        // Vérifier si au moins un shift a un rôle responsable
+        const hasResponsable = shifts.some(s =>
+            s.roles && s.roles.some(r => responsableIds.includes(r))
+        );
+
+        res.json({ hasResponsable, count: shifts.length });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

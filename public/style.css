@@ -907,3 +907,61 @@ body {
     border-color: #f39c12;
     background: #fffdf5;
 }
+
+/* ── Système de rôles ────────────────────────────────────────────────────────*/
+
+.roles-row {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 5px;
+}
+
+.role-badge-pick {
+    padding: 3px 9px;
+    border-radius: 12px;
+    border: 1px solid #e0e0e0;
+    background: white;
+    font-size: 11px;
+    color: #aaa;
+    cursor: pointer;
+    transition: all 0.12s;
+}
+.role-badge-pick:hover { border-color: #999; color: #555; }
+.role-badge-pick.active {
+    background: #534AB7;
+    border-color: #534AB7;
+    color: white;
+}
+.role-badge-pick.responsable.active {
+    background: #e67e22;
+    border-color: #e67e22;
+    color: white;
+}
+
+.btn-add-role {
+    padding: 3px 9px;
+    border-radius: 12px;
+    border: 1px dashed #ccc;
+    background: transparent;
+    font-size: 11px;
+    color: #bbb;
+    cursor: pointer;
+}
+.btn-add-role:hover { border-color: #999; color: #555; }
+
+/* Alerte responsable manquant sur la card jour */
+.day-card.no-responsable {
+    border-color: #e74c3c;
+    border-width: 1.5px;
+}
+.day-card.no-responsable .day-num { color: #e74c3c; }
+.day-card.no-responsable::after {
+    content: '!';
+    position: absolute;
+    top: 6px; right: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #e74c3c;
+}
+.day-card { position: relative; }

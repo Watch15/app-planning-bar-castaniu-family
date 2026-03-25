@@ -16,6 +16,7 @@ let allStaff       = [];
 let currentVenueId    = null;
 let confirmedDispos   = []; // dispos confirmées du jour affiché
 let allEstablishments = []; // tous les établissements
+let allRoles          = []; // rôles créés par le patron
 let currentShiftsWeek = []; // shifts de la semaine pour les couleurs
 let currentShifts  = [];
 let displayedStaff = [];
@@ -90,7 +91,7 @@ async function init() {
     initDropZone();
     setupWeekNav();
     initViewTabs();
-    await Promise.all([loadEstablishments(), loadAllStaff()]);
+    await Promise.all([loadEstablishments(), loadAllStaff(), loadRoles()]);
 
     loadDisposBadge();
     loadDispoControl();
@@ -269,11 +270,19 @@ function renderWeekGrid() {
         const today   = isToday(dateStr);
         const sel     = dateStr === selectedDate;
 
+        // Vérifier si un responsable est planifié ce jour
+        const responsableRoleIds = allRoles.filter(r => r.type === 'responsable').map(r => String(r._id));
+        const shiftsDay = currentShiftsWeek.filter(s => s.date === dateStr);
+        const hasResponsable = responsableRoleIds.length > 0 && !empty && !shiftsDay.some(s =>
+            s.roles && s.roles.some(r => responsableRoleIds.includes(r))
+        );
+
         const card = document.createElement('div');
         card.className = 'day-card'
             + (today ? ' today' : '')
             + (empty ? ' empty' : '')
-            + (sel   ? ' selected' : '');
+            + (sel   ? ' selected' : '')
+            + (hasResponsable && !empty ? ' no-responsable' : '');
         card.dataset.date = dateStr;
 
         // En-tête
@@ -462,6 +471,13 @@ function renderSidebar() {
 }
 
 // ── Établissements ────────────────────────────────────────────────────────────
+
+async function loadRoles() {
+    try {
+        const res = await fetch('/api/roles', { credentials: 'include' });
+        if (res.ok) allRoles = await res.json();
+    } catch { allRoles = []; }
+}
 
 async function loadEstablishments() {
     try {
@@ -1549,6 +1565,15 @@ function renderStaffManageList() {
                 '<input type="text"  class="staff-manage-name-input"  value="' + staff.name + '"  placeholder="Nom">' +
                 '<input type="email" class="staff-manage-email-input" value="' + (staff.email || '') + '" placeholder="email (pour le login futur)">' +
                 '<div class="venue-pref-row">' + venueButtons + '</div>' +
+                '<div class="roles-row">' +
+                    allRoles.map(r =>
+                        '<span class="role-badge-pick' +
+                        (r.type === 'responsable' ? ' responsable' : '') +
+                        ((staff.roles || []).includes(String(r._id)) ? ' active' : '') +
+                        '" data-role="' + r._id + '">' + r.name + '</span>'
+                    ).join('') +
+                    '<button class="btn-add-role" title="Créer un rôle">+ Rôle</button>' +
+                '</div>' +
             '</div>' +
             '<span class="staff-login-badge ' + (hasLogin ? 'linked' : 'unlinked') + '">' +
                 (hasLogin ? 'Login lié' : 'Sans login') +
@@ -1558,10 +1583,36 @@ function renderStaffManageList() {
 
         // Toggle établissements préférentiels
         row.querySelectorAll('.venue-pref-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                btn.classList.toggle('active');
-            });
+            btn.addEventListener('click', () => btn.classList.toggle('active'));
         });
+
+        // Toggle rôles
+        row.querySelectorAll('.role-badge-pick').forEach(badge => {
+            badge.addEventListener('click', () => badge.classList.toggle('active'));
+        });
+
+        // Créer un nouveau rôle
+        const btnAddRole = row.querySelector('.btn-add-role');
+        if (btnAddRole) {
+            btnAddRole.addEventListener('click', async () => {
+                const name = prompt('Nom du rôle :');
+                if (!name) return;
+                const type = confirm('C est un rôle responsable ? (OK = Responsable, Annuler = Informatif)')
+                    ? 'responsable' : 'informatif';
+                try {
+                    const res = await fetch('/api/roles', {
+                        credentials: 'include', method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: name.trim(), type }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error);
+                    await loadRoles();
+                    renderStaffManageList();
+                    showToast('Rôle "' + name + '" créé');
+                } catch (e) { showToast(e.message, true); }
+            });
+        }
 
         // Enregistrer
         row.querySelector('.staff-manage-save').addEventListener('click', async () => {
@@ -1569,6 +1620,7 @@ function renderStaffManageList() {
             const newEmail  = row.querySelector('.staff-manage-email-input').value.trim();
             const newColor  = row.querySelector('.staff-manage-color').value;
             const newVenues = Array.from(row.querySelectorAll('.venue-pref-btn.active')).map(b => b.dataset.venue);
+            const newRoles  = Array.from(row.querySelectorAll('.role-badge-pick.active')).map(b => b.dataset.role);
 
             if (!newName) { showToast('Le nom ne peut pas être vide', true); return; }
 
@@ -1580,7 +1632,7 @@ function renderStaffManageList() {
                 const res = await fetch('/api/staff/' + staff._id, {
                     method:  'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body:    JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues }),
+                    body:    JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues, roles: newRoles }),
                 });
                 if (!res.ok) throw new Error((await res.json()).error);
 
@@ -1589,6 +1641,7 @@ function renderStaffManageList() {
                 staff.color  = newColor;
                 staff.email  = newEmail;
                 staff.venues = newVenues;
+                staff.roles  = newRoles;
 
                 // Propager sur les shifts visibles
                 document.querySelectorAll('.shift').forEach(el => {
