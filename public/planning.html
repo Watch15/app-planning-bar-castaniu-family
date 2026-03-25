@@ -162,18 +162,36 @@
         .dispo-day-name { font-size: 12px; font-weight: 600; color: #666; }
         .dispo-body { padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; }
 
+        /* Header dispo avec résumé horaire */
+        .dispo-day-header {
+            padding: 10px 16px;
+            border-bottom: 0.5px solid #f5f5f5;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .dispo-day-selected { font-size: 11px; color: #534AB7; font-weight: 600; }
+
         .dispo-type-row { display: flex; gap: 6px; flex-wrap: wrap; }
         .dispo-type-btn {
-            padding: 7px 14px; border-radius: 20px;
-            border: 0.5px solid #e0e0e0; background: transparent;
-            font-size: 12px; font-weight: 500; color: #666;
+            padding: 7px 12px; border-radius: 10px;
+            border: 0.5px solid #e8e8e8; background: #f8f8f8;
             cursor: pointer; transition: all 0.12s;
+            display: flex; flex-direction: column; align-items: center; gap: 1px;
+            min-width: 72px;
         }
-        .dispo-type-btn:hover { border-color: #aaa; color: #333; }
-        .dispo-type-btn.selected-soir   { background: #1a1a2e; border-color: #1a1a2e; color: white; }
-        .dispo-type-btn.selected-midi   { background: #534AB7; border-color: #534AB7; color: white; }
-        .dispo-type-btn.selected-custom { background: #2ecc71; border-color: #2ecc71; color: white; }
-        .dispo-type-btn.selected-off    { background: #f0f0f0; border-color: #ddd; color: #aaa; }
+        .dispo-type-btn:hover { border-color: #ccc; background: white; }
+        .dispo-btn-label { font-size: 12px; font-weight: 600; color: #444; line-height: 1.2; }
+        .dispo-btn-sub   { font-size: 10px; color: #aaa; white-space: nowrap; }
+        .dispo-type-btn.selected-soir   { background: #1a1a2e; border-color: #1a1a2e; }
+        .dispo-type-btn.selected-soir   .dispo-btn-label,
+        .dispo-type-btn.selected-soir   .dispo-btn-sub   { color: white; }
+        .dispo-type-btn.selected-midi   { background: #534AB7; border-color: #534AB7; }
+        .dispo-type-btn.selected-midi   .dispo-btn-label,
+        .dispo-type-btn.selected-midi   .dispo-btn-sub   { color: white; }
+        .dispo-type-btn.selected-custom { background: #2ecc71; border-color: #2ecc71; }
+        .dispo-type-btn.selected-custom .dispo-btn-label,
+        .dispo-type-btn.selected-custom .dispo-btn-sub   { color: white; }
+        .dispo-type-btn.selected-off    { background: #f0f0f0; border-color: #ddd; }
+        .dispo-type-btn.selected-off    .dispo-btn-label { color: #aaa; }
 
         .dispo-custom-row { display: none; gap: 8px; align-items: center; }
         .dispo-custom-row.visible { display: flex; }
@@ -705,32 +723,50 @@ async function loadDisposTab() {
 }
 
 function createDispoCard(date, d) {
-    const sel    = dispoSelections[date] || { type: null };
-    const card   = document.createElement('div');
+    const sel  = dispoSelections[date] || { type: null };
+    const card = document.createElement('div');
     card.className = 'dispo-card';
 
-    const fmt = h => String(Math.floor(h % 24)).padStart(2, '0') + ':00';
+    const fmt = h => String(Math.floor(h % 24)).padStart(2, '0') + 'h';
+
+    // Labels avec horaires affichés directement
+    const BTN_CONFIG = {
+        soir:   { label: 'Soir',        sub: '16h → 02h', col: '#1a1a2e' },
+        midi:   { label: 'Midi',        sub: '10h → 17h', col: '#534AB7' },
+        custom: { label: 'Personnalisé', sub: 'horaires libres', col: '#2ecc71' },
+        off:    { label: 'Indispo',     sub: null,           col: '#888' },
+    };
+
+    const isSelected = sel.type !== null;
 
     card.innerHTML =
         '<div class="dispo-day-header">' +
-            '<div>' +
-                '<div class="dispo-day-name">' + DAY_NAMES[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + '</div>' +
-            '</div>' +
+            '<div class="dispo-day-name">' + DAY_NAMES[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + '</div>' +
+            (isSelected && sel.type !== 'off'
+                ? '<div class="dispo-day-selected">' +
+                    (sel.type === 'custom' && sel.start_time
+                        ? fmt(sel.start_time) + ' → ' + fmt(sel.end_time)
+                        : BTN_CONFIG[sel.type].sub) +
+                  '</div>'
+                : '') +
         '</div>' +
         '<div class="dispo-body">' +
             '<div class="dispo-type-row">' +
                 ['soir', 'midi', 'custom', 'off'].map(type => {
+                    const cfg    = BTN_CONFIG[type];
                     const active = sel.type === type ? ' selected-' + type : '';
                     return '<button class="dispo-type-btn' + active + '" data-date="' + date + '" data-type="' + type + '">' +
-                        DISPO_TYPES[type].label + '</button>';
+                        '<span class="dispo-btn-label">' + cfg.label + '</span>' +
+                        (cfg.sub ? '<span class="dispo-btn-sub">' + cfg.sub + '</span>' : '') +
+                    '</button>';
                 }).join('') +
             '</div>' +
             '<div class="dispo-custom-row' + (sel.type === 'custom' ? ' visible' : '') + '" id="custom-' + date + '">' +
-                '<input class="dispo-time-input" id="start-' + date + '" type="text" placeholder="10:00" value="' + (sel.start_time ? fmt(sel.start_time) : '') + '">' +
-                '<span style="color:#aaa">→</span>' +
-                '<input class="dispo-time-input" id="end-' + date + '" type="text" placeholder="18:00" value="' + (sel.end_time ? fmt(sel.end_time) : '') + '">' +
+                '<input class="dispo-time-input" id="start-' + date + '" type="text" placeholder="10h" value="' + (sel.start_time ? fmt(sel.start_time) : '') + '">' +
+                '<span style="color:#aaa;flex-shrink:0">→</span>' +
+                '<input class="dispo-time-input" id="end-' + date + '" type="text" placeholder="18h" value="' + (sel.end_time ? fmt(sel.end_time) : '') + '">' +
             '</div>' +
-            '<textarea class="dispo-note-input" id="note-' + date + '" placeholder="Note (optionnel)..." rows="1">' + (sel.note || '') + '</textarea>' +
+            '<textarea class="dispo-note-input" id="note-' + date + '" placeholder="Note optionnelle..." rows="1">' + (sel.note || '') + '</textarea>' +
         '</div>';
 
     // Listeners boutons type
@@ -739,17 +775,12 @@ function createDispoCard(date, d) {
             const type = btn.dataset.type;
             const date = btn.dataset.date;
 
-            // Reset tous les boutons de cette carte
-            card.querySelectorAll('.dispo-type-btn').forEach(b => {
-                b.className = 'dispo-type-btn';
-            });
+            card.querySelectorAll('.dispo-type-btn').forEach(b => { b.className = 'dispo-type-btn'; });
             btn.classList.add('selected-' + type);
 
-            // Afficher/masquer les horaires précis
             const customRow = document.getElementById('custom-' + date);
             customRow.classList.toggle('visible', type === 'custom');
 
-            // Mettre à jour la sélection
             if (type === 'off') {
                 dispoSelections[date] = { type: 'off', start_time: null, end_time: null, note: '' };
             } else if (type === 'custom') {
@@ -761,6 +792,23 @@ function createDispoCard(date, d) {
                     end_time:   DISPO_TYPES[type].end,
                     note: '',
                 };
+            }
+
+            // Mettre à jour le résumé dans le header de la carte
+            const headerSel = card.querySelector('.dispo-day-selected');
+            const cfg = BTN_CONFIG[type];
+            if (type !== 'off' && cfg.sub) {
+                if (headerSel) {
+                    headerSel.textContent = cfg.sub;
+                } else {
+                    const dn = card.querySelector('.dispo-day-name');
+                    const sp = document.createElement('div');
+                    sp.className = 'dispo-day-selected';
+                    sp.textContent = cfg.sub;
+                    dn.after(sp);
+                }
+            } else if (headerSel) {
+                headerSel.remove();
             }
         });
     });
