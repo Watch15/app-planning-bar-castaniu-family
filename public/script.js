@@ -1791,44 +1791,38 @@ function renderStaffManageList() {
             '<button class="venue-pref-btn' + (staffVenues.includes(e.id) ? ' active' : '') + '" data-venue="' + e.id + '" title="' + e.name + '">' + e.name + '</button>'
         ).join('');
 
+        // Rôles : badges cliquables groupés par type, sans bouton création
+        const staffRoles = staff.roles || [];
+        const responsableRoles = allRoles.filter(r => r.type === 'responsable');
+        const informatifRoles  = allRoles.filter(r => r.type === 'informatif');
+
+        const makeRoleBadges = (roles, type) => roles.map(r =>
+            '<button class="role-assign-btn ' + type + (staffRoles.includes(String(r._id)) ? ' active' : '') +
+            '" data-role="' + r._id + '" type="button">' + r.name + '</button>'
+        ).join('');
+
+        const rolesHTML = allRoles.length === 0
+            ? '<span style="font-size:11px;color:#ccc;font-style:italic">Aucun rôle — créez-en dans l\'onglet Rôles</span>'
+            : (responsableRoles.length
+                ? '<div class="role-assign-group">' +
+                    '<span class="role-assign-label responsable">Responsable</span>' +
+                    makeRoleBadges(responsableRoles, 'responsable') +
+                  '</div>'
+                : '') +
+              (informatifRoles.length
+                ? '<div class="role-assign-group">' +
+                    '<span class="role-assign-label informatif">Informatif</span>' +
+                    makeRoleBadges(informatifRoles, 'informatif') +
+                  '</div>'
+                : '');
+
         row.innerHTML =
             '<input type="color" class="staff-manage-color" value="' + staff.color + '" title="Changer la couleur">' +
             '<div class="staff-manage-info">' +
-                '<input type="text"  class="staff-manage-name-input"  value="' + staff.name + '"  placeholder="Nom">' +
+                '<input type="text"  class="staff-manage-name-input"  value="' + staff.name + '" placeholder="Nom">' +
                 '<input type="email" class="staff-manage-email-input" value="' + (staff.email || '') + '" placeholder="email (pour le login futur)">' +
                 '<div class="venue-pref-row">' + venueButtons + '</div>' +
-                '<div class="roles-section">' +
-                    '<div class="roles-section-header">' +
-                        '<span class="roles-section-title">Rôles</span>' +
-                        '<button class="btn-add-role">+ Nouveau rôle</button>' +
-                    '</div>' +
-                    (allRoles.filter(r => r.type === 'responsable').length > 0
-                        ? '<div class="roles-group">' +
-                            '<div class="roles-group-label">Responsables</div>' +
-                            '<div class="roles-group-items">' +
-                            allRoles.filter(r => r.type === 'responsable').map(r =>
-                                '<div class="role-item">' +
-                                    '<span class="role-badge-pick responsable' + ((staff.roles || []).includes(String(r._id)) ? ' active' : '') + '" data-role="' + r._id + '">' + r.name + '</span>' +
-                                    '<button class="btn-delete-role" data-role-id="' + r._id + '" data-role-name="' + r.name + '">×</button>' +
-                                '</div>'
-                            ).join('') +
-                            '</div>' +
-                          '</div>'
-                        : '') +
-                    (allRoles.filter(r => r.type === 'informatif').length > 0
-                        ? '<div class="roles-group">' +
-                            '<div class="roles-group-label">Informatifs</div>' +
-                            '<div class="roles-group-items">' +
-                            allRoles.filter(r => r.type === 'informatif').map(r =>
-                                '<div class="role-item">' +
-                                    '<span class="role-badge-pick' + ((staff.roles || []).includes(String(r._id)) ? ' active' : '') + '" data-role="' + r._id + '">' + r.name + '</span>' +
-                                    '<button class="btn-delete-role" data-role-id="' + r._id + '" data-role-name="' + r.name + '">×</button>' +
-                                '</div>'
-                            ).join('') +
-                            '</div>' +
-                          '</div>'
-                        : '') +
-                '</div>' +
+                '<div class="role-assign-section">' + rolesHTML + '</div>' +
             '</div>' +
             '<span class="staff-login-badge ' + (hasLogin ? 'linked' : 'unlinked') + '">' +
                 (hasLogin ? 'Login lié' : 'Sans login') +
@@ -1842,11 +1836,11 @@ function renderStaffManageList() {
         });
 
         // Toggle rôles
-        row.querySelectorAll('.role-badge-pick').forEach(badge => {
-            badge.addEventListener('click', () => badge.classList.toggle('active'));
+        row.querySelectorAll('.role-assign-btn').forEach(btn => {
+            btn.addEventListener('click', () => btn.classList.toggle('active'));
         });
 
-        // Supprimer un rôle (global — affecte tous les staffs)
+        // (suppression des rôles déplacée dans l'onglet Rôles)
         row.querySelectorAll('.btn-delete-role').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
@@ -1872,7 +1866,7 @@ function renderStaffManageList() {
             const newEmail  = row.querySelector('.staff-manage-email-input').value.trim();
             const newColor  = row.querySelector('.staff-manage-color').value;
             const newVenues = Array.from(row.querySelectorAll('.venue-pref-btn.active')).map(b => b.dataset.venue);
-            const newRoles  = Array.from(row.querySelectorAll('.role-badge-pick.active')).map(b => b.dataset.role);
+            const newRoles  = Array.from(row.querySelectorAll('.role-assign-btn.active')).map(b => b.dataset.role);
 
             if (!newName) { showToast('Le nom ne peut pas être vide', true); return; }
 
