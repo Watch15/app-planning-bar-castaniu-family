@@ -214,6 +214,9 @@ async function refreshWeek() {
     renderWeekLabel();
     await loadWeekSummary();
     await loadWeekFullData();
+    // Construire currentShiftsWeek depuis weekFullData (déjà chargé, 0 fetch supplémentaire)
+    currentShiftsWeek = Object.values(weekFullData).flat();
+    renderSidebar(); // Mettre à jour l'ordre staff APRÈS que currentVenueId est à jour
     renderWeekGrid();
     if (currentView === 'week') {
         renderWeekFull();
@@ -246,15 +249,9 @@ async function loadWeekSummary() {
     try {
         const summaryRes = await fetch('/api/week/' + currentVenueId + '?from=' + from + '&to=' + to, { credentials: 'include' });
         weekSummary = await summaryRes.json();
-        // Charger les shifts de chaque jour pour avoir les couleurs dans les cards
-        const days = Array.from({ length: 7 }, (_, i) => toDateStr(addDays(currentWeekStart, i)));
-        const allShifts = await Promise.all(
-            days.map(d => fetch('/api/shifts/' + currentVenueId + '/' + d, { credentials: 'include' }).then(r => r.ok ? r.json() : []))
-        );
-        currentShiftsWeek = allShifts.flat();
+        // Les shifts couleur seront pris depuis weekFullData après son chargement
     } catch {
         weekSummary = {};
-        currentShiftsWeek = [];
     }
 }
 
@@ -507,6 +504,7 @@ function renderTabs(list) {
             document.querySelectorAll('.venue-tab').forEach(t => t.classList.remove('active'));
             btn.classList.add('active');
             currentVenueId = v.id;
+            renderSidebar(); // Mettre à jour immédiatement l'ordre staff
             await refreshWeek();
             if (selectedDate) await loadDayDetail(selectedDate);
         });
