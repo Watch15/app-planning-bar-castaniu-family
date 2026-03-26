@@ -462,7 +462,7 @@ app.get('/api/my-shifts', checkDB, requireAuth, async (req, res) => {
             colleagueMap[date] = await db.collection('shifts').find({
                 date,
                 establishment_id: { $in: myShifts.filter(s => s.date === date).map(s => s.establishment_id) },
-                staff_id: { $ne: staffId }
+                staff_id: { $nin: [staffId, '__joker__'] }
             }).toArray();
         }
         res.json({ shifts: myShifts, colleagues: colleagueMap });

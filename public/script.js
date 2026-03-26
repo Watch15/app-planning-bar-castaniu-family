@@ -1100,8 +1100,12 @@ async function deleteShift(e, shiftId, staffId) {
         await fetch(`/api/shifts/${shiftId}`, { method: 'DELETE', credentials: 'include' });
         currentShifts = currentShifts.filter(s => String(s._id) !== String(shiftId));
 
-        if (!currentShifts.find(s => s.staff_id === staffId)) {
-            displayedStaff = displayedStaff.filter(s => s._id !== staffId);
+        // ── FIX : pour un Joker, la ligne displayedStaff a _id = shiftId
+        const isJokerRow = staffId === '__joker__';
+        const rowId      = isJokerRow ? shiftId : staffId;
+
+        if (isJokerRow || !currentShifts.find(s => s.staff_id === staffId)) {
+            displayedStaff = displayedStaff.filter(s => s._id !== rowId);
             renderBody();
         } else {
             document.querySelector(`.shift[data-id="${shiftId}"]`)?.remove();
@@ -1219,7 +1223,19 @@ async function onUp() {
             el.classList.remove('conflict');
         }
         const idx = currentShifts.findIndex(s => String(s._id) === String(id));
-        if (idx !== -1) { currentShifts[idx].start_time = startTime; currentShifts[idx].end_time = endTime; }
+        if (idx !== -1) { 
+            currentShifts[idx].start_time = startTime; 
+            currentShifts[idx].end_time = endTime; 
+            // ── FIX : synchroniser weekFullData
+            if (weekFullData[selectedDate]) {
+                const wIdx = weekFullData[selectedDate].findIndex(s => String(s._id) === String(id));
+                if (wIdx !== -1) {
+                    weekFullData[selectedDate][wIdx].start_time = startTime;
+                    weekFullData[selectedDate][wIdx].end_time   = endTime;
+                }
+            }
+            currentShiftsWeek = Object.values(weekFullData).flat();
+        }
         renderStats();
     } finally {
         el.style.opacity   = '';
