@@ -8,7 +8,37 @@ const crypto  = require('crypto');
 
 const app = express();
 app.use(express.json());
-app.use(cors({ origin: true, credentials: true }));
+
+const allowedOrigin = process.env.NODE_ENV === 'production'
+    ? process.env.APP_URL
+    : true;
+app.use(cors({ origin: allowedOrigin, credentials: true }));
+
+// ── Utilitaires sécurité ──────────────────────────────────────────────────────
+
+function isValidObjectId(id) {
+    return typeof id === 'string' && /^[a-f\d]{24}$/i.test(id);
+}
+
+function hashToken(token) {
+    return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+// Rate limiting simple en mémoire (pas de dépendance externe)
+const rateLimitMap = new Map();
+function rateLimit(key, maxAttempts, windowMs) {
+    const now = Date.now();
+    const entry = rateLimitMap.get(key) || { count: 0, resetAt: now + windowMs };
+    if (now > entry.resetAt) { entry.count = 0; entry.resetAt = now + windowMs; }
+    entry.count++;
+    rateLimitMap.set(key, entry);
+    return entry.count > maxAttempts;
+}
+// Nettoyage toutes les heures pour éviter les fuites mémoire
+setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of rateLimitMap) { if (now > v.resetAt) rateLimitMap.delete(k); }
+}, 60 * 60 * 1000);
 app.use(express.static('public', {
     setHeaders: (res, path) => {
         if (path.endsWith('sw.js')) {
@@ -129,6 +159,9 @@ function requirePatron(req, res, next) {
 app.post('/auth/login', checkDB, async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    if (rateLimit('login:' + ip, 10, 15 * 60 * 1000))
+        return res.status(429).json({ error: 'Trop de tentatives, réessaie dans 15 min.' });
     try {
         const user = await db.collection('users').findOne({ email: email.toLowerCase().trim() });
         if (!user || !user.password_hash) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
@@ -164,7 +197,7 @@ app.post('/auth/set-password', checkDB, async (req, res) => {
     if (!token || !password) return res.status(400).json({ error: 'Token et mot de passe requis' });
     if (password.length < 8) return res.status(400).json({ error: 'Minimum 8 caractères' });
     try {
-        const user = await db.collection('users').findOne({ invite_token: token });
+        const user = await db.collection('users').findOne({ invite_token: hashToken(token) });
         if (!user)                            return res.status(404).json({ error: 'Lien invalide' });
         if (user.invite_expires < new Date()) return res.status(410).json({ error: 'Lien expiré (24h)' });
         const hash = await bcrypt.hash(password, 12);
@@ -182,7 +215,7 @@ app.patch('/auth/reset-password', checkDB, async (req, res) => {
     if (!token || !password) return res.status(400).json({ error: 'Token et mot de passe requis' });
     if (password.length < 8) return res.status(400).json({ error: 'Minimum 8 caractères' });
     try {
-        const user = await db.collection('users').findOne({ reset_token: token });
+        const user = await db.collection('users').findOne({ reset_token: hashToken(token) });
         if (!user)                           return res.status(404).json({ error: 'Lien invalide' });
         if (user.reset_expires < new Date()) return res.status(410).json({ error: 'Lien expiré (1h)' });
         const hash = await bcrypt.hash(password, 12);
@@ -198,6 +231,9 @@ app.patch('/auth/reset-password', checkDB, async (req, res) => {
 app.post('/auth/forgot-password', checkDB, async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email requis' });
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    if (rateLimit('forgot:' + ip, 3, 60 * 60 * 1000))
+        return res.status(429).json({ error: 'Trop de demandes, réessaie dans 1h.' });
     try {
         const user = await db.collection('users').findOne({ email: email.toLowerCase().trim() });
         if (!user) return res.json({ message: 'Si cet email existe, un lien a été envoyé.' });
@@ -206,7 +242,7 @@ app.post('/auth/forgot-password', checkDB, async (req, res) => {
         const expires = new Date(Date.now() + 60 * 60 * 1000);
         await db.collection('users').updateOne(
             { _id: user._id },
-            { $set: { reset_token: token, reset_expires: expires } }
+            { $set: { reset_token: hashToken(token), reset_expires: expires } }
         );
 
         const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token + '&mode=reset';
@@ -260,13 +296,13 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
             role:           userRole,
             staff_id:       userRole === 'staff' ? (staff_id || null) : null,
             name:           name || '',
-            invite_token:   token,
+            invite_token:   hashToken(token),
             invite_expires: expires,
             active:         false,
             created_at:     new Date(),
         });
 
-        if (staff_id && userRole === 'staff') {
+        if (staff_id && userRole === 'staff' && isValidObjectId(staff_id)) {
             await db.collection('staff').updateOne(
                 { _id: new ObjectId(staff_id) },
                 { $set: { email: email.toLowerCase().trim() } }
@@ -299,6 +335,7 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
 
 // Reset mot de passe par le patron
 app.patch('/api/users/:id/reset-password', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { password } = req.body;
     if (!password || password.length < 8) return res.status(400).json({ error: 'Minimum 8 caractères' });
     try {
@@ -313,6 +350,7 @@ app.patch('/api/users/:id/reset-password', checkDB, requirePatron, async (req, r
 });
 
 app.delete('/api/users/:id', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     try {
         const result = await db.collection('users').deleteOne({ _id: new ObjectId(req.params.id) });
         if (result.deletedCount === 0) return res.status(404).json({ error: 'Utilisateur introuvable' });
@@ -345,6 +383,7 @@ app.post('/api/staff', checkDB, requirePatron, async (req, res) => {
 });
 
 app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { color, name, email, venues } = req.body;
     if (!color && !name && email === undefined && venues === undefined) return res.status(400).json({ error: 'color, name, email ou venues requis' });
     try {
@@ -365,6 +404,7 @@ app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
 });
 
 app.delete('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     try {
         await db.collection('shifts').deleteMany({ staff_id: req.params.id });
         const result = await db.collection('staff').deleteOne({ _id: new ObjectId(req.params.id) });
@@ -451,6 +491,7 @@ app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
 });
 
 app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { start_time, end_time } = req.body;
     if (start_time == null && end_time == null) return res.status(400).json({ error: 'start_time ou end_time requis' });
     try {
@@ -481,6 +522,7 @@ app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
 });
 
 app.delete('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     try {
         const result = await db.collection('shifts').deleteOne({ _id: new ObjectId(req.params.id) });
         if (result.deletedCount === 0) return res.status(404).json({ error: 'Shift introuvable' });
@@ -587,6 +629,7 @@ app.get('/api/dispos/count', checkDB, requirePatron, async (req, res) => {
 });
 
 app.patch('/api/dispos/:id/confirm', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { establishment_id, create_shift } = req.body;
     if (!establishment_id) return res.status(400).json({ error: 'establishment_id requis' });
     try {
@@ -607,6 +650,7 @@ app.patch('/api/dispos/:id/confirm', checkDB, requirePatron, async (req, res) =>
 });
 
 app.patch('/api/dispos/:id/reject', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     try {
         const result = await db.collection('availabilities').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { status: 'rejected' } });
         if (result.matchedCount === 0) return res.status(404).json({ error: 'Dispo introuvable' });
@@ -672,6 +716,7 @@ app.post('/api/roles', checkDB, requirePatron, async (req, res) => {
 });
 
 app.delete('/api/roles/:id', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     try {
         await db.collection('roles').deleteOne({ _id: new ObjectId(req.params.id) });
         // Retirer ce rôle de tous les staffs

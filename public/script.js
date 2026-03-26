@@ -37,6 +37,70 @@ let draggedStaff = null;
 // Copie de jour
 let copyShiftsBuffer = []; // shifts modifiables avant confirmation
 
+// ── Modales utilitaires (remplacent confirm/prompt natifs — bloqués PWA iOS) ──
+
+function showConfirm(message, onConfirm, onCancel) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.innerHTML =
+        '<div style="background:white;border-radius:14px;padding:24px;max-width:380px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.18)">' +
+            '<p style="font-size:14px;color:#1a1a2e;line-height:1.5;margin-bottom:20px">' + message + '</p>' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+                '<button id="_mc" style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555">Annuler</button>' +
+                '<button id="_mo" style="padding:8px 16px;border-radius:8px;border:none;background:#e74c3c;color:white;font-size:13px;font-weight:600;cursor:pointer">Confirmer</button>' +
+            '</div>' +
+        '</div>';
+    document.body.appendChild(overlay);
+    const close = () => document.body.removeChild(overlay);
+    overlay.querySelector('#_mo').addEventListener('click', () => { close(); onConfirm(); });
+    overlay.querySelector('#_mc').addEventListener('click', () => { close(); if (onCancel) onCancel(); });
+    overlay.addEventListener('click', e => { if (e.target === overlay) { close(); if (onCancel) onCancel(); } });
+}
+
+function showPrompt(message, placeholder, onConfirm) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.innerHTML =
+        '<div style="background:white;border-radius:14px;padding:24px;max-width:380px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.18)">' +
+            '<p style="font-size:14px;color:#1a1a2e;margin-bottom:12px">' + message + '</p>' +
+            '<input id="_pi" type="password" placeholder="' + placeholder + '" style="width:100%;padding:9px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:14px;outline:none;margin-bottom:16px">' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+                '<button id="_pc" style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555">Annuler</button>' +
+                '<button id="_po" style="padding:8px 16px;border-radius:8px;border:none;background:#1a1a2e;color:white;font-size:13px;font-weight:600;cursor:pointer">Valider</button>' +
+            '</div>' +
+        '</div>';
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#_pi');
+    const close = () => document.body.removeChild(overlay);
+    input.focus();
+    const submit = () => { const v = input.value; close(); if (v) onConfirm(v); };
+    overlay.querySelector('#_po').addEventListener('click', submit);
+    overlay.querySelector('#_pc').addEventListener('click', close);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') close(); });
+}
+
+function showTextPrompt(message, placeholder, onConfirm) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.innerHTML =
+        '<div style="background:white;border-radius:14px;padding:24px;max-width:380px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.18)">' +
+            '<p style="font-size:14px;color:#1a1a2e;margin-bottom:12px">' + message + '</p>' +
+            '<input id="_ti" type="text" placeholder="' + placeholder + '" style="width:100%;padding:9px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:14px;outline:none;margin-bottom:16px">' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+                '<button id="_tc" style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555">Annuler</button>' +
+                '<button id="_to" style="padding:8px 16px;border-radius:8px;border:none;background:#1a1a2e;color:white;font-size:13px;font-weight:600;cursor:pointer">Valider</button>' +
+            '</div>' +
+        '</div>';
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#_ti');
+    const close = () => document.body.removeChild(overlay);
+    input.focus();
+    const submit = () => { const v = input.value.trim(); close(); if (v) onConfirm(v); };
+    overlay.querySelector('#_to').addEventListener('click', submit);
+    overlay.querySelector('#_tc').addEventListener('click', close);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') close(); });
+}
+
 // ── Utilitaires date ──────────────────────────────────────────────────────────
 
 // Parseur de date YYYY-MM-DD sans décalage timezone
@@ -235,7 +299,7 @@ async function refreshWeek() {
 async function loadWeekFullData() {
     const promises = Array.from({ length: 7 }, (_, i) => {
         const date = toDateStr(addDays(currentWeekStart, i));
-        return fetch(`/api/shifts/${currentVenueId}/${date}`)
+        return fetch(`/api/shifts/${currentVenueId}/${date}`, { credentials: 'include' })
             .then(r => r.ok ? r.json() : [])
             .then(shifts => ({ date, shifts }))
             .catch(() => ({ date, shifts: [] }));
@@ -411,7 +475,7 @@ document.getElementById('day-detail-close').addEventListener('click', () => {
 
 async function loadAllStaff() {
     try {
-        const res = await fetch('/api/staff');
+        const res = await fetch('/api/staff', { credentials: 'include' });
         allStaff  = await res.json();
     } catch {
         allStaff = [
@@ -561,7 +625,7 @@ async function loadRoles() {
 
 async function loadEstablishments() {
     try {
-        const res  = await fetch('/api/establishments');
+        const res  = await fetch('/api/establishments', { credentials: 'include' });
         const list = await res.json();
         allEstablishments = list;
         renderTabs(list);
@@ -811,8 +875,11 @@ async function createShift(staff, startTime, endTime) {
             if (rail) rail.appendChild(createShiftEl(data));
         }
 
-        // Mettre à jour le résumé semaine
+        // Mettre à jour le résumé semaine ET weekFullData
         weekSummary[selectedDate] = (weekSummary[selectedDate] || 0) + 1;
+        if (!weekFullData[selectedDate]) weekFullData[selectedDate] = [];
+        weekFullData[selectedDate].push(data);
+        currentShiftsWeek = Object.values(weekFullData).flat();
         renderWeekGrid();
         renderStats();
         showToast(`${staff.name} ajouté`);
@@ -835,6 +902,10 @@ async function deleteShift(e, shiftId, staffId) {
         }
 
         weekSummary[selectedDate] = Math.max(0, (weekSummary[selectedDate] || 1) - 1);
+        if (weekFullData[selectedDate]) {
+            weekFullData[selectedDate] = weekFullData[selectedDate].filter(s => String(s._id) !== String(shiftId));
+        }
+        currentShiftsWeek = Object.values(weekFullData).flat();
         renderWeekGrid();
         renderStats();
         showToast('Shift supprimé');
@@ -847,6 +918,10 @@ async function removeStaffFromDay(staffId) {
     currentShifts  = currentShifts.filter(s => s.staff_id !== staffId);
     displayedStaff = displayedStaff.filter(s => s._id !== staffId);
     weekSummary[selectedDate] = Math.max(0, (weekSummary[selectedDate] || toDelete.length) - toDelete.length);
+    if (weekFullData[selectedDate]) {
+        weekFullData[selectedDate] = weekFullData[selectedDate].filter(s => s.staff_id !== staffId);
+    }
+    currentShiftsWeek = Object.values(weekFullData).flat();
     renderBody();
     renderWeekGrid();
     renderStats();
@@ -1335,45 +1410,35 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function patronResetPassword(userId, userName) {
-    const pwd = prompt('Nouveau mot de passe pour ' + userName + ' (8 car. min) :');
-    if (!pwd) return;
-    if (pwd.length < 8) { showToast('Minimum 8 caractères', true); return; }
-    try {
-        const res = await fetch('/api/users/' + userId + '/reset-password', {
-            credentials: 'include',
-            method:      'PATCH',
-            headers:     { 'Content-Type': 'application/json' },
-            body:        JSON.stringify({ password: pwd }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        showToast('Mot de passe de ' + userName + ' mis à jour');
-    } catch (e) { showToast(e.message, true); }
+    showPrompt('Nouveau mot de passe pour ' + userName, '8 caractères minimum', async (pwd) => {
+        if (pwd.length < 8) { showToast('Minimum 8 caractères', true); return; }
+        try {
+            const res = await fetch('/api/users/' + userId + '/reset-password', {
+                credentials: 'include',
+                method:      'PATCH',
+                headers:     { 'Content-Type': 'application/json' },
+                body:        JSON.stringify({ password: pwd }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            showToast('Mot de passe de ' + userName + ' mis à jour');
+        } catch (e) { showToast(e.message, true); }
+    });
 }
 
 async function deleteAccount(userId, userName) {
-    if (!confirm('Supprimer le compte de ' + userName + ' ?')) return;
-    try {
-        const res  = await fetch('/api/users/' + userId, { credentials: 'include', method: 'DELETE' });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        await renderAccountsList();
-        showToast('Compte de ' + userName + ' supprimé');
-    } catch (e) { showToast(e.message, true); }
+    showConfirm('Supprimer le compte de <strong>' + userName + '</strong> ?', async () => {
+        try {
+            const res  = await fetch('/api/users/' + userId, { credentials: 'include', method: 'DELETE' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            await renderAccountsList();
+            showToast('Compte de ' + userName + ' supprimé');
+        } catch (e) { showToast(e.message, true); }
+    });
 }
 
 // ── Disponibilités — côté patron ──────────────────────────────────────────────
-
-function getMondayOf(d) {
-    const day  = d.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    const mon  = new Date(d);
-    mon.setDate(d.getDate() + diff);
-    mon.setHours(0, 0, 0, 0);
-    return mon;
-}
-function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
-function toDateStr(d)  { const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),j=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+j; }
 
 async function loadDisposBadge() {
     try {
@@ -1557,28 +1622,25 @@ function openConfirmDispo(dispo, pill, card, staffId) {
 
     // Bouton refus
     document.getElementById('confirm-dispo-cancel').onclick = async () => {
-        if (!confirm('Refuser cette dispo ?')) return;
-        modal.style.display = 'none';
-        await fetch('/api/dispos/' + dispo._id + '/reject', { credentials: 'include', method: 'PATCH' });
-        pill.style.background    = '#fff5f5';
-        pill.style.borderColor   = '#e74c3c';
-        pill.style.pointerEvents = 'none';
-        pill.style.opacity       = '0.5';
-        loadDisposBadge();
+        showConfirm('Refuser cette disponibilité ?', async () => {
+            modal.style.display = 'none';
+            await fetch('/api/dispos/' + dispo._id + '/reject', { credentials: 'include', method: 'PATCH' });
+            pill.style.background    = '#fff5f5';
+            pill.style.borderColor   = '#e74c3c';
+            pill.style.pointerEvents = 'none';
+            pill.style.opacity       = '0.5';
+            loadDisposBadge();
+        });
     };
 }
 
 function buildEstablishmentSelect() {
     const select = document.getElementById('confirm-dispo-establishment');
     select.innerHTML = '';
-    [
-        { id: 'Josy_pub',          name: 'Josy (Pub)' },
-        { id: 'Poni_restaurant',   name: 'Poni' },
-        { id: 'FanFan_restaurant', name: 'FanFan' },
-        { id: 'Caval_restaurant',  name: 'Caval' },
-    ].forEach(e => {
+    allEstablishments.forEach(e => {
         const opt = document.createElement('option');
-        opt.value = e.id; opt.textContent = e.name;
+        opt.value       = e.id;
+        opt.textContent = e.name + (e.type ? ' (' + (e.type === 'pub' ? 'Pub' : 'Resto') + ')' : '');
         select.appendChild(opt);
     });
     if (currentVenueId) select.value = currentVenueId;
@@ -1633,16 +1695,17 @@ function renderRolesList() {
                 '</span>' +
                 '<span style="flex:1;font-size:13px;font-weight:600;color:#333">' + role.name + '</span>' +
                 '<button class="staff-manage-delete" data-id="' + role._id + '">×</button>';
-            row.querySelector('.staff-manage-delete').addEventListener('click', async () => {
-                if (!confirm('Supprimer le rôle "' + role.name + '" ?')) return;
-                try {
-                    const res = await fetch('/api/roles/' + role._id, { credentials: 'include', method: 'DELETE' });
-                    if (!res.ok) throw new Error((await res.json()).error);
-                    await loadRoles();
-                    renderRolesList();
-                    renderStaffManageList(); // mettre à jour les fiches
-                    showToast('Rôle supprimé');
-                } catch (e) { showToast(e.message, true); }
+            row.querySelector('.staff-manage-delete').addEventListener('click', () => {
+                showConfirm('Supprimer le rôle <strong>' + role.name + '</strong> ?', async () => {
+                    try {
+                        const res = await fetch('/api/roles/' + role._id, { credentials: 'include', method: 'DELETE' });
+                        if (!res.ok) throw new Error((await res.json()).error);
+                        await loadRoles();
+                        renderRolesList();
+                        renderStaffManageList();
+                        showToast('Rôle supprimé');
+                    } catch (e) { showToast(e.message, true); }
+                });
             });
             list.appendChild(row);
         });
@@ -1722,22 +1785,22 @@ function renderRolesHeader() {
             '<span class="role-chip-type">' + (role.type === 'responsable' ? 'Resp.' : 'Info') + '</span>' +
             '<button class="role-chip-del" data-id="' + role._id + '" title="Supprimer">×</button>';
 
-        chip.querySelector('.role-chip-del').addEventListener('click', async () => {
-            if (!confirm('Supprimer le rôle "' + role.name + '" ? Il sera retiré de tous les employés.')) return;
-            try {
-                const res = await fetch('/api/roles/' + role._id, {
-                    credentials: 'include', method: 'DELETE'
-                });
-                if (!res.ok) throw new Error((await res.json()).error);
-                await loadRoles();
-                // Retirer le rôle de allStaff localement
-                allStaff.forEach(s => {
-                    if (s.roles) s.roles = s.roles.filter(r => r !== String(role._id));
-                });
-                renderRolesHeader();
-                renderStaffManageList();
-                showToast('Rôle "' + role.name + '" supprimé');
-            } catch (e) { showToast(e.message, true); }
+        chip.querySelector('.role-chip-del').addEventListener('click', () => {
+            showConfirm('Supprimer le rôle <strong>' + role.name + '</strong> ? Il sera retiré de tous les employés.', async () => {
+                try {
+                    const res = await fetch('/api/roles/' + role._id, {
+                        credentials: 'include', method: 'DELETE'
+                    });
+                    if (!res.ok) throw new Error((await res.json()).error);
+                    await loadRoles();
+                    allStaff.forEach(s => {
+                        if (s.roles) s.roles = s.roles.filter(r => r !== String(role._id));
+                    });
+                    renderRolesHeader();
+                    renderStaffManageList();
+                    showToast('Rôle "' + role.name + '" supprimé');
+                } catch (e) { showToast(e.message, true); }
+            });
         });
 
         container.appendChild(chip);
@@ -1747,25 +1810,40 @@ function renderRolesHeader() {
     const btnNew = document.createElement('button');
     btnNew.className   = 'btn-new-role';
     btnNew.textContent = '+ Nouveau rôle';
-    btnNew.addEventListener('click', async () => {
-        const name = prompt('Nom du rôle :');
-        if (!name) return;
-        const type = confirm('C\'est un rôle responsable ? (OK = Responsable, Annuler = Informatif)')
-            ? 'responsable' : 'informatif';
-
-        try {
-            const res = await fetch('/api/roles', {
-                credentials: 'include', method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name.trim(), type }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
-            await loadRoles();
-            renderRolesHeader();
-            renderStaffManageList();
-            showToast('Rôle "' + name + '" créé');
-        } catch (e) { showToast(e.message, true); }
+    btnNew.addEventListener('click', () => {
+        showTextPrompt('Nom du nouveau rôle', 'ex : Manager, Barman…', (name) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+            overlay.innerHTML =
+                '<div style="background:white;border-radius:14px;padding:24px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.18)">' +
+                    '<p style="font-size:14px;color:#1a1a2e;margin-bottom:16px">Type du rôle <strong>' + name + '</strong> :</p>' +
+                    '<div style="display:flex;gap:8px">' +
+                        '<button id="_rt" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #534AB7;background:#f0effe;color:#534AB7;font-size:13px;font-weight:600;cursor:pointer">Responsable</button>' +
+                        '<button id="_ri" style="flex:1;padding:10px;border-radius:8px;border:1px solid #e0e0e0;background:white;color:#555;font-size:13px;cursor:pointer">Informatif</button>' +
+                    '</div>' +
+                '</div>';
+            document.body.appendChild(overlay);
+            const close = () => document.body.removeChild(overlay);
+            const createRole = async (type) => {
+                close();
+                try {
+                    const res = await fetch('/api/roles', {
+                        credentials: 'include', method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: name.trim(), type }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error);
+                    await loadRoles();
+                    renderRolesHeader();
+                    renderStaffManageList();
+                    showToast('Rôle "' + name + '" créé');
+                } catch (e) { showToast(e.message, true); }
+            };
+            overlay.querySelector('#_rt').addEventListener('click', () => createRole('responsable'));
+            overlay.querySelector('#_ri').addEventListener('click', () => createRole('informatif'));
+            overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+        });
     });
     container.appendChild(btnNew);
 }
@@ -1846,15 +1924,16 @@ function renderStaffManageList() {
                 e.stopPropagation();
                 const roleId   = btn.dataset.roleId;
                 const roleName = btn.dataset.roleName;
-                if (!confirm('Supprimer le rôle "' + roleName + '" pour tous les membres du staff ?')) return;
-                try {
-                    const res = await fetch('/api/roles/' + roleId, { credentials: 'include', method: 'DELETE' });
-                    if (!res.ok) throw new Error((await res.json()).error);
-                    await loadRoles();
-                    await loadAllStaff();
-                    renderStaffManageList();
-                    showToast('Rôle "' + roleName + '" supprimé');
-                } catch (e) { showToast(e.message, true); }
+                showConfirm('Supprimer le rôle <strong>' + roleName + '</strong> pour tous les membres du staff ?', async () => {
+                    try {
+                        const res = await fetch('/api/roles/' + roleId, { credentials: 'include', method: 'DELETE' });
+                        if (!res.ok) throw new Error((await res.json()).error);
+                        await loadRoles();
+                        await loadAllStaff();
+                        renderStaffManageList();
+                        showToast('Rôle "' + roleName + '" supprimé');
+                    } catch (e) { showToast(e.message, true); }
+                });
             });
         });
 
@@ -1907,22 +1986,23 @@ function renderStaffManageList() {
         });
 
         // Supprimer
-        row.querySelector('.staff-manage-delete').addEventListener('click', async () => {
-            if (!confirm(`Supprimer ${staff.name} ? Tous ses shifts seront supprimés.`)) return;
-            try {
-                const res = await fetch(`/api/staff/${staff._id}`, { method: 'DELETE' });
-                if (!res.ok) throw new Error((await res.json()).error);
+        row.querySelector('.staff-manage-delete').addEventListener('click', () => {
+            showConfirm('Supprimer <strong>' + staff.name + '</strong> ? Tous ses shifts seront supprimés.', async () => {
+                try {
+                    const res = await fetch('/api/staff/' + staff._id, { method: 'DELETE', credentials: 'include' });
+                    if (!res.ok) throw new Error((await res.json()).error);
 
-                allStaff = allStaff.filter(s => s._id !== staff._id);
-                currentShifts  = currentShifts.filter(s => s.staff_id !== staff._id);
-                displayedStaff = displayedStaff.filter(s => s._id !== staff._id);
+                    allStaff = allStaff.filter(s => s._id !== staff._id);
+                    currentShifts  = currentShifts.filter(s => s.staff_id !== staff._id);
+                    displayedStaff = displayedStaff.filter(s => s._id !== staff._id);
 
-                renderSidebar();
-                renderStaffManageList();
-                renderBody();
-                renderStats();
-                showToast(`${staff.name} supprimé`);
-            } catch (e) { showToast(e.message || 'Erreur suppression', true); }
+                    renderSidebar();
+                    renderStaffManageList();
+                    renderBody();
+                    renderStats();
+                    showToast(staff.name + ' supprimé');
+                } catch (e) { showToast(e.message || 'Erreur suppression', true); }
+            });
         });
 
         list.appendChild(row);
