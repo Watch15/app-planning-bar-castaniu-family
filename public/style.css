@@ -1145,3 +1145,50 @@ body {
     .tl-corner { width: 55px; }
     .row-label  { width: 55px; font-size: 10px; padding: 0 4px; }
 }
+
+/* ── Joker ───────────────────────────────────────────────────────────────────*/
+
+/* Carte Joker dans la sidebar */
+.staff-card-joker {
+    border: 1.5px dashed #bdc3c7;
+    background: #f8f9fa;
+    cursor: grab;
+}
+.staff-card-joker:hover { border-color: #95a5a6; background: white; }
+
+.joker-icon {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #bdc3c7; color: white;
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+
+.staff-role-badge.joker {
+    background: #f0f0f0;
+    color: #888;
+    font-style: italic;
+}
+
+/* Ligne Joker dans la timeline */
+.staff-row-joker .row-label {
+    background: #fafafa;
+}
+
+.joker-dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #ddd; color: #999;
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Shift Joker sur la timeline */
+.shift-joker {
+    border: 1.5px dashed #95a5a6 !important;
+    opacity: 0.85;
+}
+.shift-joker .shift-name {
+    font-style: italic;
+    color: #555 !important;
+}

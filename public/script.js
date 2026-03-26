@@ -20,6 +20,15 @@ const MONTH_NAMES     = ['janvier','février','mars','avril','mai','juin','juill
 
 let currentUser    = null;  // utilisateur connecté
 let allStaff       = [];
+
+// ── Joker — slot non attribué ─────────────────────────────────────────────────
+const JOKER_STAFF = {
+    _id:   '__joker__',
+    name:  'Joker',
+    color: '#95a5a6',
+    isJoker: true,
+};
+let _jokerCount = 0; // compteur pour nommer Joker 1, Joker 2...
 let currentVenueId    = null;
 let confirmedDispos   = []; // dispos confirmées du jour affiché
 let allEstablishments = []; // tous les établissements
@@ -642,6 +651,30 @@ function renderSidebar() {
 
         list.appendChild(card);
     });
+
+    // ── Carte Joker (toujours en bas de la sidebar) ───────────────────────────
+    const jokerCard = document.createElement('div');
+    jokerCard.className = 'staff-card staff-card-joker';
+    jokerCard.draggable = true;
+    jokerCard.dataset.staffId = '__joker__';
+    jokerCard.innerHTML =
+        '<span class="joker-icon">?</span>' +
+        '<span class="staff-info-name">Joker</span>' +
+        '<span class="staff-role-badge joker">Non désigné</span>';
+
+    jokerCard.addEventListener('dragstart', e => {
+        // Créer un Joker numéroté unique à chaque drag
+        _jokerCount++;
+        const joker = {
+            _id:     '__joker__',
+            name:    'Joker ' + _jokerCount,
+            color:   '#95a5a6',
+            isJoker: true,
+        };
+        onSidebarDragStart(e, joker, jokerCard);
+    });
+    jokerCard.addEventListener('dragend', () => onSidebarDragEnd(jokerCard));
+    list.appendChild(jokerCard);
 }
 
 // ── Établissements ────────────────────────────────────────────────────────────
@@ -707,7 +740,11 @@ function renderTabs(list) {
 function buildDisplayedStaff() {
     const seen = new Map();
     currentShifts.forEach(s => {
-        if (!seen.has(s.staff_id)) {
+        if (s.is_joker || s.staff_id === '__joker__') {
+            // Chaque shift Joker = une ligne distincte (clé = shift _id)
+            const rowId = String(s._id);
+            seen.set(rowId, { _id: rowId, name: s.staff_name, color: s.color || '#95a5a6', isJoker: true });
+        } else if (!seen.has(s.staff_id)) {
             seen.set(s.staff_id, { _id: s.staff_id, name: s.staff_name, color: s.color });
         }
     });
@@ -742,15 +779,18 @@ function renderBody() {
 
 function createStaffRow(staff) {
     const row = document.createElement('div');
-    row.className      = 'staff-row';
+    row.className      = 'staff-row' + (staff.isJoker ? ' staff-row-joker' : '');
     row.dataset.staffId = staff._id;
 
     const label = document.createElement('div');
     label.className = 'row-label';
-    label.innerHTML = `
-        <span class="row-label-dot" style="background:${staff.color}"></span>
-        <span>${staff.name}</span>
-        <button class="row-delete" onclick="removeStaffFromDay('${staff._id}')">×</button>`;
+    label.innerHTML = staff.isJoker
+        ? `<span class="joker-dot">?</span>
+           <span style="font-style:italic;color:#888">${staff.name}</span>
+           <button class="row-delete" onclick="removeStaffFromDay('${staff._id}')">×</button>`
+        : `<span class="row-label-dot" style="background:${staff.color}"></span>
+           <span>${staff.name}</span>
+           <button class="row-delete" onclick="removeStaffFromDay('${staff._id}')">×</button>`;
 
     const rail = document.createElement('div');
     rail.className      = 'row-rail';
@@ -784,13 +824,19 @@ function createStaffRow(staff) {
 
 function createShiftEl(shift) {
     const el = document.createElement('div');
-    el.className    = 'shift';
+    el.className    = 'shift' + (shift.is_joker || shift.staff_id === '__joker__' ? ' shift-joker' : '');
     el.dataset.id   = shift._id;
 
     const bgColor   = shift.color || '#3498db';
     const textColor = textColorFor(bgColor);
-    el.style.background = bgColor;
-    el.style.color      = textColor;
+    if (shift.is_joker || shift.staff_id === '__joker__') {
+        el.style.background = 'repeating-linear-gradient(45deg, #bdc3c7, #bdc3c7 4px, #ecf0f1 4px, #ecf0f1 10px)';
+        el.style.color      = '#555';
+        el.style.border     = '1.5px dashed #95a5a6';
+    } else {
+        el.style.background = bgColor;
+        el.style.color      = textColor;
+    }
 
     const left  = (shift.start_time - START_HOUR) * PX_PER_HOUR;
     const width = (shift.end_time   - shift.start_time) * PX_PER_HOUR;
@@ -882,14 +928,18 @@ function onSidebarDragEnd(card) {
 
 async function createShift(staff, startTime, endTime) {
     try {
+        // Pour un Joker : staff_id = '__joker__', nom unique (Joker 1, Joker 2…)
+        const staffId   = staff.isJoker ? '__joker__' : staff._id;
+        const staffName = staff.name; // déjà "Joker 1", "Joker 2"... ou le vrai nom
         const res = await fetch('/api/shifts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                staff_id: staff._id, staff_name: staff.name,
+                staff_id: staffId, staff_name: staffName,
                 establishment_id: currentVenueId, date: selectedDate,
                 start_time: startTime, end_time: endTime,
                 color: staff.color,
+                is_joker: !!staff.isJoker,
             }),
         });
         const data = await res.json();
@@ -898,7 +948,13 @@ async function createShift(staff, startTime, endTime) {
 
         currentShifts.push(data);
 
-        if (!displayedStaff.find(s => s._id === staff._id)) {
+        if (staff.isJoker) {
+            // Chaque Joker a une ligne dédiée identifiée par son shift_id
+            data._joker_row_id = String(data._id);
+            const jokerStaff = { _id: data._joker_row_id, name: staffName, color: staff.color, isJoker: true };
+            displayedStaff.push(jokerStaff);
+            renderBody();
+        } else if (!displayedStaff.find(s => s._id === staff._id)) {
             displayedStaff.push({ _id: staff._id, name: staff.name, color: staff.color });
             renderBody();
         } else {
@@ -943,14 +999,28 @@ async function deleteShift(e, shiftId, staffId) {
     } catch { showToast('Erreur suppression', true); }
 }
 
-async function removeStaffFromDay(staffId) {
-    const toDelete = currentShifts.filter(s => s.staff_id === staffId);
-    for (const s of toDelete) await fetch(`/api/shifts/${s._id}`, { method: 'DELETE' });
-    currentShifts  = currentShifts.filter(s => s.staff_id !== staffId);
-    displayedStaff = displayedStaff.filter(s => s._id !== staffId);
+async function removeStaffFromDay(rowId) {
+    // Pour un Joker, rowId = _id du shift. Pour le staff normal, rowId = staff_id.
+    const isJokerRow = displayedStaff.find(s => s._id === rowId && s.isJoker);
+    let toDelete;
+    if (isJokerRow) {
+        // Supprimer uniquement le shift dont l'_id correspond
+        toDelete = currentShifts.filter(s => String(s._id) === rowId);
+    } else {
+        toDelete = currentShifts.filter(s => s.staff_id === rowId);
+    }
+    for (const s of toDelete) await fetch(`/api/shifts/${s._id}`, { method: 'DELETE', credentials: 'include' });
+    if (isJokerRow) {
+        currentShifts  = currentShifts.filter(s => String(s._id) !== rowId);
+    } else {
+        currentShifts  = currentShifts.filter(s => s.staff_id !== rowId);
+    }
+    displayedStaff = displayedStaff.filter(s => s._id !== rowId);
     weekSummary[selectedDate] = Math.max(0, (weekSummary[selectedDate] || toDelete.length) - toDelete.length);
     if (weekFullData[selectedDate]) {
-        weekFullData[selectedDate] = weekFullData[selectedDate].filter(s => s.staff_id !== staffId);
+        weekFullData[selectedDate] = weekFullData[selectedDate].filter(s =>
+            isJokerRow ? String(s._id) !== rowId : s.staff_id !== rowId
+        );
     }
     currentShiftsWeek = Object.values(weekFullData).flat();
     renderBody();

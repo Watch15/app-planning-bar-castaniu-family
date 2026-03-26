@@ -472,23 +472,32 @@ app.get('/api/my-shifts', checkDB, requireAuth, async (req, res) => {
 // ── Shifts — écriture ─────────────────────────────────────────────────────────
 
 app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
-    const { staff_id, staff_name, establishment_id, date, start_time, end_time, color } = req.body;
+    const { staff_id, staff_name, establishment_id, date, start_time, end_time, color, is_joker } = req.body;
     if (!staff_id || !establishment_id || !date || start_time == null || end_time == null)
         return res.status(400).json({ error: 'staff_id, establishment_id, date, start_time, end_time requis' });
     if (end_time <= start_time) return res.status(400).json({ error: 'end_time > start_time requis' });
     try {
-        const conflicts = await db.collection('shifts').find({
-            staff_id, date, establishment_id: { $ne: establishment_id }
-        }).toArray();
         const warnings = [];
-        for (const s of conflicts) {
-            const gap = Math.min(Math.abs(start_time - s.end_time), Math.abs(s.start_time - end_time));
-            if (start_time < s.end_time && end_time > s.start_time)
-                warnings.push({ type: 'overlap', message: 'Chevauchement avec ' + s.establishment_id });
-            else if (gap < 1)
-                warnings.push({ type: 'gap', message: 'Seulement ' + Math.round(gap * 60) + ' min de coupure avec ' + s.establishment_id });
+        // Pas de détection de conflit pour les Jokers (staff non désigné)
+        if (!is_joker && staff_id !== '__joker__') {
+            const conflicts = await db.collection('shifts').find({
+                staff_id, date, establishment_id: { $ne: establishment_id }
+            }).toArray();
+            for (const s of conflicts) {
+                const gap = Math.min(Math.abs(start_time - s.end_time), Math.abs(s.start_time - end_time));
+                if (start_time < s.end_time && end_time > s.start_time)
+                    warnings.push({ type: 'overlap', message: 'Chevauchement avec ' + s.establishment_id });
+                else if (gap < 1)
+                    warnings.push({ type: 'gap', message: 'Seulement ' + Math.round(gap * 60) + ' min de coupure avec ' + s.establishment_id });
+            }
         }
-        const shift  = { staff_id, staff_name: staff_name || '', establishment_id, date, start_time: parseFloat(start_time), end_time: parseFloat(end_time), color: color || '#3498db' };
+        const shift = {
+            staff_id, staff_name: staff_name || '',
+            establishment_id, date,
+            start_time: parseFloat(start_time), end_time: parseFloat(end_time),
+            color: color || '#95a5a6',
+            ...(is_joker || staff_id === '__joker__' ? { is_joker: true } : {}),
+        };
         const result = await db.collection('shifts').insertOne(shift);
         res.status(201).json({ ...shift, _id: result.insertedId, warnings });
     } catch (e) { res.status(500).json({ error: e.message }); }
