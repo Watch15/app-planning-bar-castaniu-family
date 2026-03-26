@@ -28,7 +28,6 @@ const JOKER_STAFF = {
     color: '#95a5a6',
     isJoker: true,
 };
-let _jokerCount = 0; // compteur pour nommer Joker 1, Joker 2...
 let currentVenueId    = null;
 let confirmedDispos   = []; // dispos confirmées du jour affiché
 let allEstablishments = []; // tous les établissements
@@ -682,7 +681,7 @@ function renderSidebar() {
         _jokerCount++;
         const joker = {
             _id:     '__joker__',
-            name:    'Joker ' + _jokerCount,
+            name:    'Joker ',
             color:   '#95a5a6',
             isJoker: true,
         };
