@@ -317,16 +317,31 @@ async function refreshWeek() {
 }
 
 async function loadWeekFullData() {
-    const promises = Array.from({ length: 7 }, (_, i) => {
-        const date = toDateStr(addDays(currentWeekStart, i));
-        return fetch(`/api/shifts/${currentVenueId}/${date}`, { credentials: 'include' })
-            .then(r => r.ok ? r.json() : [])
-            .then(shifts => ({ date, shifts }))
-            .catch(() => ({ date, shifts: [] }));
-    });
-    const results = await Promise.all(promises);
-    weekFullData = {};
-    results.forEach(({ date, shifts }) => { weekFullData[date] = shifts; });
+    const from = toDateStr(currentWeekStart);
+    const to   = toDateStr(addDays(currentWeekStart, 6));
+    try {
+        const res = await fetch(
+            `/api/week-full/${currentVenueId}?from=${from}&to=${to}`,
+            { credentials: 'include' }
+        );
+        if (res.ok) {
+            weekFullData = await res.json();
+        } else {
+            throw new Error('week-full failed');
+        }
+    } catch {
+        // Fallback : 7 appels individuels si la route n'est pas encore disponible
+        const promises = Array.from({ length: 7 }, (_, i) => {
+            const date = toDateStr(addDays(currentWeekStart, i));
+            return fetch(`/api/shifts/${currentVenueId}/${date}`, { credentials: 'include' })
+                .then(r => r.ok ? r.json() : [])
+                .then(shifts => ({ date, shifts }))
+                .catch(() => ({ date, shifts: [] }));
+        });
+        const results = await Promise.all(promises);
+        weekFullData = {};
+        results.forEach(({ date, shifts }) => { weekFullData[date] = shifts; });
+    }
 }
 
 // ── Résumé semaine depuis l'API ────────────────────────────────────────────────
@@ -926,7 +941,11 @@ function onSidebarDragEnd(card) {
 
 // ── Créer un shift ────────────────────────────────────────────────────────────
 
+let _createShiftPending = false; // anti-doublon drop
+
 async function createShift(staff, startTime, endTime) {
+    if (_createShiftPending) return;
+    _createShiftPending = true;
     try {
         // Pour un Joker : staff_id = '__joker__', nom unique (Joker 1, Joker 2…)
         const staffId   = staff.isJoker ? '__joker__' : staff._id;
@@ -934,6 +953,7 @@ async function createShift(staff, startTime, endTime) {
         const res = await fetch('/api/shifts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({
                 staff_id: staffId, staff_name: staffName,
                 establishment_id: currentVenueId, date: selectedDate,
@@ -971,6 +991,7 @@ async function createShift(staff, startTime, endTime) {
         renderStats();
         showToast(`${staff.name} ajouté`);
     } catch { showToast('Erreur réseau', true); }
+    finally { _createShiftPending = false; }
 }
 
 // ── Supprimer un shift ────────────────────────────────────────────────────────
@@ -978,7 +999,7 @@ async function createShift(staff, startTime, endTime) {
 async function deleteShift(e, shiftId, staffId) {
     e.stopPropagation();
     try {
-        await fetch(`/api/shifts/${shiftId}`, { method: 'DELETE' });
+        await fetch(`/api/shifts/${shiftId}`, { method: 'DELETE', credentials: 'include' });
         currentShifts = currentShifts.filter(s => String(s._id) !== String(shiftId));
 
         if (!currentShifts.find(s => s.staff_id === staffId)) {
@@ -1074,28 +1095,38 @@ async function onUp() {
     document.removeEventListener('mouseup',   onUp);
     if (!activeEl) return;
 
-    const id        = activeEl.dataset.id;
-    const startTime = START_HOUR + activeEl.offsetLeft / PX_PER_HOUR;
-    const endTime   = startTime  + activeEl.offsetWidth / PX_PER_HOUR;
+    // Anti-doublon : ignorer si un save est déjà en cours sur cet élément
+    if (activeEl.dataset.saving) { activeEl = null; activeAction = null; return; }
+    activeEl.dataset.saving = '1';
+    activeEl.style.opacity  = '0.6';
 
-    const res  = await fetch(`/api/shifts/${id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ start_time: startTime, end_time: endTime }),
-    });
-    const data = await res.json();
-    if (data.warnings?.length) {
-        const shift = currentShifts.find(s => String(s._id) === String(id));
-        showConflictAlert(data.warnings, shift?.staff_name || '');
-        activeEl.classList.add('conflict');
-    } else {
-        activeEl.classList.remove('conflict');
-    }
+    const el        = activeEl; // capturer avant reset
+    const id        = el.dataset.id;
+    const startTime = START_HOUR + el.offsetLeft / PX_PER_HOUR;
+    const endTime   = startTime  + el.offsetWidth / PX_PER_HOUR;
 
-    const idx = currentShifts.findIndex(s => String(s._id) === String(id));
-    if (idx !== -1) { currentShifts[idx].start_time = startTime; currentShifts[idx].end_time = endTime; }
-
-    renderStats();
     activeEl = null; activeAction = null;
+
+    try {
+        const res  = await fetch(`/api/shifts/${id}`, {
+            method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ start_time: startTime, end_time: endTime }),
+        });
+        const data = await res.json();
+        if (data.warnings?.length) {
+            const shift = currentShifts.find(s => String(s._id) === String(id));
+            showConflictAlert(data.warnings, shift?.staff_name || '');
+            el.classList.add('conflict');
+        } else {
+            el.classList.remove('conflict');
+        }
+        const idx = currentShifts.findIndex(s => String(s._id) === String(id));
+        if (idx !== -1) { currentShifts[idx].start_time = startTime; currentShifts[idx].end_time = endTime; }
+        renderStats();
+    } finally {
+        el.style.opacity   = '';
+        delete el.dataset.saving;
+    }
 }
 
 function updateShiftText(el) {
@@ -1195,7 +1226,7 @@ document.getElementById('copy-modal-confirm').addEventListener('click', async ()
 
     try {
         const res = await fetch('/api/copy-day', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 establishment_id: currentVenueId,
                 to_dates: targetDates,
@@ -2057,9 +2088,10 @@ function renderStaffManageList() {
 
             try {
                 const res = await fetch('/api/staff/' + staff._id, {
-                    method:  'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body:    JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues, roles: newRoles }),
+                    method:      'PATCH',
+                    credentials: 'include',
+                    headers:     { 'Content-Type': 'application/json' },
+                    body:        JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues, roles: newRoles }),
                 });
                 if (!res.ok) throw new Error((await res.json()).error);
 
@@ -2132,6 +2164,7 @@ document.getElementById('btn-add-staff').addEventListener('click', async () => {
     try {
         const res = await fetch('/api/staff', {
             method:  'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ name, color, email }),
         });
@@ -2198,7 +2231,7 @@ async function updateStaffColor(staff, newColor, card) {
     });
     try {
         await fetch(`/api/staff/${staff._id}`, {
-            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ color: newColor }),
         });
         showToast(`Couleur de ${staff.name} mise à jour`);

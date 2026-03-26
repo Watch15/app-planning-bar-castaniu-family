@@ -469,6 +469,27 @@ app.get('/api/my-shifts', checkDB, requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET tous les shifts de la semaine (remplace 7 appels /api/shifts/:id/:date)
+app.get('/api/week-full/:establishmentId', checkDB, requireAuth, async (req, res) => {
+    const { from, to } = req.query;
+    if (!from || !to) return res.status(400).json({ error: 'from et to requis (YYYY-MM-DD)' });
+    try {
+        const shifts = await db.collection('shifts').find({
+            establishment_id: req.params.establishmentId,
+            date: { $gte: from, $lte: to },
+        }).sort({ date: 1, start_time: 1 }).toArray();
+
+        // Grouper par date
+        const byDate = {};
+        for (let d = new Date(from + 'T12:00:00'); d <= new Date(to + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+            const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+            byDate[key] = [];
+        }
+        shifts.forEach(s => { if (byDate[s.date] !== undefined) byDate[s.date].push(s); });
+        res.json(byDate);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Shifts — écriture ─────────────────────────────────────────────────────────
 
 app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
