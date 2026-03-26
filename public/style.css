@@ -1019,3 +1019,134 @@ body {
     color: #534AB7;
     font-weight: 600;
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE MOBILE — patron
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Wrapper de scroll horizontal synchronisé pour header + body de la timeline */
+.timeline-scroll {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #ddd transparent;
+}
+.timeline-scroll::-webkit-scrollbar { height: 4px; }
+.timeline-scroll::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+
+/* Le coin (nom du staff) reste sticky à gauche pendant le scroll */
+.timeline-scroll .timeline-top,
+.timeline-scroll .timeline-body { min-width: max-content; }
+
+@media (max-width: 768px) {
+
+    /* App — moins de padding */
+    .app { padding: 8px; gap: 8px; }
+
+    /* Header — empiler les actions sur 2 lignes */
+    .header {
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px 12px;
+        border-radius: 12px;
+    }
+    .header-left  { gap: 5px; flex-wrap: wrap; }
+    .header-right { gap: 5px; }
+    .date-display { display: none; }
+    .user-badge   { display: none; }
+
+    /* Boutons header — plus petits */
+    .btn-manage-staff, .btn-logout {
+        font-size: 11px;
+        padding: 5px 9px;
+    }
+
+    /* Venue bar */
+    .venue-bar { padding: 6px 10px; }
+
+    /* Week nav */
+    .week-nav { padding: 8px 10px; gap: 6px; flex-wrap: wrap; }
+    .week-label { font-size: 12px; }
+    .view-tabs { margin-left: auto; }
+
+    /* Week grid — 4 colonnes sur mobile */
+    .week-grid {
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 5px;
+    }
+    .day-card { border-radius: 8px; }
+    .day-name { font-size: 10px; }
+    .day-num  { font-size: 14px; }
+    .day-shift-count { font-size: 10px; }
+
+    /* Day detail header — masquer les boutons secondaires */
+    .day-detail-header {
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px 10px;
+    }
+    .btn-copy-day { display: none; }
+    #btn-publish-week { font-size: 11px; padding: 4px 9px; }
+    .day-detail-title { font-size: 13px; min-width: 0; }
+
+    /* Timeline — scroll horizontal natif */
+    .day-detail { overflow: visible; }
+    .timeline-top  { position: sticky; top: 0; z-index: 20; }
+    .tl-corner { width: 70px; }
+    .row-label { width: 70px; font-size: 11px; padding: 0 6px; }
+    .tl-hour   { width: 50px; font-size: 10px; }
+    .row-rail  { min-width: calc(16 * 50px); }
+
+    /* Shifts — texte plus petit */
+    .shift-name  { font-size: 10px; }
+    .shift-hours { font-size: 9px; }
+
+    /* Staff bar — scrollable horizontalement */
+    .staff-bar { padding: 8px 10px 10px; }
+    .staff-bar-hint { display: none; }
+    .staff-list { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+    .color-controls { display: none !important; }
+
+    /* Stats — 2 colonnes */
+    .stats-bar { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    .stat-value { font-size: 18px; }
+
+    /* Modales — plein écran sur mobile */
+    .modal {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 90vh;
+        border-radius: 16px 16px 0 0;
+        margin-top: auto;
+    }
+    .modal-overlay { align-items: flex-end; }
+
+    /* Staff manage list — colonne au lieu de ligne */
+    .staff-manage-row {
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 10px;
+    }
+    .staff-manage-info { width: 100%; }
+
+    /* Week full — dashboard/agenda */
+    .week-full { overflow-x: auto; }
+    .dashboard-table { font-size: 11px; }
+    .dashboard-table th,
+    .dashboard-table td { padding: 6px 4px; }
+    .col-staff { max-width: 80px; }
+    .dash-shift-pill { font-size: 10px; padding: 2px 5px; }
+    .dashboard-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+    /* Week grid — 3 colonnes sur très petit écran */
+    .week-grid { grid-template-columns: repeat(3, 1fr) !important; }
+
+    /* Header — masquer toggle dispos */
+    #dispo-toggle-label { display: none; }
+
+    /* Timeline header collé */
+    .tl-corner { width: 55px; }
+    .row-label  { width: 55px; font-size: 10px; padding: 0 4px; }
+}

@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Planning Bar">
     <link rel="apple-touch-icon" href="/icons/icon-192.png">
-    <title>Planning</title>
+    <title>Planning Castanui Family</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -41,7 +41,7 @@
 
     <!-- ── Header niveau 2 : établissements ── -->
     <div class="venue-bar">
-        <span class="venue-bar-label"> Affaires </span>
+        <span class="venue-bar-label">Affaires ·</span>
         <div id="venue-tabs" style="display:contents"></div>
     </div>
 
@@ -81,12 +81,14 @@
             <button class="day-detail-close" id="day-detail-close">×</button>
         </div>
 
-        <!-- Timeline -->
-        <div class="timeline-top">
-            <div class="tl-corner"></div>
-            <div class="timeline-header" id="timeline-header"></div>
+        <!-- Timeline — wrapper scroll horizontal synchronisé -->
+        <div class="timeline-scroll" id="timeline-scroll">
+            <div class="timeline-top">
+                <div class="tl-corner"></div>
+                <div class="timeline-header" id="timeline-header"></div>
+            </div>
+            <div class="timeline-body" id="timeline-body"></div>
         </div>
-        <div class="timeline-body" id="timeline-body"></div>
 
     </div>
 
@@ -123,7 +125,7 @@
         <!-- Onglet Membres -->
         <div id="staff-tab-staff">
             <div class="staff-manage-list" id="staff-manage-list"></div>
-            <div class="staff-add-form">    
+            <div class="staff-add-form">
                 <div class="staff-add-title">Ajouter u  n membre</div>
                 <div class="staff-add-fields">
                     <input type="text"  id="new-staff-name"  class="staff-input" placeholder="Pr&eacute;nom Nom">

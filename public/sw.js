@@ -1,8 +1,5 @@
-const CACHE = 'planning-bar-v1';
+const CACHE = 'planning-bar-v3';
 const STATIC = [
-    '/',
-    '/index.html',
-    '/planning.html',
     '/login.html',
     '/set-password.html',
     '/script.js',
@@ -54,7 +51,7 @@ self.addEventListener('fetch', e => {
                 }
                 return res;
             });
-        }).catch(() => caches.match('/planning.html'))
+        }).catch(() => caches.match('/login.html'))
     );
 });
 

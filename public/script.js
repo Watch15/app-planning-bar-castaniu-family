@@ -1,9 +1,16 @@
 // ── Constantes ───────────────────────────────────────────────────────────────
 
-const PX_PER_HOUR = 60;
 const START_HOUR  = 10;
 const END_HOUR    = 26;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
+
+// PX_PER_HOUR dynamique selon la largeur d'écran (50px sur mobile, 60px desktop)
+function getPxPerHour() {
+    return window.innerWidth <= 480 ? 50 : (window.innerWidth <= 768 ? 50 : 60);
+}
+// Alias constant pour la compatibilité — recalculé à chaque action drag/resize
+let PX_PER_HOUR = 60;
+function refreshPxPerHour() { PX_PER_HOUR = getPxPerHour(); }
 
 const DAY_NAMES_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 const DAY_NAMES_LONG  = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
@@ -179,18 +186,22 @@ async function init() {
 }
 
 async function checkAuth() {
-    try {
-        const res = await fetch('/auth/me', { credentials: 'include' });
-        if (res.status === 401) {
-            window.location.href = '/login.html';
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const res = await fetch('/auth/me', { credentials: 'include' });
+            if (res.status === 401) { window.location.href = '/login.html'; return null; }
+            if (!res.ok) { if (attempt === 0) { await new Promise(r => setTimeout(r, 800)); continue; } break; }
+            const data = await res.json();
+            // Si un staff arrive sur la page patron, rediriger vers son planning
+            if (data.user?.role === 'staff') { window.location.href = '/planning.html'; return null; }
+            return data.user;
+        } catch {
+            if (attempt === 0) { await new Promise(r => setTimeout(r, 800)); continue; }
             return null;
         }
-        const data = await res.json();
-        return data.user;
-    } catch {
-        window.location.href = '/login.html';
-        return null;
     }
+    window.location.href = '/login.html';
+    return null;
 }
 
 function renderUserBadge(user) {
@@ -605,21 +616,7 @@ function renderSidebar() {
 async function loadRoles() {
     try {
         const res = await fetch('/api/roles', { credentials: 'include' });
-        if (res.ok) {
-            allRoles = await res.json();
-            // Créer le rôle Responsable par défaut s'il n'existe pas
-            if (!allRoles.some(r => r.type === 'responsable')) {
-                const cr = await fetch('/api/roles', {
-                    credentials: 'include', method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: 'Responsable', type: 'responsable' }),
-                });
-                if (cr.ok) {
-                    const res2 = await fetch('/api/roles', { credentials: 'include' });
-                    if (res2.ok) allRoles = await res2.json();
-                }
-            }
-        }
+        if (res.ok) allRoles = await res.json();
     } catch { allRoles = []; }
 }
 
@@ -685,6 +682,7 @@ function buildDisplayedStaff() {
 }
 
 function renderTimelineHeader() {
+    refreshPxPerHour();
     const hdr = document.getElementById('timeline-header');
     hdr.innerHTML = '';
     for (let h = START_HOUR; h <= END_HOUR; h++) {
@@ -933,6 +931,7 @@ async function removeStaffFromDay(staffId) {
 document.addEventListener('mousedown', e => {
     const shiftEl = e.target.closest('.shift');
     if (!shiftEl || e.target.closest('.shift-delete')) return;
+    refreshPxPerHour();
 
     activeEl   = shiftEl;
     startX     = e.clientX;

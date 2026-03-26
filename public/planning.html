@@ -322,14 +322,25 @@ function fmtDuration(h) {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 async function checkAuth() {
-    try {
-        const res = await fetch('/auth/me', { credentials: 'include' });
-        if (res.status === 401) { window.location.href = '/login.html'; return null; }
-        return (await res.json()).user;
-    } catch {
-        window.location.href = '/login.html';
-        return null;
+    // Retry une fois pour éviter les faux-positifs réseau au démarrage PWA
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const res = await fetch('/auth/me', { credentials: 'include' });
+            if (res.status === 401) { window.location.href = '/login.html'; return null; }
+            if (!res.ok) { if (attempt === 0) { await new Promise(r => setTimeout(r, 800)); continue; } break; }
+            const data = await res.json();
+            // Si par erreur un patron arrive ici, rediriger vers son interface
+            if (data.user?.role === 'patron') { window.location.href = '/index.html'; return null; }
+            return data.user;
+        } catch {
+            if (attempt === 0) { await new Promise(r => setTimeout(r, 800)); continue; }
+            // Après retry, si réseau vraiment indisponible : rester sur la page sans rediriger
+            // (le SW sert la page en cache, on ne veut pas boucler)
+            return null;
+        }
     }
+    window.location.href = '/login.html';
+    return null;
 }
 
 async function logout() {
