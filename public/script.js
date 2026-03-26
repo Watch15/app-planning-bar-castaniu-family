@@ -441,9 +441,27 @@ async function loadDayDetail(dateStr) {
 }
 
 async function loadPublishButton(dateStr) {
+    // Le weekStart à publier = la semaine AFFICHÉE dans la timeline
+    // Le staff consulte getMondayOf(addDays(new Date(), 7)) = semaine suivante
+    // Pour qu'ils se correspondent, on publie la semaine affichée telle quelle
     const weekStart = toDateStr(getMondayOf(parseDate(dateStr)));
     const btn = document.getElementById('btn-publish-week');
     if (!btn) return;
+
+    // Calculer si c'est la semaine prochaine par rapport à aujourd'hui
+    const todayMonday   = toDateStr(getMondayOf(new Date()));
+    const nextMonday    = toDateStr(addDays(getMondayOf(new Date()), 7));
+    const isNextWeek    = weekStart === nextMonday;
+    const isCurrentWeek = weekStart === todayMonday;
+    const isPastWeek    = weekStart < todayMonday;
+
+    // Label contextuel sur le bouton
+    btn.dataset.weekStart = weekStart;
+    btn.dataset.weekLabel = isNextWeek    ? 'Semaine prochaine'
+                          : isCurrentWeek ? 'Semaine en cours'
+                          : isPastWeek    ? 'Semaine passée'
+                          : 'Semaine à venir';
+
     try {
         const res  = await fetch('/api/publish/' + weekStart, { credentials: 'include' });
         const data = await res.json();
@@ -452,28 +470,51 @@ async function loadPublishButton(dateStr) {
 }
 
 function updatePublishBtn(btn, published, weekStart) {
+    const label = btn.dataset.weekLabel || 'la semaine';
+    const nextMonday = toDateStr(addDays(getMondayOf(new Date()), 7));
+    const isNextWeek = btn.dataset.weekStart === nextMonday;
+
     if (published) {
-        btn.textContent       = '✓ Planning publié';
+        btn.textContent       = '✓ Publié — ' + label;
         btn.style.background  = '#eafaf1';
         btn.style.borderColor = '#2ecc71';
         btn.style.color       = '#27ae60';
+        btn.title             = '';
     } else {
-        btn.textContent       = 'Publier la semaine';
-        btn.style.background  = '#f0effe';
-        btn.style.borderColor = '#7F77DD';
-        btn.style.color       = '#534AB7';
+        btn.textContent       = 'Publier — ' + label;
+        btn.style.background  = isNextWeek ? '#f0effe' : '#fff9e6';
+        btn.style.borderColor = isNextWeek ? '#7F77DD'  : '#f39c12';
+        btn.style.color       = isNextWeek ? '#534AB7'  : '#d68910';
+        btn.title             = isNextWeek ? '' : 'Le staff consulte la semaine prochaine — navigue sur la semaine du ' + nextMonday + ' pour la leur publier';
     }
     btn.onclick = async () => {
+        // Si le patron n'est pas sur la semaine prochaine, lui proposer d'y aller
+        if (!isNextWeek && !published) {
+            showConfirm(
+                'Le staff consulte la semaine prochaine (<strong>' + nextMonday + '</strong>).<br><br>' +
+                'Tu es actuellement sur <strong>' + label + '</strong>.<br><br>' +
+                'Veux-tu publier <strong>cette semaine-ci</strong> quand même ?',
+                async () => doPublish(),
+            );
+            return;
+        }
+        await doPublish();
+    };
+
+    async function doPublish() {
         const newState = !published;
-        await fetch('/api/publish/' + weekStart, {
+        const res = await fetch('/api/publish/' + weekStart, {
             credentials: 'include', method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ published: newState }),
         });
+        if (!res.ok) { showToast('Erreur lors de la publication', true); return; }
         published = newState;
         updatePublishBtn(btn, newState, weekStart);
-        showToast(newState ? 'Planning publié — le staff peut voir la semaine' : 'Planning dépublié');
-    };
+        showToast(newState
+            ? 'Planning publié — le staff voit ' + (btn.dataset.weekLabel || 'la semaine')
+            : 'Planning dépublié');
+    }
 }
 
 document.getElementById('day-detail-close').addEventListener('click', () => {
