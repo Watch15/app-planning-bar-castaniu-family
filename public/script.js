@@ -1900,7 +1900,55 @@ async function loadDispoControl() {
         if (!toggle || !label) return;
         toggle.checked    = settings.open;
         label.textContent = settings.open ? 'Dispos ouvertes' : 'Dispos fermées';
-        toggle.onchange   = async () => {
+
+        // Injecter les contrôles avancés sous le toggle
+        let panel = document.getElementById('dispo-advanced-panel');
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = 'dispo-advanced-panel';
+            panel.style.cssText = 'display:none;position:absolute;top:36px;left:0;background:white;border:1.5px solid #e0e0e0;border-radius:10px;padding:12px 14px;z-index:200;min-width:260px;box-shadow:0 4px 16px rgba(0,0,0,0.10)';
+            // Trouver le parent du toggle pour positionner le panel
+            const wrap = toggle.closest('div') || toggle.parentNode;
+            wrap.style.position = 'relative';
+            wrap.appendChild(panel);
+        }
+        panel.innerHTML =
+            '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Paramètres dispos</div>' +
+            '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#555;margin-bottom:8px;cursor:pointer">' +
+                '<input type="checkbox" id="dispo-force-open"' + (settings.force_open ? ' checked' : '') + '>' +
+                'Ignorer deadline (urgence)' +
+            '</label>' +
+            '<div style="margin-bottom:8px">' +
+                '<div style="font-size:11px;color:#aaa;margin-bottom:4px">Deadline personnalisée</div>' +
+                '<input type="datetime-local" id="dispo-custom-deadline" style="font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 8px;width:100%"' +
+                    (settings.custom_deadline ? ' value="' + settings.custom_deadline.slice(0,16) + '"' : '') + '>' +
+                '<div style="font-size:10px;color:#bbb;margin-top:3px">Laisser vide = vendredi 13h auto</div>' +
+            '</div>' +
+            '<button id="dispo-save-advanced" style="width:100%;padding:6px;background:#1a1a2e;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer">Enregistrer</button>';
+
+        // Toggle panel au clic sur le label
+        label.style.cursor = 'pointer';
+        label.onclick = (e) => {
+            e.stopPropagation();
+            panel.style.display = panel.style.display === 'none' ? '' : 'none';
+        };
+        document.addEventListener('click', () => { panel.style.display = 'none'; }, { once: false });
+
+        panel.addEventListener('click', e => e.stopPropagation());
+
+        document.getElementById('dispo-save-advanced').addEventListener('click', async () => {
+            const forceOpen      = document.getElementById('dispo-force-open').checked;
+            const customDeadline = document.getElementById('dispo-custom-deadline').value || null;
+            await fetch('/api/dispo-settings', {
+                credentials: 'include', method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ open: toggle.checked, force_open: forceOpen, custom_deadline: customDeadline }),
+            });
+            panel.style.display = 'none';
+            showToast(forceOpen ? 'Urgence activée — deadline ignorée' : 'Paramètres dispos enregistrés');
+        });
+
+        toggle.onchange = async () => {
             await fetch('/api/dispo-settings', {
                 credentials: 'include', method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },

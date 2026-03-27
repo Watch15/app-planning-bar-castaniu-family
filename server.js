@@ -626,16 +626,30 @@ app.get('/api/dispo-settings', checkDB, requireAuth, async (req, res) => {
         friday.setDate(now.getDate() + diff);
         friday.setHours(13, 0, 0, 0);
         const deadlinePassed = now > friday;
-        res.json({ open: settings.open, message: settings.message, deadline: friday.toISOString(), deadlinePassed, canSubmit: settings.open && !deadlinePassed });
+        const forceOpen = !!settings.force_open;
+        const customDeadline = settings.custom_deadline || null;
+        const effectiveDeadline = customDeadline ? new Date(customDeadline) : friday;
+        const effectiveDeadlinePassed = now > effectiveDeadline;
+        res.json({
+            open: settings.open,
+            message: settings.message,
+            deadline: effectiveDeadline.toISOString(),
+            deadlinePassed: effectiveDeadlinePassed,
+            canSubmit: settings.open && !effectiveDeadlinePassed,
+            force_open: forceOpen,
+            custom_deadline: customDeadline,
+        });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/dispo-settings', checkDB, requirePatron, async (req, res) => {
-    const { open, message } = req.body;
+    const { open, message, force_open, custom_deadline } = req.body;
     try {
+        const update = { key: 'dispo', open: !!open, message: message || null, force_open: !!force_open };
+        if (custom_deadline !== undefined) update.custom_deadline = custom_deadline || null;
         await db.collection('settings').updateOne(
             { key: 'dispo' },
-            { $set: { key: 'dispo', open: !!open, message: message || null } },
+            { $set: update },
             { upsert: true }
         );
         res.json({ message: 'Paramètres mis à jour' });
@@ -664,7 +678,9 @@ app.post('/api/dispos', checkDB, requireAuth, async (req, res) => {
     friday.setDate(now.getDate() + diff);
     friday.setHours(13, 0, 0, 0);
     if (!settings.open) return res.status(403).json({ error: 'La saisie des disponibilités est fermée.' });
-    if (now > friday)   return res.status(403).json({ error: 'La deadline est passée (vendredi 13h).' });
+    const effectiveFriday = settings.custom_deadline ? new Date(settings.custom_deadline) : friday;
+    if (!settings.force_open && now > effectiveFriday)
+        return res.status(403).json({ error: 'La deadline est passée.' });
     const { dispos } = req.body;
     if (!Array.isArray(dispos) || dispos.length === 0) return res.status(400).json({ error: 'Aucune disponibilité fournie' });
     try {
