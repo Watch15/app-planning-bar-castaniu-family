@@ -1901,17 +1901,9 @@ async function loadDispoControl() {
         toggle.checked    = settings.open;
         label.textContent = settings.open ? 'Dispos ouvertes' : 'Dispos fermées';
 
-        // Injecter les contrôles avancés sous le toggle
-        let panel = document.getElementById('dispo-advanced-panel');
-        if (!panel) {
-            panel = document.createElement('div');
-            panel.id = 'dispo-advanced-panel';
-            panel.style.cssText = 'display:none;position:absolute;top:36px;left:0;background:white;border:1.5px solid #e0e0e0;border-radius:10px;padding:12px 14px;z-index:200;min-width:260px;box-shadow:0 4px 16px rgba(0,0,0,0.10)';
-            // Trouver le parent du toggle pour positionner le panel
-            const wrap = toggle.closest('div') || toggle.parentNode;
-            wrap.style.position = 'relative';
-            wrap.appendChild(panel);
-        }
+        // Panel déjà présent dans index.html
+        const panel = document.getElementById('dispo-advanced-panel');
+        if (!panel) return;
         panel.innerHTML =
             '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Paramètres dispos</div>' +
             '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#555;margin-bottom:8px;cursor:pointer">' +
@@ -1926,13 +1918,15 @@ async function loadDispoControl() {
             '</div>' +
             '<button id="dispo-save-advanced" style="width:100%;padding:6px;background:#1a1a2e;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer">Enregistrer</button>';
 
-        // Toggle panel au clic sur le label
-        label.style.cursor = 'pointer';
-        label.onclick = (e) => {
-            e.stopPropagation();
-            panel.style.display = panel.style.display === 'none' ? '' : 'none';
-        };
-        document.addEventListener('click', () => { panel.style.display = 'none'; }, { once: false });
+        // Toggle panel via le bouton ⚙️
+        const settingsBtn = document.getElementById('dispo-settings-btn');
+        if (settingsBtn) {
+            settingsBtn.onclick = (e) => {
+                e.stopPropagation();
+                panel.style.display = panel.style.display === 'none' ? '' : 'none';
+            };
+        }
+        document.addEventListener('click', () => { panel.style.display = 'none'; });
 
         panel.addEventListener('click', e => e.stopPropagation());
 
