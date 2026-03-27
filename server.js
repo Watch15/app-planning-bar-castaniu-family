@@ -635,7 +635,7 @@ app.get('/api/dispo-settings', checkDB, requireAuth, async (req, res) => {
             message: settings.message,
             deadline: effectiveDeadline.toISOString(),
             deadlinePassed: effectiveDeadlinePassed,
-            canSubmit: settings.open && !effectiveDeadlinePassed,
+            canSubmit: settings.open && (!effectiveDeadlinePassed || forceOpen),
             force_open: forceOpen,
             custom_deadline: customDeadline,
         });
