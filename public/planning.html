@@ -669,6 +669,9 @@ function showTab(tab) {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
+    // Masquer la barre de stats globale si on quitte l'onglet planning
+    const globalStats = document.getElementById('week-stats');
+    if (globalStats) globalStats.style.display = tab === 'planning' ? '' : 'none';
     // Afficher la bonne vue
     const target = document.getElementById('view-' + tab);
     if (target) target.style.display = '';
