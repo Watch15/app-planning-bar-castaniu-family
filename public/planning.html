@@ -427,8 +427,10 @@ async function init() {
                     viewNext.appendChild(tempStats);
                     viewNext.appendChild(tempList);
 
-                    renderStatsInto(data.shifts, tempStats);
-                    renderDaysInto(nFrom, data.shifts, data.colleagues, tempList);
+                    const myShifts2 = data.shifts.filter(s => !s.is_joker && s.staff_id !== '__joker__');
+                    const jokers2   = data.shifts.filter(s =>  s.is_joker || s.staff_id === '__joker__');
+                    renderStatsInto(myShifts2, tempStats);
+                    renderDaysInto(nFrom, myShifts2, data.colleagues, tempList, jokers2);
                     viewNext.dataset.loaded = '1';
                 } catch (e) {
                     viewNext.innerHTML = '<div style="padding:20px;text-align:center;color:#e74c3c">' + e.message + '</div>';
@@ -479,8 +481,10 @@ async function loadPlanning(from, to, user) {
             throw new Error(data.error || 'Erreur inconnue');
         }
 
-        renderStats(data.shifts);
-        renderDays(from, data.shifts, data.colleagues);
+        const myShifts = data.shifts.filter(s => !s.is_joker && s.staff_id !== '__joker__');
+        const jokers   = data.shifts.filter(s =>  s.is_joker || s.staff_id === '__joker__');
+        renderStats(myShifts);
+        renderDays(from, myShifts, data.colleagues, jokers);
 
     } catch (e) {
         list.innerHTML = '<div class="state-msg error">' + e.message + '</div>';
@@ -514,12 +518,13 @@ function statCard(value, label) {
 
 // ── Rendu des jours ───────────────────────────────────────────────────────────
 
-function renderDays(from, shifts, colleagues) {
+function renderDays(from, shifts, colleagues, jokers) {
     const list = document.getElementById('days-list');
-    renderDaysInto(from, shifts, colleagues, list);
+    renderDaysInto(from, shifts, colleagues, list, jokers || []);
 }
 
-function renderDaysInto(from, shifts, colleagues, list) {
+function renderDaysInto(from, shifts, colleagues, list, jokers) {
+    jokers = jokers || [];
     const today  = toDateStr(new Date());
     const [fy, fm, fd] = from.split('-').map(Number);
     const monday = new Date(fy, fm - 1, fd, 0, 0, 0, 0);
@@ -621,14 +626,16 @@ function renderDaysInto(from, shifts, colleagues, list) {
         // Collègues + shifts supplémentaires
         dayShifts.forEach((shift, idx) => {
             const dayColleagues = (colleagues[date] || []).filter(c => c.establishment_id === shift.establishment_id);
-            if (idx > 0 || dayColleagues.length > 0) {
+            const dayJokers     = jokers.filter(j => j.date === date && j.establishment_id === shift.establishment_id);
+            if (idx > 0 || dayColleagues.length > 0 || dayJokers.length > 0) {
                 const block = document.createElement('div');
                 block.className = 'shift-block';
                 let html = '';
                 if (idx > 0) html += '<div class="day-establishment" style="font-size:12px;color:#888;margin-bottom:4px">' + formatEstablishment(shift.establishment_id) + ' · ' + fmtHour(shift.start_time) + '→' + fmtHour(shift.end_time) + '</div>';
-                if (dayColleagues.length > 0) {
-                    const pills = dayColleagues.map(c =>
-                        '<span class="colleague-pill"><span class="colleague-dot" style="background:' + (c.color || '#888') + '"></span>' + c.staff_name + '</span>'
+                const allColleagues = [...dayColleagues, ...dayJokers];
+                if (allColleagues.length > 0) {
+                    const pills = allColleagues.map(c =>
+                        '<span class="colleague-pill"><span class="colleague-dot" style="background:' + (c.is_joker ? '#95a5a6' : (c.color || '#888')) + '"></span>' + (c.is_joker ? 'Joker' : c.staff_name) + '</span>'
                     ).join('');
                     html += '<div class="colleagues-row"><span class="colleagues-lbl">Collègues</span>' + pills + '</div>';
                 }
