@@ -723,8 +723,10 @@ async function loadDisposTab() {
         return;
     }
 
-    statusEl.textContent = 'Deadline : ' + fmtDate;
-    statusEl.style.color = '#aaa';
+    statusEl.textContent = dispoSettings.force_open
+        ? '🔓 Saisie ouverte en urgence par le responsable'
+        : 'Deadline : ' + fmtDate;
+    statusEl.style.color = dispoSettings.force_open ? '#27ae60' : '#aaa';
 
     // Semaine suivante
     const nextMonday = getMondayOf(addDays(new Date(), 7));
@@ -749,7 +751,8 @@ async function loadDisposTab() {
         formEl.appendChild(createDispoCard(date, d));
     }
 
-    btnSubmit.addEventListener('click', submitDispos);
+    btnSubmit.replaceWith(btnSubmit.cloneNode(true));
+    document.getElementById('btn-submit-dispos').addEventListener('click', submitDispos);
 }
 
 function createDispoCard(date, d) {
