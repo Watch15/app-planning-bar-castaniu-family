@@ -1904,17 +1904,41 @@ async function loadDispoControl() {
         // Panel déjà présent dans index.html
         const panel = document.getElementById('dispo-advanced-panel');
         if (!panel) return;
+        // Calcul jour/heure depuis custom_deadline
+        let cdDay = '', cdTime = '13:00';
+        if (settings.custom_deadline) {
+            const cd = new Date(settings.custom_deadline);
+            cdDay  = String(cd.getDay());
+            cdTime = String(cd.getHours()).padStart(2,'0') + ':' + (cd.getMinutes() < 30 ? '00' : '30');
+        }
+        const dayOpts = [['1','Lundi'],['2','Mardi'],['3','Mercredi'],['4','Jeudi'],['5','Vendredi'],['6','Samedi'],['0','Dimanche']]
+            .map(([v,l]) => '<option value="' + v + '"' + (cdDay === v ? ' selected' : '') + '>' + l + '</option>').join('');
+        let tOpts = '';
+        for (let h = 10; h < 27; h++) {
+            for (const m of [0, 30]) {
+                const rh = h % 24;
+                const val = String(rh).padStart(2,'0') + ':' + (m === 0 ? '00' : '30');
+                const lbl = String(rh).padStart(2,'0') + 'h' + (m === 0 ? '00' : '30');
+                tOpts += '<option value="' + val + '"' + (cdTime === val ? ' selected' : '') + '>' + lbl + '</option>';
+            }
+        }
         panel.innerHTML =
             '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Paramètres dispos</div>' +
             '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#555;margin-bottom:8px;cursor:pointer">' +
                 '<input type="checkbox" id="dispo-force-open"' + (settings.force_open ? ' checked' : '') + '>' +
                 'Ignorer deadline (urgence)' +
             '</label>' +
-            '<div style="margin-bottom:8px">' +
+            '<div style="margin-bottom:10px">' +
                 '<div style="font-size:11px;color:#aaa;margin-bottom:4px">Deadline personnalisée</div>' +
-                '<input type="datetime-local" id="dispo-custom-deadline" style="font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 8px;width:100%"' +
-                    (settings.custom_deadline ? ' value="' + settings.custom_deadline.slice(0,16) + '"' : '') + '>' +
-                '<div style="font-size:10px;color:#bbb;margin-top:3px">Laisser vide = vendredi 13h auto</div>' +
+                '<div style="display:flex;gap:6px">' +
+                    '<select id="dispo-deadline-day" style="flex:1;font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px">' +
+                        '<option value="">— Jour —</option>' + dayOpts +
+                    '</select>' +
+                    '<select id="dispo-deadline-time" style="flex:1;font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px">' +
+                        tOpts +
+                    '</select>' +
+                '</div>' +
+                '<div style="font-size:10px;color:#bbb;margin-top:3px">Laisser jour vide = vendredi 13h auto</div>' +
             '</div>' +
             '<button id="dispo-save-advanced" style="width:100%;padding:6px;background:#1a1a2e;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer">Enregistrer</button>';
 
@@ -1931,8 +1955,19 @@ async function loadDispoControl() {
         panel.addEventListener('click', e => e.stopPropagation());
 
         document.getElementById('dispo-save-advanced').addEventListener('click', async () => {
-            const forceOpen      = document.getElementById('dispo-force-open').checked;
-            const customDeadline = document.getElementById('dispo-custom-deadline').value || null;
+            const forceOpen = document.getElementById('dispo-force-open').checked;
+            const dayVal    = document.getElementById('dispo-deadline-day').value;
+            const timeVal   = document.getElementById('dispo-deadline-time').value || '13:00';
+            let customDeadline = null;
+            if (dayVal !== '') {
+                const [hh, mm] = timeVal.split(':').map(Number);
+                const now    = new Date();
+                const target = new Date(now);
+                const diff   = (parseInt(dayVal) - now.getDay() + 7) % 7;
+                target.setDate(now.getDate() + diff);
+                target.setHours(hh, mm, 0, 0);
+                customDeadline = target.toISOString();
+            }
             await fetch('/api/dispo-settings', {
                 credentials: 'include', method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
