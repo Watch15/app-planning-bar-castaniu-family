@@ -378,6 +378,8 @@ app.patch('/api/users/:id/establishments', checkDB, requireAdmin, async (req, re
 });
 
 
+// Reset mot de passe par le patron
+app.patch('/api/users/:id/reset-password', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { password } = req.body;
     if (!password || password.length < 8) return res.status(400).json({ error: 'Minimum 8 caractères' });
@@ -390,7 +392,8 @@ app.patch('/api/users/:id/establishments', checkDB, requireAdmin, async (req, re
         if (result.matchedCount === 0) return res.status(404).json({ error: 'Utilisateur introuvable' });
         res.json({ message: 'Mot de passe mis à jour' });
     } catch (e) { res.status(500).json({ error: e.message }); }
-    
+});
+
 app.delete('/api/users/:id', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     try {
