@@ -306,7 +306,21 @@ async function logout() {
 
 let currentUser = null;
 let allStaff    = [];
-const today     = toDateStr(new Date());
+let cutoffHour  = 9; // heure de bascule par défaut
+
+// Calcule la date "active" selon l'heure de bascule
+function getActiveDate() {
+    const now = new Date();
+    if (now.getHours() < cutoffHour) {
+        // Avant l'heure de bascule → on est encore "hier"
+        const yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        return toDateStr(yesterday);
+    }
+    return toDateStr(now);
+}
+
+let today; // sera défini après chargement du cutoff
 
 async function checkAuth() {
     try {
@@ -326,12 +340,18 @@ async function init() {
     currentUser = await checkAuth();
     if (!currentUser) return;
 
-    // Date du jour
-    const d = new Date();
+    // Charger l'heure de bascule
+    try {
+        const r = await fetch('/api/pointage-settings', { credentials: 'include' });
+        if (r.ok) { const s = await r.json(); cutoffHour = s.cutoff_hour ?? 9; }
+    } catch { /* défaut 9h */ }
+    today = getActiveDate();
+
+    // Date du jour affiché
+    const d = new Date(today + 'T12:00:00');
     const opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-    document.getElementById('header-date').textContent =
-        d.toLocaleDateString('fr-FR', opts).charAt(0).toUpperCase() +
-        d.toLocaleDateString('fr-FR', opts).slice(1);
+    const dateStr = d.toLocaleDateString('fr-FR', opts);
+    document.getElementById('header-date').textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
 
     // Charger staff pour l'autocomplete
     try {

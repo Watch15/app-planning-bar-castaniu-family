@@ -617,6 +617,19 @@ function renderDaysInto(from, shifts, colleagues, list, jokers) {
         const sm = allStaff ? allStaff.find(s => String(s._id) === firstShift.staff_id) : null;
         const staffColor = sm ? sm.color : (firstShift.color || '#534AB7');
 
+        // Heures réelles si disponibles ET jour passé
+        const isPast      = date < today;
+        const hasReal     = firstShift.real_start != null && firstShift.real_end != null;
+        const showReal    = isPast && hasReal;
+        const dispStart   = showReal ? firstShift.real_start : firstShift.start_time;
+        const dispEnd     = showReal ? firstShift.real_end   : firstShift.end_time;
+        const durLabel    = showReal
+            ? fmtDuration(firstShift.real_end - firstShift.real_start) + ' réel'
+            : fmtDuration(firstShift.end_time - firstShift.start_time) + ' de service';
+        const realBadge   = showReal
+            ? ' <span style="font-size:10px;font-weight:700;color:#27ae60;background:#eafaf1;border:1px solid #2ecc71;border-radius:4px;padding:1px 5px">réel</span>'
+            : (isPast && !hasReal ? ' <span style="font-size:10px;color:#f39c12;background:#fff3cd;border:1px solid #f39c12;border-radius:4px;padding:1px 5px">non pointé</span>' : '');
+
         const card = document.createElement('div');
         card.className = 'day-card has-shift' + (isToday ? ' today' : '');
         if (!isToday) card.style.borderLeftColor = staffColor;
@@ -632,10 +645,10 @@ function renderDaysInto(from, shifts, colleagues, list, jokers) {
             '<div class="day-divider"></div>' +
             '<div class="day-header-info">' +
                 '<div class="day-establishment">' + formatEstablishment(firstShift.establishment_id) + '</div>' +
-                '<div class="day-duration">' + fmtDuration(firstShift.end_time - firstShift.start_time) + ' de service</div>' +
+                '<div class="day-duration">' + durLabel + '</div>' +
             '</div>' +
             (isToday ? '<span class="today-chip">Aujourd hui</span>' : '') +
-            '<span class="shift-hours-badge">' + fmtHour(firstShift.start_time) + ' → ' + fmtHour(firstShift.end_time) + '</span>';
+            '<span class="shift-hours-badge">' + fmtHour(dispStart) + ' → ' + fmtHour(dispEnd) + realBadge + '</span>';
         card.appendChild(header);
 
         // Collègues + shifts supplémentaires
@@ -646,7 +659,12 @@ function renderDaysInto(from, shifts, colleagues, list, jokers) {
                 const block = document.createElement('div');
                 block.className = 'shift-block';
                 let html = '';
-                if (idx > 0) html += '<div class="day-establishment" style="font-size:12px;color:#888;margin-bottom:4px">' + formatEstablishment(shift.establishment_id) + ' · ' + fmtHour(shift.start_time) + '→' + fmtHour(shift.end_time) + '</div>';
+                if (idx > 0) {
+                    const sDispStart = (isPast && shift.real_start != null) ? shift.real_start : shift.start_time;
+                    const sDispEnd   = (isPast && shift.real_end   != null) ? shift.real_end   : shift.end_time;
+                    const sRealTag   = (isPast && shift.real_start != null) ? ' ✓' : '';
+                    html += '<div class="day-establishment" style="font-size:12px;color:#888;margin-bottom:4px">' + formatEstablishment(shift.establishment_id) + ' · ' + fmtHour(sDispStart) + '→' + fmtHour(sDispEnd) + sRealTag + '</div>';
+                }
                 const allColleagues = [...dayColleagues, ...dayJokers];
                 if (allColleagues.length > 0) {
                     const pills = allColleagues.map(c =>

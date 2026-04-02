@@ -957,8 +957,8 @@ function createStaffRow(staff) {
 
 function createShiftEl(shift) {
     const el = document.createElement('div');
-    el.className    = 'shift' + (shift.is_joker || shift.staff_id === '__joker__' ? ' shift-joker' : '');
-    el.dataset.id   = shift._id;
+    el.className  = 'shift' + (shift.is_joker || shift.staff_id === '__joker__' ? ' shift-joker' : '');
+    el.dataset.id = shift._id;
 
     const bgColor   = shift.color || '#3498db';
     const textColor = textColorFor(bgColor);
@@ -971,28 +971,32 @@ function createShiftEl(shift) {
         el.style.color      = textColor;
     }
 
-    const left  = (shift.start_time - START_HOUR) * PX_PER_HOUR;
-    const width = (shift.end_time   - shift.start_time) * PX_PER_HOUR;
+    const fmt = h => `${Math.floor(h % 24).toString().padStart(2,'0')}h${String(Math.round((h%1)*60)).padStart(2,'0')}`;
+
+    // Si heures réelles disponibles → positionner et afficher selon le réel
+    const hasReal     = shift.real_start != null && shift.real_end != null;
+    const displayStart = hasReal ? shift.real_start : shift.start_time;
+    const displayEnd   = hasReal ? shift.real_end   : shift.end_time;
+
+    const left  = (displayStart - START_HOUR) * PX_PER_HOUR;
+    const width = (displayEnd   - displayStart) * PX_PER_HOUR;
     el.style.left  = Math.max(0, left)  + 'px';
     el.style.width = Math.max(PX_PER_HOUR, width) + 'px';
 
-    const fmt = h => `${Math.floor(h % 24).toString().padStart(2, '0')}h${String(Math.round((h%1)*60)).padStart(2,'0')}`;
-
-    // Indicateur heures réelles
-    const hasReal = shift.real_start != null && shift.real_end != null;
-    const realIndicator = hasReal
-        ? `<span class="shift-real-indicator" title="Heures réelles : ${fmt(shift.real_start)} – ${fmt(shift.real_end)}">⏱</span>`
+    // Badge "réel" + indication heures planifiées en sous-titre si différent
+    const realBadge = hasReal
+        ? `<span class="shift-real-badge" title="Planifié : ${fmt(shift.start_time)} – ${fmt(shift.end_time)}">réel</span>`
         : '';
 
     el.innerHTML = `
         <div class="resizer left"></div>
         <span class="shift-name">${shift.staff_name}</span>
-        <span class="shift-hours">${fmt(shift.start_time)} – ${fmt(shift.end_time)}</span>
-        ${realIndicator}
+        <span class="shift-hours">${fmt(displayStart)} – ${fmt(displayEnd)}</span>
+        ${realBadge}
         <button class="shift-delete" onclick="deleteShift(event, '${shift._id}', '${shift.staff_id}')">×</button>
         <div class="resizer right"></div>`;
 
-    // Clic sur le shift (hors resizers et delete) → modale heures réelles
+    // Clic → modale heures réelles (hors resizers et delete)
     if (!shift.is_joker && shift.staff_id !== '__joker__') {
         el.addEventListener('click', e => {
             if (e.target.closest('.resizer') || e.target.closest('.shift-delete')) return;
@@ -1085,8 +1089,8 @@ function openRealHoursModal(shift, shiftEl) {
                 body: JSON.stringify({ real_start: null, real_end: null }),
             });
             shift.real_start = null; shift.real_end = null;
-            // Retirer l'indicateur ⏱ sur le shift
-            shiftEl.querySelector('.shift-real-indicator')?.remove();
+            const newEl = createShiftEl(shift);
+            shiftEl.replaceWith(newEl);
             close();
             showToast('Heures réelles effacées');
         } catch (e) { showToast(e.message, true); }
@@ -1105,18 +1109,9 @@ function openRealHoursModal(shift, shiftEl) {
             const d = await r.json();
             if (!r.ok) throw new Error(d.error);
             shift.real_start = rs; shift.real_end = re;
-            // Mettre à jour l'indicateur ⏱ sur le shift
-            const existing = shiftEl.querySelector('.shift-real-indicator');
-            const fmt2 = h => String(Math.floor(h%24)).padStart(2,'0') + 'h' + String(Math.round((h%1)*60)).padStart(2,'0');
-            if (existing) {
-                existing.title = 'Heures réelles : ' + fmt2(rs) + ' – ' + fmt2(re);
-            } else {
-                const ind = document.createElement('span');
-                ind.className = 'shift-real-indicator';
-                ind.title = 'Heures réelles : ' + fmt2(rs) + ' – ' + fmt2(re);
-                ind.textContent = '⏱';
-                shiftEl.querySelector('.shift-delete').before(ind);
-            }
+            // Remplacer le shift dans le DOM par la version mise à jour
+            const newEl = createShiftEl(shift);
+            shiftEl.replaceWith(newEl);
             close();
             showToast(shift.staff_name + ' — heures réelles enregistrées');
         } catch (e) { showToast(e.message, true); }
@@ -2607,19 +2602,23 @@ function buildEstablishmentSelect() {
 
 async function loadDispoControl() {
     try {
-        const res      = await fetch('/api/dispo-settings', { credentials: 'include' });
-        if (!res.ok) return;
-        const settings = await res.json();
-        const toggle   = document.getElementById('dispo-toggle');
-        const label    = document.getElementById('dispo-toggle-label');
+        const [dispoRes, pointageRes] = await Promise.all([
+            fetch('/api/dispo-settings',   { credentials: 'include' }),
+            fetch('/api/pointage-settings', { credentials: 'include' }),
+        ]);
+        if (!dispoRes.ok) return;
+        const settings      = await dispoRes.json();
+        const ptSettings    = pointageRes.ok ? await pointageRes.json() : { cutoff_hour: 9 };
+        const cutoffHourVal = ptSettings.cutoff_hour ?? 9;
+
+        const toggle = document.getElementById('dispo-toggle');
+        const label  = document.getElementById('dispo-toggle-label');
         if (!toggle || !label) return;
         toggle.checked    = settings.open;
         label.textContent = settings.open ? 'Dispos ouvertes' : 'Dispos fermées';
 
-        // Panel déjà présent dans index.html
         const panel = document.getElementById('dispo-advanced-panel');
         if (!panel) return;
-        // Calcul jour/heure depuis custom_deadline
         let cdDay = '', cdTime = '13:00';
         if (settings.custom_deadline) {
             const cd = new Date(settings.custom_deadline);
@@ -2637,6 +2636,12 @@ async function loadDispoControl() {
                 tOpts += '<option value="' + val + '"' + (cdTime === val ? ' selected' : '') + '>' + lbl + '</option>';
             }
         }
+        // Options heure de bascule pointage (0h → 12h)
+        let cutoffOpts = '';
+        for (let h = 0; h <= 12; h++) {
+            cutoffOpts += '<option value="' + h + '"' + (cutoffHourVal === h ? ' selected' : '') + '>' + String(h).padStart(2,'0') + 'h00</option>';
+        }
+
         panel.innerHTML =
             '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Paramètres dispos</div>' +
             '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#555;margin-bottom:8px;cursor:pointer">' +
@@ -2655,9 +2660,17 @@ async function loadDispoControl() {
                 '</div>' +
                 '<div style="font-size:10px;color:#bbb;margin-top:3px">Laisser jour vide = vendredi 13h auto</div>' +
             '</div>' +
+            '<div style="margin-bottom:10px;border-top:1px solid #f0f0f0;padding-top:10px">' +
+                '<div style="font-size:11px;color:#aaa;margin-bottom:4px">Bascule jour pointage</div>' +
+                '<div style="display:flex;align-items:center;gap:6px">' +
+                    '<select id="pointage-cutoff" style="font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px">' +
+                        cutoffOpts +
+                    '</select>' +
+                    '<span style="font-size:10px;color:#bbb">Avant cette heure = affiche la veille</span>' +
+                '</div>' +
+            '</div>' +
             '<button id="dispo-save-advanced" style="width:100%;padding:6px;background:#1a1a2e;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer">Enregistrer</button>';
 
-        // Toggle panel via le bouton ⚙️
         const settingsBtn = document.getElementById('dispo-settings-btn');
         if (settingsBtn) {
             settingsBtn.onclick = (e) => {
@@ -2666,13 +2679,13 @@ async function loadDispoControl() {
             };
         }
         document.addEventListener('click', () => { panel.style.display = 'none'; });
-
         panel.addEventListener('click', e => e.stopPropagation());
 
         document.getElementById('dispo-save-advanced').addEventListener('click', async () => {
-            const forceOpen = document.getElementById('dispo-force-open').checked;
-            const dayVal    = document.getElementById('dispo-deadline-day').value;
-            const timeVal   = document.getElementById('dispo-deadline-time').value || '13:00';
+            const forceOpen   = document.getElementById('dispo-force-open').checked;
+            const dayVal      = document.getElementById('dispo-deadline-day').value;
+            const timeVal     = document.getElementById('dispo-deadline-time').value || '13:00';
+            const cutoffVal   = parseInt(document.getElementById('pointage-cutoff').value);
             let customDeadline = null;
             if (dayVal !== '') {
                 const [hh, mm] = timeVal.split(':').map(Number);
@@ -2683,13 +2696,20 @@ async function loadDispoControl() {
                 target.setHours(hh, mm, 0, 0);
                 customDeadline = target.toISOString();
             }
-            await fetch('/api/dispo-settings', {
-                credentials: 'include', method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ open: toggle.checked, force_open: forceOpen, custom_deadline: customDeadline }),
-            });
+            await Promise.all([
+                fetch('/api/dispo-settings', {
+                    credentials: 'include', method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ open: toggle.checked, force_open: forceOpen, custom_deadline: customDeadline }),
+                }),
+                fetch('/api/pointage-settings', {
+                    credentials: 'include', method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cutoff_hour: cutoffVal }),
+                }),
+            ]);
             panel.style.display = 'none';
-            showToast(forceOpen ? 'Urgence activée — deadline ignorée' : 'Paramètres dispos enregistrés');
+            showToast('Paramètres enregistrés');
         });
 
         toggle.onchange = async () => {
