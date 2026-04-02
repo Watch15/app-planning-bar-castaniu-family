@@ -439,6 +439,66 @@ app.get('/api/establishments', checkDB, requireAuth, async (req, res) => {
     catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post('/api/establishments', checkDB, requireAdmin, async (req, res) => {
+    const { name, type, open_time, close_time } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Nom requis' });
+    if (!['bar', 'restaurant'].includes(type)) return res.status(400).json({ error: 'Type : bar ou restaurant' });
+    try {
+        const existing = await db.collection('establishments').findOne({ name: name.trim() });
+        if (existing) return res.status(409).json({ error: 'Un établissement avec ce nom existe déjà' });
+        // Générer un id string à partir du nom (compatible avec le système existant)
+        const id = name.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '') + '_' + type;
+        const doc = {
+            id,
+            name:       name.trim(),
+            type,
+            open_time:  open_time  || null,
+            close_time: close_time || null,
+            created_at: new Date(),
+        };
+        const result = await db.collection('establishments').insertOne(doc);
+        res.status(201).json({ ...doc, _id: result.insertedId });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/establishments/:id', checkDB, requireAdmin, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    const { name, type, open_time, close_time } = req.body;
+    if (!name && !type && open_time === undefined && close_time === undefined)
+        return res.status(400).json({ error: 'Au moins un champ requis' });
+    try {
+        const update = {};
+        if (name)                update.name       = name.trim();
+        if (type)                update.type       = type;
+        if (open_time  !== undefined) update.open_time  = open_time  || null;
+        if (close_time !== undefined) update.close_time = close_time || null;
+        const result = await db.collection('establishments').updateOne(
+            { _id: new ObjectId(req.params.id) },
+            { $set: update }
+        );
+        if (result.matchedCount === 0) return res.status(404).json({ error: 'Établissement introuvable' });
+        res.json({ message: 'Établissement mis à jour' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/establishments/:id', checkDB, requireAdmin, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    try {
+        const estab = await db.collection('establishments').findOne({ _id: new ObjectId(req.params.id) });
+        if (!estab) return res.status(404).json({ error: 'Établissement introuvable' });
+        // Supprimer les shifts liés
+        await db.collection('shifts').deleteMany({ establishment_id: estab.id });
+        // Supprimer l'établissement
+        await db.collection('establishments').deleteOne({ _id: new ObjectId(req.params.id) });
+        // Retirer l'id des assigned_establishments des directeurs
+        await db.collection('users').updateMany(
+            { assigned_establishments: estab.id },
+            { $pull: { assigned_establishments: estab.id } }
+        );
+        res.json({ message: 'Établissement et ses shifts supprimés' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Staff ─────────────────────────────────────────────────────────────────────
 
 app.get('/api/staff', checkDB, requireAuth, async (req, res) => {

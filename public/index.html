@@ -9,935 +9,274 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Planning Bar">
     <link rel="apple-touch-icon" href="/icons/icon-192.png">
-    <title>Mon planning — Planning Bar</title>
-    <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background: #f0f2f5;
-            min-height: 100vh;
-            color: #1a1a2e;
-        }
-
-        /* ── Header ── */
-        .header {
-            background: white;
-            border-bottom: 0.5px solid #e8e8e8;
-            padding: 12px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        .header-left  { display: flex; align-items: center; gap: 10px; }
-        .header-logo  { font-size: 15px; font-weight: 600; color: #1a1a2e; }
-        .header-week  { font-size: 11px; color: #aaa; margin-top: 1px; }
-        .btn-logout {
-            background: transparent;
-            border: 0.5px solid #e74c3c;
-            color: #e74c3c; font-size: 11px;
-            padding: 5px 10px; border-radius: 8px;
-            cursor: pointer;
-        }
-        .user-avatar-sm {
-            width: 28px; height: 28px; border-radius: 50%;
-            background: #EEEDFE; display: flex; align-items: center;
-            justify-content: center; font-size: 12px; font-weight: 600; color: #534AB7;
-            flex-shrink: 0;
-        }
-        .header-user { display: flex; align-items: center; gap: 8px; }
-
-        /* ── Onglets ── */
-        .tabs-bar {
-            display: flex;
-            background: white;
-            border-bottom: 0.5px solid #f0f0f0;
-            padding: 0 20px;
-            position: sticky;
-            top: 53px;
-            z-index: 9;
-        }
-        .tab-btn {
-            padding: 10px 18px;
-            border: none; background: transparent;
-            font-size: 13px; font-weight: 500; color: #aaa;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            margin-bottom: -1px;
-            transition: all 0.15s;
-        }
-        .tab-btn.active { color: #1a1a2e; border-bottom-color: #1a1a2e; }
-        .tab-btn:disabled { color: #ddd; cursor: not-allowed; }
-
-        /* ── Bonjour ── */
-        .greeting { padding: 16px 20px 4px; }
-        .greeting-name { font-size: 20px; font-weight: 600; color: #1a1a2e; }
-        .greeting-sub  { font-size: 12px; color: #aaa; margin-top: 2px; }
-
-        /* ── Stats semaine ── */
-        .week-stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            padding: 12px 20px;
-        }
-        .stat-card {
-            background: #f8f8f8;
-            border-radius: 10px;
-            padding: 10px 14px;
-            display: flex; align-items: center; gap: 10px;
-        }
-        .stat-value { font-size: 20px; font-weight: 600; color: #1a1a2e; }
-        .stat-label { font-size: 10px; color: #bbb; text-transform: uppercase; letter-spacing: 0.4px; }
-
-        /* ── Liste des jours ── */
-        .days-list { padding: 0 20px 32px; display: flex; flex-direction: column; gap: 6px; }
-
-        /* ── Carte jour avec shift ── */
-        .day-card {
-            background: white;
-            border: 0.5px solid #e8e8e8;
-            border-radius: 12px;
-            overflow: hidden;
-        }
-        .day-card.has-shift { border-left: 3px solid #3498db; }
-        .day-card.today     { border: 2px solid #534AB7; }
-        .day-card.today.has-shift { border-left-width: 2px; border-color: #534AB7; }
-
-        .day-header {
-            display: flex; align-items: center;
-            padding: 12px 16px; gap: 14px;
-        }
-        .day-date-block { min-width: 36px; }
-        .day-weekday { font-size: 10px; font-weight: 600; color: #aaa; text-transform: uppercase; letter-spacing: 0.4px; }
-        .day-num { font-size: 20px; font-weight: 600; color: #1a1a2e; line-height: 1.1; }
-        .day-card.today .day-weekday { color: #534AB7; }
-        .day-card.today .day-num     { color: #534AB7; }
-        .day-divider { width: 0.5px; height: 32px; background: #eee; flex-shrink: 0; }
-        .day-header-info { flex: 1; }
-        .day-establishment { font-size: 13px; font-weight: 600; color: #1a1a2e; }
-        .day-duration { font-size: 11px; color: #aaa; margin-top: 1px; }
-        .today-chip {
-            display: none; background: #534AB7; color: white;
-            font-size: 9px; font-weight: 600; padding: 2px 7px;
-            border-radius: 10px; white-space: nowrap;
-        }
-        .day-card.today .today-chip { display: inline-block; }
-        .shift-hours-badge {
-            background: #f0f2f5; color: #333; font-size: 12px; font-weight: 600;
-            padding: 5px 10px; border-radius: 8px; white-space: nowrap; flex-shrink: 0;
-        }
-
-        /* Collègues dans shift */
-        .shift-block { padding: 0 16px 12px; }
-        .colleagues-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .colleagues-lbl { font-size: 10px; color: #bbb; text-transform: uppercase; letter-spacing: 0.4px; }
-        .colleague-pill {
-            display: flex; align-items: center; gap: 4px;
-            background: #f5f5f5; border-radius: 20px;
-            padding: 3px 8px; font-size: 11px; color: #555;
-        }
-        .colleague-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-
-        /* ── Jours repos — grille compacte ── */
-        .rest-grid {
-            display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            gap: 6px;
-        }
-        .rest-card {
-            background: #f8f8f8; border-radius: 10px;
-            padding: 10px 8px; text-align: center; opacity: 0.6;
-        }
-        .rest-weekday { font-size: 10px; color: #bbb; text-transform: uppercase; }
-        .rest-num     { font-size: 16px; font-weight: 600; color: #aaa; }
-
-        /* ── État chargement / erreur ── */
-        .state-msg { padding: 40px 20px; text-align: center; font-size: 14px; color: #aaa; }
-        .state-msg.error { color: #e74c3c; }
-
-        /* ── Carte dispo ── */
-        .dispo-card {
-            background: white; border: 0.5px solid #e8e8e8;
-            border-left: 3px solid #534AB7; border-radius: 12px;
-        }
-        .dispo-day-header { padding: 10px 16px; border-bottom: 0.5px solid #f5f5f5; }
-        .dispo-day-name { font-size: 12px; font-weight: 600; color: #666; }
-        .dispo-body { padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; }
-
-        /* Header dispo avec résumé horaire */
-        .dispo-day-header {
-            padding: 10px 16px;
-            border-bottom: 0.5px solid #f5f5f5;
-            display: flex; align-items: center; justify-content: space-between;
-        }
-        .dispo-day-selected { font-size: 11px; color: #534AB7; font-weight: 600; }
-
-        .dispo-type-row { display: flex; gap: 6px; flex-wrap: wrap; }
-        .dispo-type-btn {
-            padding: 7px 12px; border-radius: 10px;
-            border: 0.5px solid #e8e8e8; background: #f8f8f8;
-            cursor: pointer; transition: all 0.12s;
-            display: flex; flex-direction: column; align-items: center; gap: 1px;
-            min-width: 72px;
-        }
-        .dispo-type-btn:hover { border-color: #ccc; background: white; }
-        .dispo-btn-label { font-size: 12px; font-weight: 600; color: #444; line-height: 1.2; }
-        .dispo-btn-sub   { font-size: 10px; color: #aaa; white-space: nowrap; }
-        .dispo-type-btn.selected-soir   { background: #1a1a2e; border-color: #1a1a2e; }
-        .dispo-type-btn.selected-soir   .dispo-btn-label,
-        .dispo-type-btn.selected-soir   .dispo-btn-sub   { color: white; }
-        .dispo-type-btn.selected-midi   { background: #534AB7; border-color: #534AB7; }
-        .dispo-type-btn.selected-midi   .dispo-btn-label,
-        .dispo-type-btn.selected-midi   .dispo-btn-sub   { color: white; }
-        .dispo-type-btn.selected-custom { background: #2ecc71; border-color: #2ecc71; }
-        .dispo-type-btn.selected-custom .dispo-btn-label,
-        .dispo-type-btn.selected-custom .dispo-btn-sub   { color: white; }
-        .dispo-type-btn.selected-off    { background: #f0f0f0; border-color: #ddd; }
-        .dispo-type-btn.selected-off    .dispo-btn-label { color: #aaa; }
-
-        .dispo-custom-row { display: none; gap: 8px; align-items: center; }
-        .dispo-custom-row.visible { display: flex; }
-        .dispo-time-input {
-            flex: 1; padding: 7px 10px;
-            border: 0.5px solid #e0e0e0; border-radius: 8px;
-            font-size: 13px; text-align: center; outline: none;
-        }
-        .dispo-time-input:focus { border-color: #534AB7; }
-        .dispo-note-input {
-            width: 100%; padding: 7px 10px;
-            border: 0.5px solid #f0f0f0; border-radius: 8px;
-            font-size: 12px; font-family: inherit; color: #555;
-            outline: none; resize: none;
-        }
-        .dispo-note-input:focus { border-color: #ccc; }
-
-        /* ── Bouton envoi dispos ── */
-        .btn-submit-dispos {
-            position: fixed; bottom: 0; left: 0; right: 0;
-            padding: 14px 20px; background: #1a1a2e; color: white;
-            border: none; font-size: 14px; font-weight: 600;
-            cursor: pointer; z-index: 20;
-        }
-        .btn-submit-dispos:disabled { background: #ccc; cursor: not-allowed; }
-
-        /* ── Empty week ── */
-        .empty-week { padding: 48px 20px; text-align: center; }
-        .empty-week-icon  { font-size: 36px; margin-bottom: 12px; }
-        .empty-week-text  { font-size: 15px; font-weight: 600; color: #aaa; }
-        .empty-week-sub   { font-size: 13px; color: #ccc; margin-top: 4px; }
-    </style>
+    <title>Planning Bar</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div class="app">
 
-<div class="header">
-    <div class="header-left">
-        <div>
-            <div class="header-logo">Planning Bar</div>
-            <div class="header-week" id="header-week"></div>
+    <!-- ── Header niveau 1 : actions ── -->
+    <header class="header">
+        <div class="header-left">
+            <button class="btn-manage-staff" id="btn-manage-staff">Staff</button>
+            <button class="btn-manage-staff" id="btn-manage-accounts" style="background:#f0effe;border-color:#7F77DD;color:#534AB7">Comptes</button>
+            <div style="position:relative;display:inline-block">
+                <button class="btn-manage-staff" id="btn-dispos">Dispos</button>
+                <span id="dispos-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:#e74c3c;color:white;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;align-items:center;justify-content:center;pointer-events:none;z-index:1">0</span>
+            </div>
+            <div style="position:relative;display:flex;align-items:center;gap:5px;padding:0 8px;border-left:1px solid #eee">
+                <span id="dispo-toggle-label" style="font-size:11px;color:#bbb;white-space:nowrap;cursor:pointer">Dispos</span>
+                <input type="checkbox" id="dispo-toggle" style="cursor:pointer">
+                <button id="dispo-settings-btn" title="Paramètres dispos" style="background:none;border:none;cursor:pointer;font-size:13px;color:#bbb;padding:0 2px;line-height:1">⚙️</button>
+                <div id="dispo-advanced-panel" style="display:none;position:absolute;top:36px;left:0;background:white;border:1.5px solid #e0e0e0;border-radius:10px;padding:12px 14px;z-index:200;min-width:260px;box-shadow:0 4px 16px rgba(0,0,0,0.10)"></div>
+            </div>
+        </div>
+        <div class="header-right">
+            <span class="date-display" id="date-display"></span>
+            <div style="display:flex;align-items:center;gap:7px">
+                <div class="user-avatar" id="user-avatar">?</div>
+                <span class="user-badge" id="user-badge" style="font-size:13px;font-weight:500;color:#1a1a2e"></span>
+            </div>
+            <button class="btn-logout" onclick="logout()">Déconnexion</button>
+        </div>
+    </header>
+
+    <!-- ── Header niveau 2 : établissements ── -->
+    <div class="venue-bar">
+        <span class="venue-bar-label">Bar ·</span>
+        <div id="venue-tabs" style="display:contents"></div>
+        <button id="btn-manage-establishments" title="Gérer les établissements" style="background:none;border:none;cursor:pointer;font-size:15px;padding:2px 6px;color:#bbb;line-height:1;flex-shrink:0">＋</button>
+    </div>
+
+    <!-- ── Barre de navigation + onglets vue ── -->
+    <div class="week-nav">
+        <button class="week-arrow" id="prev-week">&#8592;</button>
+        <span class="week-label" id="week-label"></span>
+        <button class="week-arrow" id="next-week">&#8594;</button>
+        <button class="btn-today" id="btn-today">Aujourd'hui</button>
+
+        <div class="view-tabs">
+            <button class="view-tab active" data-view="day">Jour</button>
+            <button class="view-tab" data-view="week">Semaine</button>
         </div>
     </div>
-    <div class="header-user">
-        <div class="user-avatar-sm" id="staff-avatar">?</div>
-        <button class="btn-logout" onclick="logout()">Déconnexion</button>
+
+    <!-- ── Vue semaine mini (cards 7 jours) ── -->
+    <div class="week-grid" id="week-grid"></div>
+
+    <!-- ── Vue semaine complète ── -->
+    <div class="week-full" id="week-full" style="display:none">
+        <div class="week-sub-tabs">
+            <button class="week-sub-tab active" data-sub="dashboard">Tableau de bord</button>
+            <button class="week-sub-tab" data-sub="agenda">Agenda</button>
+        </div>
+        <div id="week-dashboard"></div>
+        <div id="week-agenda" style="display:none"></div>
+    </div>
+
+    <!-- ── Vue détail d'un jour ── -->
+    <div class="day-detail" id="day-detail" style="display:none">
+
+        <div class="day-detail-header">
+            <span class="day-detail-title" id="day-detail-title"></span>
+            <button class="btn-copy-day" id="btn-copy-day">Copier ce jour →</button>
+            <button class="btn-manage-staff" id="btn-publish-week" style="font-size:12px;padding:5px 12px">Publier la semaine</button>
+            <button class="day-detail-close" id="day-detail-close">×</button>
+        </div>
+
+        <!-- Timeline — wrapper scroll horizontal synchronisé -->
+        <div class="timeline-scroll" id="timeline-scroll">
+            <div class="timeline-top">
+                <div class="tl-corner"></div>
+                <div class="timeline-header" id="timeline-header"></div>
+            </div>
+            <div class="timeline-body" id="timeline-body"></div>
+        </div>
+
+    </div>
+
+    <!-- ── Barre staff ── -->
+    <div class="staff-bar" id="staff-bar-container">
+        <div class="staff-bar-top">
+            <input type="text" id="staff-search" class="staff-search-input" placeholder="Rechercher un nom...">
+            <div class="staff-role-filters" id="staff-role-filters">
+                <button class="role-filter-btn active" data-role="">Tous</button>
+            </div>
+        </div>
+        <div class="staff-list" id="staff-list"></div>
+        <span class="staff-bar-hint">Glisse un nom sur le planning &nbsp;·&nbsp; ★ = affecté à cet établissement</span>
+    </div>
+
+    <!-- ── Stats ── -->
+    <div class="stats-bar" id="stats-bar"></div>
+
+</div>
+
+<!-- Modale gestion staff -->
+<div class="modal-overlay" id="staff-modal" style="display:none">
+    <div class="modal" style="width:560px;max-width:95vw">
+        <div class="modal-header">
+            <span class="modal-title">Gestion du staff</span>
+            <button class="modal-close" id="staff-modal-close">&times;</button>
+        </div>
+        <!-- Onglets -->
+        <div style="display:flex;border-bottom:1px solid #f0f0f0;margin-bottom:0">
+            <button class="staff-modal-tab active" data-tab="staff">Membres</button>
+            <button class="staff-modal-tab" data-tab="roles">R&ocirc;les</button>
+        </div>
+
+        <!-- Onglet Membres -->
+        <div id="staff-tab-staff">
+            <div class="staff-manage-list" id="staff-manage-list"></div>
+            <div class="staff-add-form">
+                <div class="staff-add-title">Ajouter u  n membre</div>
+                <div class="staff-add-fields">
+                    <input type="text"  id="new-staff-name"  class="staff-input" placeholder="Pr&eacute;nom Nom">
+                    <input type="email" id="new-staff-email" class="staff-input" placeholder="email@exemple.com (optionnel)">
+                    <input type="color" id="new-staff-color" class="staff-color-pick" value="#3498db" title="Couleur">
+                    <button class="btn-add-staff" id="btn-add-staff">Ajouter</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Onglet Rôles -->
+        <div id="staff-tab-roles" style="display:none">
+            <div class="staff-manage-list" id="roles-manage-list"></div>
+            <div class="staff-add-form">
+                <div class="staff-add-title">Cr&eacute;er un r&ocirc;le</div>
+                <div class="staff-add-fields">
+                    <input type="text" id="new-role-name" class="staff-input" placeholder="Nom du r&ocirc;le (ex: Manager)">
+                    <select id="new-role-type" class="staff-input" style="flex:0.8">
+                        <option value="responsable">Responsable</option>
+                        <option value="informatif">Informatif</option>
+                    </select>
+                    <button class="btn-add-staff" id="btn-add-role">Cr&eacute;er</button>
+                </div>
+                <p style="font-size:11px;color:#bbb;margin-top:8px">
+                    <strong>Responsable</strong> : doit &ecirc;tre pr&eacute;sent &agrave; chaque service (alerte si absent) &nbsp;·&nbsp;
+                    <strong>Informatif</strong> : indication seulement
+                </p>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="tabs-bar">
-    <button class="tab-btn active" data-tab="planning">Mon planning</button>
-    <button class="tab-btn" data-tab="dispos" id="tab-dispos">Mes dispos</button>
-</div>
-
-<div class="greeting">
-    <div class="greeting-name" id="greeting-name">Bonjour !</div>
-    <div class="greeting-sub" id="greeting-sub">Voici ton planning de la semaine</div>
-</div>
-
-<div id="view-planning">
-<div class="week-stats" id="week-stats"></div>
-<div class="days-list" id="days-list">
-    <div class="state-msg">Chargement…</div>
-</div>
-</div>
-
-<!-- ── Vue disponibilités ── -->
-<div id="view-dispos" style="display:none">
-    <div class="greeting">
-        <div class="greeting-name" id="dispos-title">Mes dispos — semaine prochaine</div>
-        <div class="greeting-sub" id="dispos-status"></div>
+<!-- Modale comptes -->
+<div class="modal-overlay" id="accounts-modal" style="display:none">
+    <div class="modal" style="width:520px;max-width:95vw">
+        <div class="modal-header">
+            <span class="modal-title">Comptes</span>
+            <button class="modal-close" id="accounts-modal-close">&times;</button>
+        </div>
+        <div id="accounts-list"></div>
+        <div class="staff-add-form">
+            <div class="staff-add-title">Inviter</div>
+            <div class="staff-add-fields">
+                <select id="new-account-role" class="staff-input" style="flex:0.7">
+                    <option value="staff">Staff</option>
+                    <option value="directeur">Directeur</option>
+                </select>
+                <select id="new-account-staff" class="staff-input" style="flex:1">
+                    <option value="">&#8212; Lier au staff &#8212;</option>
+                </select>
+                <input type="email" id="new-account-email" class="staff-input" placeholder="email@exemple.com">
+                <button class="btn-add-staff" id="btn-invite-account">Inviter</button>
+            </div>
+            <!-- Sélection des bars — visible uniquement quand rôle = patron -->
+            <div id="new-account-bars-row" style="display:none;margin-top:10px;padding:10px 12px;background:#f8f8f8;border-radius:8px;border:1px solid #eee">
+                <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Bars accessibles</div>
+                <div id="new-account-bars-list" style="display:flex;flex-wrap:wrap;gap:8px">
+                    <!-- Rempli dynamiquement par script.js via populateBarsCheckboxes() -->
+                </div>
+                <p style="font-size:10px;color:#bbb;margin-top:6px">Laisse tout décoché = aucun accès pour l'instant</p>
+            </div>
+            <p style="font-size:11px;color:#bbb;margin-top:8px">Un lien de cr&#233;ation de mot de passe sera envoy&#233; par email.</p>
+        </div>
     </div>
-    <div id="dispos-form" style="padding:0 20px 24px;display:flex;flex-direction:column;gap:10px"></div>
-    <div style="height:64px"></div>
-    <button id="btn-submit-dispos" class="btn-submit-dispos">
-        Envoyer mes dispos
-    </button>
 </div>
 
-<script>
-// ── Constantes ────────────────────────────────────────────────────────────────
-
-const DAY_NAMES  = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-const MONTH_NAMES = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'];
-
-// ── Utilitaires ───────────────────────────────────────────────────────────────
-
-function toDateStr(d) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const j = String(d.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + j;
-}
-
-function getMondayOf(d) {
-    const day  = d.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    const mon  = new Date(d);
-    mon.setDate(d.getDate() + diff);
-    mon.setHours(0, 0, 0, 0);
-    return mon;
-}
-
-function addDays(d, n) {
-    const r = new Date(d);
-    r.setDate(r.getDate() + n);
-    return r;
-}
-
-function fmtHour(h) {
-    return String(Math.floor(h % 24)).padStart(2, '0') + 'h';
-}
-
-function fmtDuration(h) {
-    const total = h;
-    const hrs   = Math.floor(total);
-    const mins  = Math.round((total - hrs) * 60);
-    return mins > 0 ? hrs + 'h' + String(mins).padStart(2, '0') : hrs + 'h';
-}
-
-// ── Auth ──────────────────────────────────────────────────────────────────────
-
-async function checkAuth() {
-    // Retry une fois pour éviter les faux-positifs réseau au démarrage PWA
-    for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-            const res = await fetch('/auth/me', { credentials: 'include' });
-            if (res.status === 401) { window.location.href = '/login.html'; return null; }
-            if (!res.ok) { if (attempt === 0) { await new Promise(r => setTimeout(r, 800)); continue; } break; }
-            const data = await res.json();
-            // Si par erreur un patron arrive ici, rediriger vers son interface
-            if (data.user?.role === 'patron') { window.location.href = '/index.html'; return null; }
-            return data.user;
-        } catch {
-            if (attempt === 0) { await new Promise(r => setTimeout(r, 800)); continue; }
-            // Après retry, si réseau vraiment indisponible : rester sur la page sans rediriger
-            // (le SW sert la page en cache, on ne veut pas boucler)
-            return null;
-        }
-    }
-    window.location.href = '/login.html';
-    return null;
-}
-
-async function logout() {
-    await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
-    window.location.href = '/login.html';
-}
-
-// ── Init ──────────────────────────────────────────────────────────────────────
-
-let allStaff = [];
-
-async function init() {
-    const user = await checkAuth();
-    if (!user) return;
-
-    // Le patron n'a pas accès à cette page
-    if (user.role === 'patron') {
-        window.location.href = '/index.html';
-        return;
-    }
-
-    document.getElementById('greeting-name').textContent = 'Bonjour ' + (user.name || '') + ' !';
-    const av = document.getElementById('staff-avatar');
-    if (av) av.textContent = (user.name || user.email || '?').charAt(0).toUpperCase();
-
-    initTabs();
-
-    // Charger les dispos quand on clique sur l'onglet
-    document.querySelector('[data-tab="dispos"]').addEventListener('click', () => {
-        loadDisposTab();
-    });
-
-    // Masquer l'onglet dispos si le staff n'a pas le droit d'en envoyer
-    try {
-        const sRes = await fetch('/api/dispo-settings', { credentials: 'include' });
-        if (sRes.ok) {
-            const s = await sRes.json();
-            if (s.staffCanSubmit === false) {
-                const tabDispos  = document.getElementById('tab-dispos');
-                const viewDispos = document.getElementById('view-dispos');
-                if (tabDispos)  tabDispos.style.display  = 'none';
-                if (viewDispos) viewDispos.style.display = 'none';
-            }
-        }
-    } catch { /* silencieux */ }
-
-    // Semaine en cours
-    const monday = getMondayOf(new Date());
-    const sunday = addDays(monday, 6);
-    const from   = toDateStr(monday);
-    const to     = toDateStr(sunday);
-
-    document.getElementById('header-week').textContent =
-        'Semaine du ' + monday.getDate() + ' ' + MONTH_NAMES[monday.getMonth()] +
-        ' au ' + sunday.getDate() + ' ' + MONTH_NAMES[sunday.getMonth()];
-
-    await loadPlanning(from, to, user);
-
-    // Vérifier si la semaine suivante est publiée
-    const nextMonday = getMondayOf(addDays(new Date(), 7));
-    const nextWeekStart = toDateStr(nextMonday);
-    try {
-        const pubRes  = await fetch('/api/publish/' + nextWeekStart, { credentials: 'include' });
-        const pubData = await pubRes.json();
-        if (pubData.published) {
-            // Créer la vue semaine suivante (avant l'onglet pour que showTab la trouve)
-            const viewNext = document.createElement('div');
-            viewNext.id            = 'view-next-week';
-            viewNext.style.display = 'none';
-            document.getElementById('view-dispos').after(viewNext);
-
-            // Ajouter l'onglet et rebinder initTabs
-            const tabBar  = document.querySelector('.tabs-bar');
-            const tabNext = document.createElement('button');
-            tabNext.className   = 'tab-btn';
-            tabNext.dataset.tab = 'next-week';
-            tabNext.textContent = 'Semaine prochaine ✨';
-            tabBar.appendChild(tabNext);
-            initTabs(); // rebind pour inclure le nouvel onglet
-
-            // Charger le contenu au premier clic
-            tabNext.addEventListener('click', async () => {
-                if (viewNext.dataset.loaded) return;
-                viewNext.innerHTML = '<div style="padding:20px;text-align:center;color:#ccc">Chargement…</div>';
-                const nextSunday = addDays(nextMonday, 6);
-                const nFrom = toDateStr(nextMonday);
-                const nTo   = toDateStr(nextSunday);
-
-                try {
-                    const res  = await fetch('/api/my-shifts?from=' + nFrom + '&to=' + nTo, { credentials: 'include' });
-                    const data = await res.json();
-
-                    viewNext.innerHTML = '';
-                    const tempStats = document.createElement('div');
-                    tempStats.className = 'week-stats';
-                    const tempList  = document.createElement('div');
-                    tempList.className  = 'days-list';
-                    viewNext.appendChild(tempStats);
-                    viewNext.appendChild(tempList);
-
-                    const myShifts2 = data.shifts.filter(s => !s.is_joker && s.staff_id !== '__joker__');
-                    const jokers2   = data.shifts.filter(s =>  s.is_joker || s.staff_id === '__joker__');
-                    renderStatsInto(myShifts2, tempStats);
-                    renderDaysInto(nFrom, myShifts2, data.colleagues, tempList, jokers2);
-                    viewNext.dataset.loaded = '1';
-                } catch (e) {
-                    viewNext.innerHTML = '<div style="padding:20px;text-align:center;color:#e74c3c">' + e.message + '</div>';
-                }
-            });
-        } else {
-            // Semaine pas encore publiée — afficher un message discret
-            const msgEl = document.createElement('div');
-            msgEl.style.cssText = 'padding:16px 20px;font-size:13px;color:#bbb;text-align:center';
-            msgEl.textContent = 'Le planning de la semaine prochaine n’est pas encore disponible.';
-            document.getElementById('view-planning').appendChild(msgEl);
-        }
-    } catch { }
-}
-
-// ── Chargement ────────────────────────────────────────────────────────────────
-
-async function loadPlanning(from, to, user) {
-    const list = document.getElementById('days-list');
-
-    try {
-        const res  = await fetch('/api/my-shifts?from=' + from + '&to=' + to, { credentials: 'include' });
-
-        // Vérifier que la réponse est bien du JSON
-        const contentType = res.headers.get('content-type') || '';
-        if (!contentType.includes('application/json')) {
-            // Le serveur a renvoyé du HTML → session expirée ou erreur serveur
-            if (res.status === 401) {
-                window.location.href = '/login.html';
-                return;
-            }
-            throw new Error('Erreur serveur (' + res.status + ')');
-        }
-
-        const data = await res.json();
-
-        if (!res.ok) {
-            // Cas spécifique : compte non lié à un profil staff
-            if (data.error && data.error.includes('profil staff')) {
-                list.innerHTML =
-                    '<div class="empty-week">' +
-                        '<div class="empty-week-icon">⚠️</div>' +
-                        '<div class="empty-week-text">Compte non configuré</div>' +
-                        '<div class="empty-week-sub">Ton compte n est pas encore lié à un profil staff.<br>Contacte ton responsable.</div>' +
-                    '</div>';
-                return;
-            }
-            throw new Error(data.error || 'Erreur inconnue');
-        }
-
-        const myShifts = data.shifts.filter(s => !s.is_joker && s.staff_id !== '__joker__');
-        const jokers   = data.shifts.filter(s =>  s.is_joker || s.staff_id === '__joker__');
-        renderStats(myShifts);
-        renderDays(from, myShifts, data.colleagues, jokers);
-
-    } catch (e) {
-        list.innerHTML = '<div class="state-msg error">' + e.message + '</div>';
-    }
-}
-
-// ── Stats semaine ─────────────────────────────────────────────────────────────
-
-function renderStats(shifts) {
-    const el = document.getElementById('week-stats');
-    if (el) renderStatsInto(shifts, el);
-}
-
-function renderStatsInto(shifts, el) {
-    const nbShifts = shifts.length;
-    const totalH   = shifts.reduce((a, s) => a + (s.end_time - s.start_time), 0);
-    const nbJours  = new Set(shifts.map(s => s.date)).size;
-    el.style.display = '';
-    el.innerHTML =
-        statCard(nbJours,             'Jours') +
-        statCard(nbShifts,            'Shifts') +
-        statCard(fmtDuration(totalH), 'Heures');
-}
-
-function statCard(value, label) {
-    return '<div class="stat-card">' +
-        '<div class="stat-value">' + value + '</div>' +
-        '<div class="stat-label">' + label + '</div>' +
-    '</div>';
-}
-
-// ── Rendu des jours ───────────────────────────────────────────────────────────
-
-function renderDays(from, shifts, colleagues, jokers) {
-    const list = document.getElementById('days-list');
-    renderDaysInto(from, shifts, colleagues, list, jokers || []);
-}
-
-function renderDaysInto(from, shifts, colleagues, list, jokers) {
-    jokers = jokers || [];
-    const today  = toDateStr(new Date());
-    const [fy, fm, fd] = from.split('-').map(Number);
-    const monday = new Date(fy, fm - 1, fd, 0, 0, 0, 0);
-
-    if (shifts.length === 0) {
-        list.innerHTML =
-            '<div class="empty-week">' +
-                '<div class="empty-week-icon">📅</div>' +
-                '<div class="empty-week-text">Aucun shift cette semaine</div>' +
-                '<div class="empty-week-sub">Reviens plus tard ou contacte ton responsable</div>' +
-            '</div>';
-        return;
-    }
-
-    list.innerHTML = '';
-
-    // Séparer jours avec shifts et jours repos
-    const restDays = [];
-
-    for (let i = 0; i < 7; i++) {
-        const date      = toDateStr(addDays(monday, i));
-        const d         = addDays(monday, i);
-        const dayShifts = shifts.filter(s => s.date === date);
-        const isToday   = date === today;
-
-        if (dayShifts.length === 0) {
-            // Accumuler les jours de repos
-            restDays.push({ d, isToday });
-
-            // Flush si c'est le dernier jour ou si le prochain a un shift
-            const nextDate = toDateStr(addDays(monday, i + 1));
-            const nextHasShift = i < 6 && shifts.some(s => s.date === nextDate);
-            const isLast = i === 6;
-
-            if ((nextHasShift || isLast) && restDays.length > 0) {
-                // Afficher les jours repos accumulés
-                if (restDays.length === 1 && restDays[0].isToday) {
-                    // Aujourd'hui sans shift — carte pleine avec "Aujourd'hui"
-                    const rc = document.createElement('div');
-                    rc.className = 'day-card today';
-                    rc.innerHTML =
-                        '<div class="day-header">' +
-                            '<div class="day-date-block">' +
-                                '<div class="day-weekday" style="color:#534AB7">' + DAY_NAMES[restDays[0].d.getDay()] + '</div>' +
-                                '<div class="day-num" style="color:#534AB7">' + restDays[0].d.getDate() + '</div>' +
-                            '</div>' +
-                            '<div class="day-divider"></div>' +
-                            '<div class="day-header-info">' +
-                                '<span class="today-chip">Aujourd hui</span>' +
-                                '<div class="day-duration" style="margin-top:2px">Repos</div>' +
-                            '</div>' +
-                        '</div>';
-                    list.appendChild(rc);
-                } else {
-                    const grid = document.createElement('div');
-                    grid.className = 'rest-grid';
-                    restDays.forEach(r => {
-                        const rc = document.createElement('div');
-                        rc.className = 'rest-card' + (r.isToday ? ' today' : '');
-                        if (r.isToday) rc.style.cssText = 'background:white;border:2px solid #534AB7;border-radius:10px;opacity:1;padding:10px 8px;text-align:center';
-                        rc.innerHTML =
-                            '<div class="rest-weekday" style="' + (r.isToday ? 'color:#534AB7' : '') + '">' + DAY_NAMES[r.d.getDay()] + '</div>' +
-                            '<div class="rest-num"    style="' + (r.isToday ? 'color:#534AB7' : '') + '">' + r.d.getDate() + '</div>';
-                        grid.appendChild(rc);
-                    });
-                    list.appendChild(grid);
-                }
-                restDays.length = 0;
-            }
-            continue;
-        }
-
-        // Jour avec shift(s)
-        const firstShift = dayShifts[0];
-        const sm = allStaff ? allStaff.find(s => String(s._id) === firstShift.staff_id) : null;
-        const staffColor = sm ? sm.color : (firstShift.color || '#534AB7');
-
-        const card = document.createElement('div');
-        card.className = 'day-card has-shift' + (isToday ? ' today' : '');
-        if (!isToday) card.style.borderLeftColor = staffColor;
-
-        // En-tête
-        const header = document.createElement('div');
-        header.className = 'day-header';
-        header.innerHTML =
-            '<div class="day-date-block">' +
-                '<div class="day-weekday">' + DAY_NAMES[d.getDay()] + '</div>' +
-                '<div class="day-num">' + d.getDate() + '</div>' +
-            '</div>' +
-            '<div class="day-divider"></div>' +
-            '<div class="day-header-info">' +
-                '<div class="day-establishment">' + formatEstablishment(firstShift.establishment_id) + '</div>' +
-                '<div class="day-duration">' + fmtDuration(firstShift.end_time - firstShift.start_time) + ' de service</div>' +
-            '</div>' +
-            (isToday ? '<span class="today-chip">Aujourd hui</span>' : '') +
-            '<span class="shift-hours-badge">' + fmtHour(firstShift.start_time) + ' → ' + fmtHour(firstShift.end_time) + '</span>';
-        card.appendChild(header);
-
-        // Collègues + shifts supplémentaires
-        dayShifts.forEach((shift, idx) => {
-            const dayColleagues = (colleagues[date] || []).filter(c => c.establishment_id === shift.establishment_id);
-            const dayJokers     = jokers.filter(j => j.date === date && j.establishment_id === shift.establishment_id);
-            if (idx > 0 || dayColleagues.length > 0 || dayJokers.length > 0) {
-                const block = document.createElement('div');
-                block.className = 'shift-block';
-                let html = '';
-                if (idx > 0) html += '<div class="day-establishment" style="font-size:12px;color:#888;margin-bottom:4px">' + formatEstablishment(shift.establishment_id) + ' · ' + fmtHour(shift.start_time) + '→' + fmtHour(shift.end_time) + '</div>';
-                const allColleagues = [...dayColleagues, ...dayJokers];
-                if (allColleagues.length > 0) {
-                    const pills = allColleagues.map(c =>
-                        '<span class="colleague-pill"><span class="colleague-dot" style="background:' + (c.is_joker ? '#95a5a6' : (c.color || '#888')) + '"></span>' + (c.is_joker ? 'Joker' : c.staff_name) + '</span>'
-                    ).join('');
-                    html += '<div class="colleagues-row"><span class="colleagues-lbl">Collègues</span>' + pills + '</div>';
-                }
-                block.innerHTML = html;
-                card.appendChild(block);
-            }
-        });
-
-        list.appendChild(card);
-    }
-}
-
-// ── Formatage nom établissement ───────────────────────────────────────────────
-
-function formatEstablishment(id) {
-    const map = {
-        'Josy_pub':          'Josy — Pub',
-        'Poni_restaurant':   'Poni — Restaurant',
-        'FanFan_restaurant': 'FanFan — Restaurant',
-        'Caval_restaurant':  'Caval — Restaurant',
-    };
-    return map[id] || id;
-}
-
-// ── Navigation onglets ───────────────────────────────────────────────────────
-
-function showTab(tab) {
-    // Cacher toutes les vues connues
-    const views = ['view-planning', 'view-dispos', 'view-next-week'];
-    views.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    });
-    // Afficher la bonne vue
-    const target = document.getElementById('view-' + tab);
-    if (target) target.style.display = '';
-    // Mettre à jour les onglets
-    document.querySelectorAll('.tab-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.tab === tab);
-    });
-}
-
-function initTabs() {
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        if (btn._tabBound) return;
-        btn._tabBound = true;
-        btn.addEventListener('click', () => {
-            if (btn.disabled) return;
-            showTab(btn.dataset.tab);
-        });
-    });
-}
-
-// ── Disponibilités ────────────────────────────────────────────────────────────
-
-const DISPO_TYPES = {
-    soir:   { label: 'Soir',   start: 16, end: 26 },
-    midi:   { label: 'Midi',   start: 10, end: 17 },
-    custom: { label: 'Horaires précis', start: null, end: null },
-    off:    { label: 'Indisponible', start: null, end: null },
-};
-
-let dispoSettings  = null;
-let dispoSelections = {}; // { "2025-06-23": { type, start_time, end_time, note } }
-
-async function loadDisposTab() {
-    // Charger les paramètres
-    const sRes = await fetch('/api/dispo-settings', { credentials: 'include' });
-    dispoSettings = await sRes.json();
-
-    const statusEl = document.getElementById('dispos-status');
-    const formEl   = document.getElementById('dispos-form');
-    const btnSubmit = document.getElementById('btn-submit-dispos');
-
-    // Deadline
-    const deadline = new Date(dispoSettings.deadline);
-    const fmtDate  = deadline.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
-
-    if (!dispoSettings.canSubmit) {
-        statusEl.textContent   = dispoSettings.deadlinePassed
-            ? 'Deadline dépassée (' + fmtDate + '). Réouverture la semaine prochaine.'
-            : 'Saisie fermée par le responsable.';
-        statusEl.style.color   = '#e74c3c';
-        formEl.innerHTML       = '<div style="padding:20px 0;text-align:center;color:#ccc;font-size:14px">La saisie des disponibilités n\'est pas disponible.</div>';
-        btnSubmit.disabled     = true;
-        btnSubmit.style.background = '#ccc';
-        return;
-    }
-
-    statusEl.textContent = dispoSettings.force_open
-        ? '🔓 Saisie ouverte en urgence par le responsable'
-        : 'Deadline : ' + fmtDate;
-    statusEl.style.color = dispoSettings.force_open ? '#27ae60' : '#aaa';
-
-    // Semaine suivante
-    const nextMonday = getMondayOf(addDays(new Date(), 7));
-
-    // Charger les dispos existantes
-    const from = toDateStr(nextMonday);
-    const to   = toDateStr(addDays(nextMonday, 6));
-    const dRes = await fetch('/api/dispos/mine?from=' + from + '&to=' + to, { credentials: 'include' });
-    const existingDispos = dRes.ok ? await dRes.json() : [];
-
-    // Pré-remplir les sélections
-    dispoSelections = {};
-    existingDispos.forEach(d => {
-        dispoSelections[d.date] = { type: d.type, start_time: d.start_time, end_time: d.end_time, note: d.note || '' };
-    });
-
-    // Générer les 7 cartes
-    formEl.innerHTML = '';
-    for (let i = 0; i < 7; i++) {
-        const date = toDateStr(addDays(nextMonday, i));
-        const d    = addDays(nextMonday, i);
-        formEl.appendChild(createDispoCard(date, d));
-    }
-
-    btnSubmit.replaceWith(btnSubmit.cloneNode(true));
-    document.getElementById('btn-submit-dispos').addEventListener('click', submitDispos);
-}
-
-function createDispoCard(date, d) {
-    const sel  = dispoSelections[date] || { type: null };
-    const card = document.createElement('div');
-    card.className = 'dispo-card';
-
-    const fmt = h => String(Math.floor(h % 24)).padStart(2, '0') + 'h';
-
-    // Labels avec horaires affichés directement
-    const BTN_CONFIG = {
-        soir:   { label: 'Soir',        sub: '16h → 02h', col: '#1a1a2e' },
-        midi:   { label: 'Midi',        sub: '10h → 17h', col: '#534AB7' },
-        custom: { label: 'Personnalisé', sub: 'horaires libres', col: '#2ecc71' },
-        off:    { label: 'Indispo',     sub: null,           col: '#888' },
-    };
-
-    const isSelected = sel.type !== null;
-
-    card.innerHTML =
-        '<div class="dispo-day-header">' +
-            '<div class="dispo-day-name">' + DAY_NAMES[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + '</div>' +
-            (isSelected && sel.type !== 'off'
-                ? '<div class="dispo-day-selected">' +
-                    (sel.type === 'custom' && sel.start_time
-                        ? fmt(sel.start_time) + ' → ' + fmt(sel.end_time)
-                        : BTN_CONFIG[sel.type].sub) +
-                  '</div>'
-                : '') +
-        '</div>' +
-        '<div class="dispo-body">' +
-            '<div class="dispo-type-row">' +
-                ['soir', 'midi', 'custom', 'off'].map(type => {
-                    const cfg    = BTN_CONFIG[type];
-                    const active = sel.type === type ? ' selected-' + type : '';
-                    return '<button class="dispo-type-btn' + active + '" data-date="' + date + '" data-type="' + type + '">' +
-                        '<span class="dispo-btn-label">' + cfg.label + '</span>' +
-                        (cfg.sub ? '<span class="dispo-btn-sub">' + cfg.sub + '</span>' : '') +
-                    '</button>';
-                }).join('') +
-            '</div>' +
-            '<div class="dispo-custom-row' + (sel.type === 'custom' ? ' visible' : '') + '" id="custom-' + date + '">' +
-                '<input class="dispo-time-input" id="start-' + date + '" type="text" placeholder="10h" value="' + (sel.start_time ? fmt(sel.start_time) : '') + '">' +
-                '<span style="color:#aaa;flex-shrink:0">→</span>' +
-                '<input class="dispo-time-input" id="end-' + date + '" type="text" placeholder="18h" value="' + (sel.end_time ? fmt(sel.end_time) : '') + '">' +
-            '</div>' +
-            '<textarea class="dispo-note-input" id="note-' + date + '" placeholder="Note optionnelle..." rows="1">' + (sel.note || '') + '</textarea>' +
-        '</div>';
-
-    // Listeners boutons type
-    card.querySelectorAll('.dispo-type-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const type = btn.dataset.type;
-            const date = btn.dataset.date;
-
-            card.querySelectorAll('.dispo-type-btn').forEach(b => { b.className = 'dispo-type-btn'; });
-            btn.classList.add('selected-' + type);
-
-            const customRow = document.getElementById('custom-' + date);
-            customRow.classList.toggle('visible', type === 'custom');
-
-            if (type === 'off') {
-                dispoSelections[date] = { type: 'off', start_time: null, end_time: null, note: '' };
-            } else if (type === 'custom') {
-                dispoSelections[date] = { type: 'custom', start_time: null, end_time: null, note: '' };
-            } else {
-                dispoSelections[date] = {
-                    type,
-                    start_time: DISPO_TYPES[type].start,
-                    end_time:   DISPO_TYPES[type].end,
-                    note: '',
-                };
-            }
-
-            // Mettre à jour le résumé dans le header de la carte
-            const headerSel = card.querySelector('.dispo-day-selected');
-            const cfg = BTN_CONFIG[type];
-            if (type !== 'off' && cfg.sub) {
-                if (headerSel) {
-                    headerSel.textContent = cfg.sub;
-                } else {
-                    const dn = card.querySelector('.dispo-day-name');
-                    const sp = document.createElement('div');
-                    sp.className = 'dispo-day-selected';
-                    sp.textContent = cfg.sub;
-                    dn.after(sp);
-                }
-            } else if (headerSel) {
-                headerSel.remove();
-            }
-        });
-    });
-
-    return card;
-}
-
-async function submitDispos() {
-    const btn    = document.getElementById('btn-submit-dispos');
-    btn.disabled = true;
-    btn.textContent = 'Envoi…';
-
-    const dispos = [];
-    const nextMonday = getMondayOf(addDays(new Date(), 7));
-
-    for (let i = 0; i < 7; i++) {
-        const date = toDateStr(addDays(nextMonday, i));
-        const sel  = dispoSelections[date];
-        if (!sel || sel.type === null || sel.type === 'off') continue;
-
-        // Horaires précis : lire les champs
-        let start = sel.start_time;
-        let end   = sel.end_time;
-        if (sel.type === 'custom') {
-            const startVal = document.getElementById('start-' + date)?.value;
-            const endVal   = document.getElementById('end-'   + date)?.value;
-            start = parseFloat(startVal?.split(':')[0]) || null;
-            end   = parseFloat(endVal?.split(':')[0])   || null;
-            if (!start || !end || end <= start) {
-                showMsg('Horaires invalides pour le ' + date, 'error');
-                btn.disabled    = false;
-                btn.textContent = 'Envoyer mes dispos';
-                return;
-            }
-        }
-
-        const note = document.getElementById('note-' + date)?.value || '';
-        dispos.push({ date, type: sel.type, start_time: start, end_time: end, note });
-    }
-
-    if (dispos.length === 0) {
-        showMsg('Sélectionne au moins un jour disponible.', 'error');
-        btn.disabled    = false;
-        btn.textContent = 'Envoyer mes dispos';
-        return;
-    }
-
-    try {
-        const res  = await fetch('/api/dispos', {
-            credentials: 'include',
-            method:      'POST',
-            headers:     { 'Content-Type': 'application/json' },
-            body:        JSON.stringify({ dispos }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        showMsg(data.message, 'success');
-        btn.textContent = 'Dispos envoyées ✓';
-    } catch (e) {
-        showMsg(e.message, 'error');
-        btn.disabled    = false;
-        btn.textContent = 'Envoyer mes dispos';
-    }
-}
-
-function showMsg(text, type) {
-    const existing = document.getElementById('dispo-msg');
-    if (existing) existing.remove();
-    const el = document.createElement('div');
-    el.id = 'dispo-msg';
-    el.style.cssText = 'margin:0 20px 12px;padding:10px 14px;border-radius:8px;font-size:13px;' +
-        (type === 'error'
-            ? 'background:#fff5f5;border:1px solid #f5c6c6;color:#c0392b;'
-            : 'background:#f0faf5;border:1px solid #a8dfc7;color:#1a7a4a;');
-    el.textContent = text;
-    document.getElementById('dispos-form').before(el);
-}
-
-// ── Démarrage ─────────────────────────────────────────────────────────────────
-
-init();
-</script>
+<!-- ── Modale copie de jour ── -->
+<div class="modal-overlay" id="copy-modal" style="display:none">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">Copier le planning vers…</span>
+            <button class="modal-close" id="copy-modal-close">×</button>
+        </div>
+
+        <p class="modal-hint">Shifts à copier (tu peux les modifier avant de confirmer)</p>
+        <div class="copy-shifts-preview" id="copy-shifts-preview"></div>
+
+        <p class="modal-hint" style="margin-top:14px">Jours cibles</p>
+        <div class="copy-days-grid" id="copy-days-grid"></div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" id="copy-modal-cancel">Annuler</button>
+            <button class="btn-confirm" id="copy-modal-confirm">Copier</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modale disponibilités -->
+<div class="modal-overlay" id="dispos-modal" style="display:none">
+    <div class="modal" style="width:560px;max-width:95vw">
+        <div class="modal-header">
+            <span class="modal-title">Disponibilit&eacute;s en attente</span>
+            <button class="modal-close" id="dispos-modal-close">&times;</button>
+        </div>
+        <div id="dispos-list"></div>
+    </div>
+</div>
+
+<!-- Modale confirmation dispo -->
+<div class="modal-overlay" id="confirm-dispo-modal" style="display:none">
+    <div class="modal" style="width:400px;max-width:95vw">
+        <div class="modal-header">
+            <span class="modal-title">Confirmer la dispo</span>
+        </div>
+        <div style="padding:4px 0 16px">
+            <p class="modal-hint" style="margin-bottom:8px">Assigner &agrave; quel &eacute;tablissement ?</p>
+            <select id="confirm-dispo-establishment" class="staff-input" style="width:100%;margin-bottom:14px"></select>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;cursor:pointer">
+                <input type="checkbox" id="confirm-create-shift" checked>
+                Cr&eacute;er le shift automatiquement
+            </label>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" id="confirm-dispo-cancel" style="border-color:#e74c3c;color:#e74c3c">Refuser</button>
+            <button class="btn-confirm" id="confirm-dispo-btn">Confirmer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modale gestion établissements -->
+<div class="modal-overlay" id="establishments-modal" style="display:none">
+    <div class="modal" style="width:520px;max-width:95vw">
+        <div class="modal-header">
+            <span class="modal-title">Établissements</span>
+            <button class="modal-close" id="establishments-modal-close">&times;</button>
+        </div>
+        <div id="establishments-list"></div>
+        <div class="staff-add-form">
+            <div class="staff-add-title">Ajouter un établissement</div>
+            <div class="staff-add-fields" style="flex-wrap:wrap;gap:6px">
+                <input type="text"   id="new-estab-name"  class="staff-input" placeholder="Nom (ex: Le Central)" style="flex:1;min-width:140px">
+                <select id="new-estab-type" class="staff-input" style="flex:0.6">
+                    <option value="bar">Bar</option>
+                    <option value="restaurant">Restaurant</option>
+                </select>
+                <input type="time" id="new-estab-open"  class="staff-input" title="Heure ouverture" style="flex:0.5" placeholder="Ouverture">
+                <input type="time" id="new-estab-close" class="staff-input" title="Heure fermeture" style="flex:0.5" placeholder="Fermeture">
+                <button class="btn-add-staff" id="btn-add-establishment">Ajouter</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="conflict-toast" id="conflict-toast"></div>
+<div class="drop-hint" id="drop-hint">Dépose pour ajouter au planning</div>
+<div id="toast"></div>
+
+<script src="script.js"></script>
 <script>
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));

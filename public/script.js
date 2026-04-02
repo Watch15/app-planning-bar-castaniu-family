@@ -184,6 +184,20 @@ async function init() {
         document.getElementById('dispos-modal').style.display = 'none';
     });
 
+    const btnEstab = document.getElementById('btn-manage-establishments');
+    if (btnEstab) {
+        if (currentUser.role === 'patron') {
+            btnEstab.addEventListener('click', openEstablishmentsModal);
+        } else {
+            btnEstab.style.display = 'none';
+        }
+    }
+
+    const estabClose = document.getElementById('establishments-modal-close');
+    if (estabClose) estabClose.addEventListener('click', () => {
+        document.getElementById('establishments-modal').style.display = 'none';
+    });
+
     const btnAccounts = document.getElementById('btn-manage-accounts');
     if (btnAccounts) btnAccounts.addEventListener('click', openAccountsModal);
 
@@ -1554,6 +1568,124 @@ function switchToDayView(date) {
     });
 
     applyViewMode();
+}
+
+// ── Modale gestion établissements ────────────────────────────────────────────
+
+async function openEstablishmentsModal() {
+    await renderEstablishmentsList();
+    document.getElementById('establishments-modal').style.display = 'flex';
+    // Listener ajout (une seule fois)
+    const btn = document.getElementById('btn-add-establishment');
+    if (btn && !btn._bound) {
+        btn._bound = true;
+        btn.addEventListener('click', addEstablishment);
+    }
+}
+
+async function renderEstablishmentsList() {
+    const list = document.getElementById('establishments-list');
+    list.innerHTML = '<div style="padding:12px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
+    try {
+        const res    = await fetch('/api/establishments', { credentials: 'include' });
+        const estabs = await res.json();
+        if (!res.ok) throw new Error(estabs.error);
+        if (estabs.length === 0) {
+            list.innerHTML = '<div style="padding:16px;text-align:center;color:#ccc;font-size:13px">Aucun établissement</div>';
+            return;
+        }
+        list.innerHTML = '';
+        estabs.forEach(e => {
+            const row = document.createElement('div');
+            row.className = 'staff-manage-row';
+            const typeLabel = e.type === 'bar' ? 'Bar' : 'Restaurant';
+            const hours = (e.open_time && e.close_time)
+                ? e.open_time + ' – ' + e.close_time
+                : (e.open_time || e.close_time || '—');
+            row.innerHTML =
+                '<div class="staff-manage-info" style="flex:1;gap:6px">' +
+                    '<input type="text"  class="estab-name-input"  value="' + e.name + '" style="font-size:13px;font-weight:600;border:1px solid #e0e0e0;border-radius:6px;padding:5px 8px;width:100%">' +
+                    '<div style="display:flex;gap:6px;margin-top:4px">' +
+                        '<select class="estab-type-select" style="font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px;flex:0.8">' +
+                            '<option value="bar"' +        (e.type === 'bar'        ? ' selected' : '') + '>Bar</option>' +
+                            '<option value="restaurant"' + (e.type === 'restaurant' ? ' selected' : '') + '>Restaurant</option>' +
+                        '</select>' +
+                        '<input type="time" class="estab-open-input"  value="' + (e.open_time  || '') + '" title="Ouverture"  style="font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px;flex:1">' +
+                        '<input type="time" class="estab-close-input" value="' + (e.close_time || '') + '" title="Fermeture" style="font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px;flex:1">' +
+                    '</div>' +
+                '</div>' +
+                '<button class="staff-manage-save"  data-action="save">Enregistrer</button>' +
+                '<button class="staff-manage-delete" data-action="delete" title="Supprimer">×</button>';
+
+            row.querySelector('[data-action="save"]').addEventListener('click', async () => {
+                const name       = row.querySelector('.estab-name-input').value.trim();
+                const type       = row.querySelector('.estab-type-select').value;
+                const open_time  = row.querySelector('.estab-open-input').value  || null;
+                const close_time = row.querySelector('.estab-close-input').value || null;
+                if (!name) { showToast('Le nom ne peut pas être vide', true); return; }
+                try {
+                    const r = await fetch('/api/establishments/' + e._id, {
+                        credentials: 'include', method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, type, open_time, close_time }),
+                    });
+                    const d = await r.json();
+                    if (!r.ok) throw new Error(d.error);
+                    // Mettre à jour localement
+                    const idx = allEstablishments.findIndex(x => String(x._id) === String(e._id) || x.id === e.id);
+                    if (idx !== -1) { allEstablishments[idx].name = name; allEstablishments[idx].type = type; allEstablishments[idx].open_time = open_time; allEstablishments[idx].close_time = close_time; }
+                    renderTabs(allEstablishments);
+                    showToast(name + ' mis à jour');
+                } catch (err) { showToast(err.message, true); }
+            });
+
+            row.querySelector('[data-action="delete"]').addEventListener('click', () => {
+                showConfirm(
+                    'Supprimer <strong>' + e.name + '</strong> ?<br><span style="color:#e74c3c;font-size:12px">Tous les shifts de cet établissement seront supprimés.</span>',
+                    async () => {
+                        try {
+                            const r = await fetch('/api/establishments/' + e._id, { credentials: 'include', method: 'DELETE' });
+                            const d = await r.json();
+                            if (!r.ok) throw new Error(d.error);
+                            allEstablishments = allEstablishments.filter(x => String(x._id) !== String(e._id) && x.id !== e.id);
+                            renderTabs(allEstablishments);
+                            await renderEstablishmentsList();
+                            showToast(e.name + ' supprimé');
+                        } catch (err) { showToast(err.message, true); }
+                    }
+                );
+            });
+
+            list.appendChild(row);
+        });
+    } catch (err) {
+        list.innerHTML = '<div style="padding:16px;text-align:center;color:#e74c3c;font-size:13px">' + err.message + '</div>';
+    }
+}
+
+async function addEstablishment() {
+    const name       = document.getElementById('new-estab-name').value.trim();
+    const type       = document.getElementById('new-estab-type').value;
+    const open_time  = document.getElementById('new-estab-open').value  || null;
+    const close_time = document.getElementById('new-estab-close').value || null;
+    if (!name) { showToast('Le nom est obligatoire', true); return; }
+    try {
+        const res  = await fetch('/api/establishments', {
+            credentials: 'include', method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, type, open_time, close_time }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        allEstablishments.push(data);
+        renderTabs(allEstablishments);
+        await renderEstablishmentsList();
+        // Reset form
+        document.getElementById('new-estab-name').value  = '';
+        document.getElementById('new-estab-open').value  = '';
+        document.getElementById('new-estab-close').value = '';
+        showToast(name + ' ajouté');
+    } catch (e) { showToast(e.message, true); }
 }
 
 // ── Modale gestion des comptes ────────────────────────────────────────────────
