@@ -707,17 +707,26 @@ app.get('/api/dispo-settings', checkDB, requireAuth, async (req, res) => {
         const friday = new Date(now);
         friday.setDate(now.getDate() + diff);
         friday.setHours(13, 0, 0, 0);
-        const deadlinePassed = now > friday;
         const forceOpen = !!settings.force_open;
         const customDeadline = settings.custom_deadline || null;
         const effectiveDeadline = customDeadline ? new Date(customDeadline) : friday;
         const effectiveDeadlinePassed = now > effectiveDeadline;
+
+        // Vérifier si ce staff a le droit d'envoyer des dispos
+        let staffCanSubmit = true;
+        const staffId = req.session.user.staff_id;
+        if (staffId && isValidObjectId(staffId)) {
+            const staffDoc = await db.collection('staff').findOne({ _id: new ObjectId(staffId) });
+            if (staffDoc && staffDoc.can_submit_dispos === false) staffCanSubmit = false;
+        }
+
         res.json({
             open: settings.open,
             message: settings.message,
             deadline: effectiveDeadline.toISOString(),
             deadlinePassed: effectiveDeadlinePassed,
-            canSubmit: settings.open && (!effectiveDeadlinePassed || forceOpen),
+            canSubmit: staffCanSubmit && settings.open && (!effectiveDeadlinePassed || forceOpen),
+            staffCanSubmit,
             force_open: forceOpen,
             custom_deadline: customDeadline,
         });
