@@ -173,13 +173,21 @@
             <div class="staff-add-fields">
                 <select id="new-account-role" class="staff-input" style="flex:0.7">
                     <option value="staff">Staff</option>
-                    <option value="patron">Patron</option>
+                    <option value="directeur">Directeur</option>
                 </select>
                 <select id="new-account-staff" class="staff-input" style="flex:1">
                     <option value="">&#8212; Lier au staff &#8212;</option>
                 </select>
                 <input type="email" id="new-account-email" class="staff-input" placeholder="email@exemple.com">
                 <button class="btn-add-staff" id="btn-invite-account">Inviter</button>
+            </div>
+            <!-- Sélection des bars — visible uniquement quand rôle = patron -->
+            <div id="new-account-bars-row" style="display:none;margin-top:10px;padding:10px 12px;background:#f8f8f8;border-radius:8px;border:1px solid #eee">
+                <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Bars accessibles</div>
+                <div id="new-account-bars-list" style="display:flex;flex-wrap:wrap;gap:8px">
+                    <!-- Rempli dynamiquement par script.js via populateBarsCheckboxes() -->
+                </div>
+                <p style="font-size:10px;color:#bbb;margin-top:6px">Laisse tout décoché = aucun accès pour l'instant</p>
             </div>
             <p style="font-size:11px;color:#bbb;margin-top:8px">Un lien de cr&#233;ation de mot de passe sera envoy&#233; par email.</p>
         </div>

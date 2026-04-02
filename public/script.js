@@ -202,6 +202,10 @@ async function checkAuth() {
             const data = await res.json();
             // Si un staff arrive sur la page patron, rediriger vers son planning
             if (data.user?.role === 'staff') { window.location.href = '/planning.html'; return null; }
+            // patron et directeur sont autorisés
+            if (data.user?.role !== 'patron' && data.user?.role !== 'directeur') {
+                window.location.href = '/login.html'; return null;
+            }
             return data.user;
         } catch {
             if (attempt === 0) { await new Promise(r => setTimeout(r, 800)); continue; }
@@ -216,7 +220,8 @@ function renderUserBadge(user) {
     const badge  = document.getElementById('user-badge');
     const avatar = document.getElementById('user-avatar');
     const name   = user.name || user.email || '';
-    if (badge)  badge.textContent  = name;
+    const roleLabel = user.role === 'patron' ? ' · Patron' : ' · Directeur';
+    if (badge)  badge.textContent  = name + roleLabel;
     if (avatar) avatar.textContent = name.charAt(0).toUpperCase();
 }
 
@@ -1554,7 +1559,33 @@ function switchToDayView(date) {
 async function openAccountsModal() {
     await renderAccountsList();
     populateStaffSelect();
+    populateBarsCheckboxes();
+    // Cacher la section bars au départ (rôle par défaut = staff)
+    const barsRow = document.getElementById('new-account-bars-row');
+    if (barsRow) barsRow.style.display = 'none';
     document.getElementById('accounts-modal').style.display = 'flex';
+}
+
+function populateBarsCheckboxes() {
+    const container = document.getElementById('new-account-bars-list');
+    if (!container) return;
+    // Uniquement visible pour les admins
+    if (currentUser.role !== 'patron') {
+        const row = document.getElementById('new-account-bars-row');
+        if (row) row.style.display = 'none';
+        // Masquer l'option Patron bar du select si non-admin
+        const opt = document.querySelector('#new-account-role option[value="patron"]');
+        if (opt) opt.style.display = 'none';
+        return;
+    }
+    container.innerHTML = '';
+    allEstablishments.forEach(e => {
+        const estabId = e.id || String(e._id);
+        const label   = document.createElement('label');
+        label.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:12px;color:#333;cursor:pointer;padding:4px 8px;border:1px solid #e0e0e0;border-radius:6px;background:white';
+        label.innerHTML = '<input type="checkbox" value="' + estabId + '" style="cursor:pointer"> ' + e.name;
+        container.appendChild(label);
+    });
 }
 
 async function renderAccountsList() {
@@ -1574,20 +1605,30 @@ async function renderAccountsList() {
             row.className = 'staff-manage-row';
             const sm     = allStaff.find(s => String(s._id) === user.staff_id);
             const color  = sm ? sm.color : '#888';
-            const isP    = user.role === 'patron';
-            const status = isP ? 'Patron' : (user.active ? 'Actif' : 'Invitation envoyée');
-            const badge  = isP ? 'linked' : (user.active ? 'linked' : 'unlinked');
+            const isAdmin = user.role === 'patron';
+            const isP    = user.role === 'directeur';
+            let statusLabel, statusBadge;
+            if (isAdmin)     { statusLabel = 'Patron';      statusBadge = 'linked'; }
+            else if (isP)    { statusLabel = 'Directeur';   statusBadge = 'linked'; }
+            else             { statusLabel = user.active ? 'Actif' : 'Invitation envoyée'; statusBadge = user.active ? 'linked' : 'unlinked'; }
+
             row.innerHTML =
                 '<span class="staff-manage-dot" style="background:' + color + '"></span>' +
                 '<div class="staff-manage-info" style="flex:1">' +
                     '<div style="font-size:13px;font-weight:600;color:#333">' + (user.name || '—') + '</div>' +
                     '<div style="font-size:12px;color:#999">' + user.email + '</div>' +
                 '</div>' +
-                '<span class="staff-login-badge ' + badge + '" style="margin-right:8px">' + status + '</span>' +
+                '<span class="staff-login-badge ' + statusBadge + '" style="margin-right:8px">' + statusLabel + '</span>' +
+                (isP && currentUser.role === 'patron'
+                    ? '<button class="staff-manage-save" data-action="assign-bars" style="background:#f0effe;border-color:#7F77DD;color:#534AB7">Bars</button>'
+                    : '') +
                 '<button class="staff-manage-save" data-action="reset">Reset mdp</button>' +
                 '<button class="staff-manage-delete" data-action="delete">×</button>';
             row.querySelector('[data-action="reset"]').addEventListener('click',  () => patronResetPassword(user._id, user.name || user.email));
             row.querySelector('[data-action="delete"]').addEventListener('click', () => deleteAccount(user._id, user.name || user.email));
+            if (isP && currentUser.role === 'patron') {
+                row.querySelector('[data-action="assign-bars"]').addEventListener('click', () => openAssignBarsModal(user));
+            }
             list.appendChild(row);
         });
     } catch (e) {
@@ -1608,12 +1649,28 @@ function populateStaffSelect() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Afficher/masquer le select de bars selon le rôle sélectionné (admin uniquement)
+    const roleSelect = document.getElementById('new-account-role');
+    const barsRow    = document.getElementById('new-account-bars-row');
+    if (roleSelect && barsRow) {
+        roleSelect.addEventListener('change', () => {
+            barsRow.style.display = roleSelect.value === 'directeur' ? '' : 'none';
+        });
+    }
+
     const btnInvite = document.getElementById('btn-invite-account');
     if (btnInvite) btnInvite.addEventListener('click', async () => {
         const staffId = document.getElementById('new-account-staff')?.value || '';
         const email   = document.getElementById('new-account-email')?.value.trim();
         const role    = document.getElementById('new-account-role')?.value || 'staff';
         if (!email) { showToast('Email requis', true); return; }
+
+        // Récupérer les établissements cochés si invitation patron
+        let assignedEstablishments = [];
+        if (role === 'directeur' && barsRow) {
+            assignedEstablishments = Array.from(barsRow.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
+        }
+
         const sm   = allStaff.find(s => String(s._id) === staffId);
         const name = sm ? sm.name : '';
         const btn  = btnInvite;
@@ -1624,7 +1681,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 credentials: 'include',
                 method:      'POST',
                 headers:     { 'Content-Type': 'application/json' },
-                body:        JSON.stringify({ email, staff_id: role === 'staff' ? (staffId || null) : null, name, role }),
+                body:        JSON.stringify({ email, staff_id: role === 'staff' ? (staffId || null) : null, name, role, assigned_establishments: assignedEstablishments }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
@@ -1642,8 +1699,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 showToast('Invitation envoyée à ' + email);
             }
-            if (document.getElementById('new-account-email')) document.getElementById('new-account-email').value = '';
-            if (document.getElementById('new-account-staff')) document.getElementById('new-account-staff').value = '';
+            if (document.getElementById('new-account-email'))  document.getElementById('new-account-email').value  = '';
+            if (document.getElementById('new-account-staff'))  document.getElementById('new-account-staff').value  = '';
+            // Décocher toutes les cases bars
+            if (barsRow) barsRow.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
         } catch (e) {
             showToast(e.message, true);
         } finally {
@@ -1653,7 +1712,54 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-async function patronResetPassword(userId, userName) {
+// ── Modale assignation des bars à un patron ───────────────────────────────────
+
+function openAssignBarsModal(user) {
+    const assigned = user.assigned_establishments || [];
+    const overlay  = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+
+    const checkboxes = allEstablishments.map(e => {
+        const estabId = e.id || String(e._id);
+        const checked = assigned.includes(estabId) ? 'checked' : '';
+        return '<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#333;padding:6px 0;cursor:pointer">' +
+            '<input type="checkbox" value="' + estabId + '" ' + checked + ' style="width:15px;height:15px;cursor:pointer">' +
+            e.name + (e.type ? ' <span style="font-size:11px;color:#aaa">(' + (e.type === 'pub' ? 'Pub' : 'Resto') + ')</span>' : '') +
+            '</label>';
+    }).join('');
+
+    overlay.innerHTML =
+        '<div style="background:white;border-radius:14px;padding:24px;max-width:380px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.18)">' +
+            '<p style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:4px">Bars assignés à</p>' +
+            '<p style="font-size:13px;color:#888;margin-bottom:16px">' + (user.name || user.email) + '</p>' +
+            '<div style="margin-bottom:20px">' + (checkboxes || '<p style="color:#ccc;font-size:13px">Aucun établissement</p>') + '</div>' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+                '<button id="_abcancel" style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555">Annuler</button>' +
+                '<button id="_absave"   style="padding:8px 16px;border-radius:8px;border:none;background:#1a1a2e;color:white;font-size:13px;font-weight:600;cursor:pointer">Enregistrer</button>' +
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(overlay);
+    const close = () => document.body.removeChild(overlay);
+
+    overlay.querySelector('#_abcancel').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    overlay.querySelector('#_absave').addEventListener('click', async () => {
+        const selected = Array.from(overlay.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
+        try {
+            const res = await fetch('/api/users/' + user._id + '/establishments', {
+                credentials: 'include', method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assigned_establishments: selected }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            close();
+            showToast('Accès mis à jour pour ' + (user.name || user.email));
+        } catch (e) { showToast(e.message, true); }
+    });
+}
     showPrompt('Nouveau mot de passe pour ' + userName, '8 caractères minimum', async (pwd) => {
         if (pwd.length < 8) { showToast('Minimum 8 caractères', true); return; }
         try {
@@ -1668,7 +1774,6 @@ async function patronResetPassword(userId, userName) {
             showToast('Mot de passe de ' + userName + ' mis à jour');
         } catch (e) { showToast(e.message, true); }
     });
-}
 
 async function deleteAccount(userId, userName) {
     showConfirm('Supprimer le compte de <strong>' + userName + '</strong> ?', async () => {
@@ -2215,6 +2320,8 @@ function renderStaffManageList() {
                   '</div>'
                 : '');
 
+        const canSubmit = staff.can_submit_dispos !== false; // true par défaut
+
         row.innerHTML =
             '<input type="color" class="staff-manage-color" value="' + staff.color + '" title="Changer la couleur">' +
             '<div class="staff-manage-info">' +
@@ -2222,6 +2329,10 @@ function renderStaffManageList() {
                 '<input type="email" class="staff-manage-email-input" value="' + (staff.email || '') + '" placeholder="email (pour le login futur)">' +
                 '<div class="venue-pref-row">' + venueButtons + '</div>' +
                 '<div class="role-assign-section">' + rolesHTML + '</div>' +
+                '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#888;margin-top:6px;cursor:pointer">' +
+                    '<input type="checkbox" class="staff-can-submit" ' + (canSubmit ? 'checked' : '') + '>' +
+                    'Peut envoyer ses dispos' +
+                '</label>' +
             '</div>' +
             '<span class="staff-login-badge ' + (hasLogin ? 'linked' : 'unlinked') + '">' +
                 (hasLogin ? 'Login lié' : 'Sans login') +
@@ -2262,11 +2373,12 @@ function renderStaffManageList() {
 
         // Enregistrer
         row.querySelector('.staff-manage-save').addEventListener('click', async () => {
-            const newName   = row.querySelector('.staff-manage-name-input').value.trim();
-            const newEmail  = row.querySelector('.staff-manage-email-input').value.trim();
-            const newColor  = row.querySelector('.staff-manage-color').value;
-            const newVenues = Array.from(row.querySelectorAll('.venue-pref-btn.active')).map(b => b.dataset.venue);
-            const newRoles  = Array.from(row.querySelectorAll('.role-assign-btn.active')).map(b => b.dataset.role);
+            const newName       = row.querySelector('.staff-manage-name-input').value.trim();
+            const newEmail      = row.querySelector('.staff-manage-email-input').value.trim();
+            const newColor      = row.querySelector('.staff-manage-color').value;
+            const newVenues     = Array.from(row.querySelectorAll('.venue-pref-btn.active')).map(b => b.dataset.venue);
+            const newRoles      = Array.from(row.querySelectorAll('.role-assign-btn.active')).map(b => b.dataset.role);
+            const newCanSubmit  = row.querySelector('.staff-can-submit').checked;
 
             if (!newName) { showToast('Le nom ne peut pas être vide', true); return; }
 
@@ -2279,16 +2391,16 @@ function renderStaffManageList() {
                     method:      'PATCH',
                     credentials: 'include',
                     headers:     { 'Content-Type': 'application/json' },
-                    body:        JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues, roles: newRoles }),
+                    body:        JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit }),
                 });
                 if (!res.ok) throw new Error((await res.json()).error);
 
-                // Mise à jour locale
-                staff.name   = newName;
-                staff.color  = newColor;
-                staff.email  = newEmail;
-                staff.venues = newVenues;
-                staff.roles  = newRoles;
+                staff.name            = newName;
+                staff.color           = newColor;
+                staff.email           = newEmail;
+                staff.venues          = newVenues;
+                staff.roles           = newRoles;
+                staff.can_submit_dispos = newCanSubmit;
 
                 // Propager sur les shifts visibles
                 document.querySelectorAll('.shift').forEach(el => {
