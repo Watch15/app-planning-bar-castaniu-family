@@ -265,10 +265,14 @@ function fmtH(h) {
     return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
 }
 
-function parseTimeInput(val) {
+function parseTimeInput(val, referenceStart) {
     if (!val) return null;
     const [h, m] = val.split(':').map(Number);
-    return h + m / 60;
+    let result = h + m / 60;
+    // Si une heure de référence est fournie et que le résultat est inférieur,
+    // on est passé minuit → ajouter 24
+    if (referenceStart != null && result < referenceStart) result += 24;
+    return result;
 }
 
 function ecartLabel(planned, real) {
@@ -394,6 +398,7 @@ function buildShiftCard(shift) {
         if (shift.real_start == null || shift.real_end == null) return null;
         const realDur    = shift.real_end   - shift.real_start;
         const plannedDur = shift.end_time   - shift.start_time;
+        if (realDur <= 0) return null;
         return ecartLabel(plannedDur, realDur);
     })();
 
@@ -426,7 +431,7 @@ function buildShiftCard(shift) {
 
     function updateEcart() {
         const rs = parseTimeInput(startInput.value);
-        const re = parseTimeInput(endInput.value);
+        const re = parseTimeInput(endInput.value, rs);
         startInput.classList.toggle('filled', !!startInput.value);
         endInput.classList.toggle('filled',   !!endInput.value);
         if (rs != null && re != null && re > rs) {
@@ -444,7 +449,7 @@ function buildShiftCard(shift) {
 
     btnSave.addEventListener('click', async () => {
         const rs = parseTimeInput(startInput.value);
-        const re = parseTimeInput(endInput.value);
+        const re = parseTimeInput(endInput.value, rs);
         if (rs == null && re == null) { showToast('Saisis au moins une heure', true); return; }
         btnSave.disabled = true;
         try {
@@ -538,7 +543,7 @@ function initExtraForm() {
             ? freeName.value.trim()
             : searchInput.value.trim();
         const realStart = parseTimeInput(document.getElementById('extra-real-start').value);
-        const realEnd   = parseTimeInput(document.getElementById('extra-real-end').value);
+        const realEnd   = parseTimeInput(document.getElementById('extra-real-end').value, realStart);
 
         if (!staffName)       { showToast('Nom du staff requis', true);          return; }
         if (realStart == null) { showToast('Heure de début requise', true);       return; }

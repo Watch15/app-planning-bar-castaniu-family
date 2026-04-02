@@ -976,15 +976,151 @@ function createShiftEl(shift) {
     el.style.left  = Math.max(0, left)  + 'px';
     el.style.width = Math.max(PX_PER_HOUR, width) + 'px';
 
-    const fmt = h => `${Math.floor(h % 24).toString().padStart(2, '0')}:00`;
+    const fmt = h => `${Math.floor(h % 24).toString().padStart(2, '0')}h${String(Math.round((h%1)*60)).padStart(2,'0')}`;
+
+    // Indicateur heures réelles
+    const hasReal = shift.real_start != null && shift.real_end != null;
+    const realIndicator = hasReal
+        ? `<span class="shift-real-indicator" title="Heures réelles : ${fmt(shift.real_start)} – ${fmt(shift.real_end)}">⏱</span>`
+        : '';
+
     el.innerHTML = `
         <div class="resizer left"></div>
         <span class="shift-name">${shift.staff_name}</span>
         <span class="shift-hours">${fmt(shift.start_time)} – ${fmt(shift.end_time)}</span>
+        ${realIndicator}
         <button class="shift-delete" onclick="deleteShift(event, '${shift._id}', '${shift.staff_id}')">×</button>
         <div class="resizer right"></div>`;
 
+    // Clic sur le shift (hors resizers et delete) → modale heures réelles
+    if (!shift.is_joker && shift.staff_id !== '__joker__') {
+        el.addEventListener('click', e => {
+            if (e.target.closest('.resizer') || e.target.closest('.shift-delete')) return;
+            openRealHoursModal(shift, el);
+        });
+    }
+
     return el;
+}
+
+// ── Modale heures réelles (côté patron) ──────────────────────────────────────
+
+function openRealHoursModal(shift, shiftEl) {
+    const fmt     = h => h == null ? '' : String(Math.floor(h % 24)).padStart(2, '0') + ':' + String(Math.round((h % 1) * 60)).padStart(2, '0');
+    const fmtDisp = h => h == null ? '—' : String(Math.floor(h % 24)).padStart(2, '0') + 'h' + String(Math.round((h % 1) * 60)).padStart(2, '0');
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+
+    overlay.innerHTML =
+        '<div style="background:white;border-radius:14px;padding:24px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.18)">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+                '<span style="width:10px;height:10px;border-radius:50%;background:' + (shift.color || '#888') + ';flex-shrink:0;display:inline-block"></span>' +
+                '<p style="font-size:14px;font-weight:700;color:#1a1a2e">' + shift.staff_name + '</p>' +
+            '</div>' +
+            '<p style="font-size:12px;color:#aaa;margin-bottom:16px">Planifié : ' + fmtDisp(shift.start_time) + ' → ' + fmtDisp(shift.end_time) + '</p>' +
+            '<div style="display:flex;gap:10px;margin-bottom:18px">' +
+                '<div style="flex:1">' +
+                    '<div style="font-size:11px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Début réel</div>' +
+                    '<input id="_rh-start" type="time" value="' + fmt(shift.real_start) + '" style="width:100%;padding:9px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:15px;font-weight:600;outline:none">' +
+                '</div>' +
+                '<div style="flex:1">' +
+                    '<div style="font-size:11px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Fin réelle</div>' +
+                    '<input id="_rh-end" type="time" value="' + fmt(shift.real_end) + '" style="width:100%;padding:9px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:15px;font-weight:600;outline:none">' +
+                '</div>' +
+            '</div>' +
+            '<div id="_rh-ecart" style="text-align:center;font-size:12px;color:#aaa;min-height:18px;margin-bottom:14px"></div>' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+                '<button id="_rh-cancel" style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555">Annuler</button>' +
+                '<button id="_rh-clear"  style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#e74c3c">Effacer</button>' +
+                '<button id="_rh-save"   style="padding:8px 16px;border-radius:8px;border:none;background:#1a1a2e;color:white;font-size:13px;font-weight:600;cursor:pointer">Enregistrer</button>' +
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(overlay);
+    const close = () => document.body.removeChild(overlay);
+
+    const startInput = overlay.querySelector('#_rh-start');
+    const endInput   = overlay.querySelector('#_rh-end');
+    const ecartEl    = overlay.querySelector('#_rh-ecart');
+
+    function parseT(val, ref) {
+        if (!val) return null;
+        const [h, m] = val.split(':').map(Number);
+        let r = h + m / 60;
+        if (ref != null && r < ref) r += 24;
+        return r;
+    }
+
+    function updateEcart() {
+        const rs = parseT(startInput.value);
+        const re = parseT(endInput.value, rs);
+        if (rs != null && re != null && re > rs) {
+            const realDur    = re - rs;
+            const plannedDur = shift.end_time - shift.start_time;
+            const diff = realDur - plannedDur;
+            if (Math.abs(diff) < 0.01) { ecartEl.textContent = '= planifié'; ecartEl.style.color = '#27ae60'; }
+            else {
+                const mins = Math.round(Math.abs(diff) * 60);
+                const h = Math.floor(mins / 60), m = mins % 60;
+                const str = (h ? h + 'h' : '') + (m ? String(m).padStart(2,'0') + 'min' : '');
+                ecartEl.textContent = diff > 0 ? '+' + str + ' vs planifié' : '−' + str + ' vs planifié';
+                ecartEl.style.color = diff > 0 ? '#d68910' : '#c0392b';
+            }
+        } else { ecartEl.textContent = ''; }
+    }
+
+    startInput.addEventListener('input', updateEcart);
+    endInput.addEventListener('input',   updateEcart);
+    updateEcart();
+
+    overlay.querySelector('#_rh-cancel').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    overlay.querySelector('#_rh-clear').addEventListener('click', async () => {
+        try {
+            await fetch('/api/shifts/' + shift._id + '/pointage', {
+                credentials: 'include', method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ real_start: null, real_end: null }),
+            });
+            shift.real_start = null; shift.real_end = null;
+            // Retirer l'indicateur ⏱ sur le shift
+            shiftEl.querySelector('.shift-real-indicator')?.remove();
+            close();
+            showToast('Heures réelles effacées');
+        } catch (e) { showToast(e.message, true); }
+    });
+
+    overlay.querySelector('#_rh-save').addEventListener('click', async () => {
+        const rs = parseT(startInput.value);
+        const re = parseT(endInput.value, rs);
+        if (rs == null && re == null) { showToast('Saisis au moins une heure', true); return; }
+        try {
+            const r = await fetch('/api/shifts/' + shift._id + '/pointage', {
+                credentials: 'include', method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ real_start: rs, real_end: re }),
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error);
+            shift.real_start = rs; shift.real_end = re;
+            // Mettre à jour l'indicateur ⏱ sur le shift
+            const existing = shiftEl.querySelector('.shift-real-indicator');
+            const fmt2 = h => String(Math.floor(h%24)).padStart(2,'0') + 'h' + String(Math.round((h%1)*60)).padStart(2,'0');
+            if (existing) {
+                existing.title = 'Heures réelles : ' + fmt2(rs) + ' – ' + fmt2(re);
+            } else {
+                const ind = document.createElement('span');
+                ind.className = 'shift-real-indicator';
+                ind.title = 'Heures réelles : ' + fmt2(rs) + ' – ' + fmt2(re);
+                ind.textContent = '⏱';
+                shiftEl.querySelector('.shift-delete').before(ind);
+            }
+            close();
+            showToast(shift.staff_name + ' — heures réelles enregistrées');
+        } catch (e) { showToast(e.message, true); }
+    });
 }
 
 // ── Drop zone (listener unique) ────────────────────────────────────────────────
