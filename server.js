@@ -298,8 +298,7 @@ app.get('/api/users', checkDB, requirePatron, async (req, res) => {
         // Directeur : ne voit pas les comptes patron ni les autres directeurs
         if (req.session.user.role === 'directeur') {
             return res.json(users.filter(u => u.role === 'staff' || String(u._id) === req.session.user._id));
-        }
-        res.json(users);
+        }        res.json(users);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -362,7 +361,28 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Assigner des établissements à un patron (admin uniquement)
+// Changer le rôle d'un utilisateur (patron admin uniquement)
+app.patch('/api/users/:id/role', checkDB, requireAdmin, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    const { role, assigned_establishments } = req.body;
+    if (!['patron', 'directeur', 'staff'].includes(role)) return res.status(400).json({ error: 'Rôle invalide (patron, directeur ou staff)' });
+    // Ne pas permettre de se rétrograder soi-même
+    if (String(req.params.id) === req.session.user._id) return res.status(403).json({ error: 'Impossible de changer son propre rôle' });
+    try {
+        const update = { role };
+        if (role === 'directeur') update.assigned_establishments = assigned_establishments || [];
+        if (role === 'patron')    update.assigned_establishments = [];
+        if (role === 'staff')     update.assigned_establishments = [];
+        const result = await db.collection('users').updateOne(
+            { _id: new ObjectId(req.params.id) },
+            { $set: update }
+        );
+        if (result.matchedCount === 0) return res.status(404).json({ error: 'Utilisateur introuvable' });
+        res.json({ message: 'Rôle mis à jour' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Assigner des établissements à un directeur (patron admin uniquement)
 app.patch('/api/users/:id/establishments', checkDB, requireAdmin, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { assigned_establishments } = req.body;
@@ -376,7 +396,6 @@ app.patch('/api/users/:id/establishments', checkDB, requireAdmin, async (req, re
         res.json({ message: 'Établissements mis à jour' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
-
 
 // Reset mot de passe par le patron
 app.patch('/api/users/:id/reset-password', checkDB, requirePatron, async (req, res) => {
@@ -409,11 +428,12 @@ app.get('/api/establishments', checkDB, requireAuth, async (req, res) => {
     try {
         const user = req.session.user;
         const all  = await db.collection('establishments').find().toArray();
-        // Patron non-admin : ne voit que ses établissements assignés
-        if (user.role === 'patron') {
+        // Directeur : ne voit que ses établissements assignés
+        if (user.role === 'directeur') {
             const assigned = user.assigned_establishments || [];
             return res.json(all.filter(e => assigned.includes(String(e._id)) || assigned.includes(e.id)));
         }
+        // Patron (admin) : accès total
         res.json(all);
     }
     catch (e) { res.status(500).json({ error: e.message }); }

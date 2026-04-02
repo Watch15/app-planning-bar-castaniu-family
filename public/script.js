@@ -707,10 +707,12 @@ async function loadEstablishments() {
     try {
         const res  = await fetch('/api/establishments', { credentials: 'include' });
         const list = await res.json();
-        allEstablishments = list;
-        renderTabs(list);
-        if (list.length > 0) {
-            currentVenueId = list[0].id;
+        // Normaliser : garantir que chaque établissement a un champ .id utilisable
+        const normalized = list.map(e => ({ ...e, id: e.id || String(e._id) }));
+        allEstablishments = normalized;
+        renderTabs(normalized);
+        if (normalized.length > 0) {
+            currentVenueId = normalized[0].id;
             renderWeekLabel();
             await refreshWeek();
             // Ouvrir automatiquement le jour courant
@@ -1619,6 +1621,9 @@ async function renderAccountsList() {
                     '<div style="font-size:12px;color:#999">' + user.email + '</div>' +
                 '</div>' +
                 '<span class="staff-login-badge ' + statusBadge + '" style="margin-right:8px">' + statusLabel + '</span>' +
+                (currentUser.role === 'patron' && String(user._id) !== currentUser._id
+                    ? '<button class="staff-manage-save" data-action="change-role" style="background:#fff9e6;border-color:#f39c12;color:#d68910">Rôle</button>'
+                    : '') +
                 (isP && currentUser.role === 'patron'
                     ? '<button class="staff-manage-save" data-action="assign-bars" style="background:#f0effe;border-color:#7F77DD;color:#534AB7">Bars</button>'
                     : '') +
@@ -1626,6 +1631,9 @@ async function renderAccountsList() {
                 '<button class="staff-manage-delete" data-action="delete">×</button>';
             row.querySelector('[data-action="reset"]').addEventListener('click',  () => patronResetPassword(user._id, user.name || user.email));
             row.querySelector('[data-action="delete"]').addEventListener('click', () => deleteAccount(user._id, user.name || user.email));
+            if (currentUser.role === 'patron' && String(user._id) !== currentUser._id) {
+                row.querySelector('[data-action="change-role"]').addEventListener('click', () => openChangeRoleModal(user));
+            }
             if (isP && currentUser.role === 'patron') {
                 row.querySelector('[data-action="assign-bars"]').addEventListener('click', () => openAssignBarsModal(user));
             }
@@ -1711,6 +1719,95 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// ── Modale changement de rôle ─────────────────────────────────────────────────
+
+function openChangeRoleModal(user) {
+    const currentRole = user.role;
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+
+    const roles = [
+        { value: 'patron',    label: 'Patron',    desc: 'Accès total à tous les bars' },
+        { value: 'directeur', label: 'Directeur', desc: 'Accès limité aux bars assignés' },
+        { value: 'staff',     label: 'Staff',     desc: 'Accès lecture seule au planning' },
+    ];
+
+    const btns = roles.map(r =>
+        '<button class="role-choice-btn" data-role="' + r.value + '" style="' +
+            'width:100%;text-align:left;padding:10px 14px;border-radius:8px;border:1.5px solid ' +
+            (currentRole === r.value ? '#534AB7' : '#e0e0e0') + ';background:' +
+            (currentRole === r.value ? '#f0effe' : 'white') + ';margin-bottom:8px;cursor:pointer">' +
+            '<div style="font-size:13px;font-weight:600;color:' + (currentRole === r.value ? '#534AB7' : '#333') + '">' + r.label + '</div>' +
+            '<div style="font-size:11px;color:#aaa;margin-top:2px">' + r.desc + '</div>' +
+        '</button>'
+    ).join('');
+
+    // Section bars assignés (visible si on choisit directeur)
+    const barsCheckboxes = allEstablishments.map(e => {
+        const estabId = e.id || String(e._id);
+        const checked = (user.assigned_establishments || []).includes(estabId) ? 'checked' : '';
+        return '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#333;padding:4px 8px;border:1px solid #e0e0e0;border-radius:6px;background:white;cursor:pointer">' +
+            '<input type="checkbox" value="' + estabId + '" ' + checked + ' style="cursor:pointer"> ' + e.name +
+            '</label>';
+    }).join('');
+
+    overlay.innerHTML =
+        '<div style="background:white;border-radius:14px;padding:24px;max-width:380px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.18)">' +
+            '<p style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:4px">Changer le rôle</p>' +
+            '<p style="font-size:13px;color:#888;margin-bottom:16px">' + (user.name || user.email) + '</p>' +
+            btns +
+            '<div id="_bars-section" style="display:' + (currentRole === 'directeur' ? '' : 'none') + ';margin:8px 0 16px;padding:10px 12px;background:#f8f8f8;border-radius:8px;border:1px solid #eee">' +
+                '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Bars assignés</div>' +
+                '<div style="display:flex;flex-wrap:wrap;gap:6px">' + (barsCheckboxes || '<span style="font-size:12px;color:#ccc">Aucun établissement</span>') + '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+                '<button id="_rccancel" style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555">Annuler</button>' +
+                '<button id="_rcsave"   style="padding:8px 16px;border-radius:8px;border:none;background:#1a1a2e;color:white;font-size:13px;font-weight:600;cursor:pointer">Enregistrer</button>' +
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(overlay);
+    const close = () => document.body.removeChild(overlay);
+
+    let selectedRole = currentRole;
+    const barsSection = overlay.querySelector('#_bars-section');
+
+    // Sélection du rôle
+    overlay.querySelectorAll('.role-choice-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            selectedRole = btn.dataset.role;
+            overlay.querySelectorAll('.role-choice-btn').forEach(b => {
+                const active = b.dataset.role === selectedRole;
+                b.style.borderColor = active ? '#534AB7' : '#e0e0e0';
+                b.style.background  = active ? '#f0effe' : 'white';
+                b.querySelector('div').style.color = active ? '#534AB7' : '#333';
+            });
+            barsSection.style.display = selectedRole === 'directeur' ? '' : 'none';
+        });
+    });
+
+    overlay.querySelector('#_rccancel').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    overlay.querySelector('#_rcsave').addEventListener('click', async () => {
+        const assignedBars = selectedRole === 'directeur'
+            ? Array.from(overlay.querySelectorAll('#_bars-section input:checked')).map(cb => cb.value)
+            : [];
+        try {
+            const res = await fetch('/api/users/' + user._id + '/role', {
+                credentials: 'include', method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: selectedRole, assigned_establishments: assignedBars }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            close();
+            await renderAccountsList();
+            showToast('Rôle de ' + (user.name || user.email) + ' mis à jour');
+        } catch (e) { showToast(e.message, true); }
+    });
+}
 
 // ── Modale assignation des bars à un patron ───────────────────────────────────
 
