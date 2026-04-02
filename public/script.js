@@ -1678,6 +1678,96 @@ async function openEstablishmentsModal() {
     } catch (e) { showToast('Erreur ouverture établissements : ' + e.message, true); }
 }
 
+// ── Modale compte établissement (pointage) ────────────────────────────────────
+
+async function openCompteEtabModal(estab) {
+    // Vérifier si un compte existe déjà pour cet établissement
+    let existingAccount = null;
+    try {
+        const res   = await fetch('/api/users', { credentials: 'include' });
+        const users = await res.json();
+        existingAccount = users.find(u => u.role === 'etablissement' && u.establishment_id === (estab.id || String(estab._id)));
+    } catch { /* silencieux */ }
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+
+    overlay.innerHTML =
+        '<div style="background:white;border-radius:14px;padding:24px;max-width:400px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.18)">' +
+            '<p style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:4px">Compte pointage</p>' +
+            '<p style="font-size:13px;color:#888;margin-bottom:16px">' + estab.name + '</p>' +
+            (existingAccount
+                ? '<div style="background:#eafaf1;border:1px solid #2ecc71;border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:13px;color:#27ae60">' +
+                  '✓ Compte existant : <strong>' + existingAccount.email + '</strong>' +
+                  '</div>'
+                : '<div style="background:#f8f8f8;border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:13px;color:#888">' +
+                  'Aucun compte pointage — créez-en un ci-dessous.' +
+                  '</div>') +
+            (!existingAccount
+                ? '<div style="margin-bottom:16px">' +
+                  '<div style="font-size:11px;color:#aaa;margin-bottom:6px">Email du compte</div>' +
+                  '<input id="_cetab-email" type="email" placeholder="email@exemple.com" style="width:100%;padding:9px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;outline:none">' +
+                  '</div>'
+                : '') +
+            '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+                '<button id="_cetab-cancel" style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555">Fermer</button>' +
+                (!existingAccount
+                    ? '<button id="_cetab-create" style="padding:8px 16px;border-radius:8px;border:none;background:#534AB7;color:white;font-size:13px;font-weight:600;cursor:pointer">Créer le compte</button>'
+                    : '') +
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(overlay);
+    const close = () => document.body.removeChild(overlay);
+
+    overlay.querySelector('#_cetab-cancel').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    const createBtn = overlay.querySelector('#_cetab-create');
+    if (createBtn) {
+        createBtn.addEventListener('click', async () => {
+            const email = overlay.querySelector('#_cetab-email').value.trim();
+            if (!email) { showToast('Email requis', true); return; }
+            createBtn.disabled    = true;
+            createBtn.textContent = 'Création…';
+            try {
+                const res = await fetch('/api/users', {
+                    credentials: 'include', method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email,
+                        role:             'etablissement',
+                        establishment_id: estab.id || String(estab._id),
+                        name:             estab.name,
+                    }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                close();
+                if (data.manual && data.link) {
+                    showToast('Compte créé — lien : ' + data.link, false);
+                    // Afficher le lien dans un toast long
+                    setTimeout(() => {
+                        const box = document.createElement('div');
+                        box.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:white;border:1.5px solid #f39c12;border-radius:10px;padding:14px 16px;max-width:380px;width:90%;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.12);font-size:12px';
+                        box.innerHTML =
+                            '<div style="font-weight:700;color:#f39c12;margin-bottom:6px">⚠️ Email non envoyé — lien d\'activation :</div>' +
+                            '<div style="word-break:break-all;color:#555;cursor:pointer;text-decoration:underline" onclick="navigator.clipboard.writeText(\'' + data.link + '\');showToast(\'Lien copié !\')">' + data.link + '</div>' +
+                            '<div style="text-align:right;margin-top:8px"><button onclick="this.closest(\'div\').parentNode.remove()" style="border:none;background:none;color:#aaa;cursor:pointer;font-size:12px">Fermer</button></div>';
+                        document.body.appendChild(box);
+                    }, 300);
+                } else {
+                    showToast('Compte pointage créé pour ' + estab.name);
+                }
+            } catch (err) {
+                showToast(err.message, true);
+                createBtn.disabled    = false;
+                createBtn.textContent = 'Créer le compte';
+            }
+        });
+    }
+}
+
 async function renderEstablishmentsList() {
     const list = document.getElementById('establishments-list');
     list.innerHTML = '<div style="padding:12px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
@@ -1727,6 +1817,7 @@ async function renderEstablishmentsList() {
                     groupChipsEstab +
                 '</div>' +
                 '<button class="staff-manage-save"  data-action="save">Enregistrer</button>' +
+                '<button class="staff-manage-save"  data-action="compte" style="background:#f0effe;border-color:#7F77DD;color:#534AB7" title="Créer/voir compte pointage">Compte</button>' +
                 '<button class="staff-manage-delete" data-action="delete" title="Supprimer">×</button>';
 
             // Toggle groupes établissement
@@ -1773,6 +1864,8 @@ async function renderEstablishmentsList() {
                     showToast(name + ' mis à jour');
                 } catch (err) { showToast(err.message, true); }
             });
+
+            row.querySelector('[data-action="compte"]').addEventListener('click', () => openCompteEtabModal(e));
 
             row.querySelector('[data-action="delete"]').addEventListener('click', () => {
                 showConfirm(

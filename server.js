@@ -170,6 +170,13 @@ function canAccessEstablishment(user, establishmentId) {
     return assigned.includes(establishmentId);
 }
 
+// Compte établissement uniquement
+function requireEtablissement(req, res, next) {
+    if (!req.session?.user) return res.status(401).json({ error: 'Non authentifié' });
+    if (req.session.user.role !== 'etablissement') return res.status(403).json({ error: 'Accès réservé au compte établissement' });
+    next();
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 app.post('/auth/login', checkDB, async (req, res) => {
@@ -190,6 +197,7 @@ app.post('/auth/login', checkDB, async (req, res) => {
             staff_id:               user.staff_id || null,
             name:                   user.name || '',
             assigned_establishments: user.assigned_establishments || [],
+            establishment_id:       user.establishment_id || null,
         };
         res.json({ message: 'Connecté', user: req.session.user });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -302,14 +310,18 @@ app.get('/api/users', checkDB, requirePatron, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Inviter un utilisateur (staff ou patron)
+// Inviter un utilisateur (staff, directeur ou etablissement)
 app.post('/api/users', checkDB, requirePatron, async (req, res) => {
-    const { email, staff_id, name, role, assigned_establishments } = req.body;
-    const userRole = role === 'directeur' ? 'directeur' : 'staff';
+    const { email, staff_id, name, role, assigned_establishments, establishment_id } = req.body;
+    const validRoles = ['staff', 'directeur', 'etablissement'];
+    const userRole = validRoles.includes(role) ? role : 'staff';
     if (!email) return res.status(400).json({ error: 'Email requis' });
-    // Seul un admin peut créer un compte patron
     if (userRole === 'directeur' && req.session.user.role !== 'patron')
-        return res.status(403).json({ error: 'Seul l\'administrateur peut inviter un patron' });
+        return res.status(403).json({ error: 'Seul l\'administrateur peut inviter un directeur' });
+    if (userRole === 'etablissement' && req.session.user.role !== 'patron')
+        return res.status(403).json({ error: 'Seul l\'administrateur peut créer un compte établissement' });
+    if (userRole === 'etablissement' && !establishment_id)
+        return res.status(400).json({ error: 'establishment_id requis pour un compte établissement' });
     try {
         const existing = await db.collection('users').findOne({ email: email.toLowerCase().trim() });
         if (existing) return res.status(409).json({ error: 'Cet email est déjà utilisé' });
@@ -323,6 +335,7 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
             role:                    userRole,
             staff_id:                userRole === 'staff' ? (staff_id || null) : null,
             assigned_establishments: userRole === 'directeur' ? (assigned_establishments || []) : [],
+            establishment_id:        userRole === 'etablissement' ? establishment_id : null,
             name:                    name || '',
             invite_token:            hashToken(token),
             invite_expires:          expires,
@@ -1037,10 +1050,89 @@ app.get('/api/shifts/:establishmentId/:date/check-responsable', checkDB, require
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Pointage (compte établissement) ──────────────────────────────────────────
+
+// GET shifts du jour pour l'établissement lié au compte
+app.get('/api/pointage/:date', checkDB, requireAuth, async (req, res) => {
+    const user = req.session.user;
+    // Accessible par le compte établissement ET le patron
+    const estabId = user.role === 'etablissement'
+        ? user.establishment_id
+        : req.query.establishment_id;
+    if (!estabId) return res.status(400).json({ error: 'establishment_id requis' });
+    try {
+        const shifts = await db.collection('shifts')
+            .find({ establishment_id: estabId, date: req.params.date })
+            .sort({ start_time: 1 }).toArray();
+        res.json(shifts);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH heures réelles sur un shift existant
+app.patch('/api/shifts/:id/pointage', checkDB, requireAuth, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    const { real_start, real_end } = req.body;
+    if (real_start == null && real_end == null) return res.status(400).json({ error: 'real_start ou real_end requis' });
+    try {
+        const existing = await db.collection('shifts').findOne({ _id: new ObjectId(req.params.id) });
+        if (!existing) return res.status(404).json({ error: 'Shift introuvable' });
+        // Vérifier l'accès : compte établissement lié OU patron
+        const user = req.session.user;
+        if (user.role === 'etablissement' && user.establishment_id !== existing.establishment_id)
+            return res.status(403).json({ error: 'Accès refusé' });
+        if (user.role !== 'etablissement' && !canAccessEstablishment(user, existing.establishment_id))
+            return res.status(403).json({ error: 'Accès refusé' });
+        const update = {};
+        if (real_start != null) update.real_start = parseFloat(real_start);
+        if (real_end   != null) update.real_end   = parseFloat(real_end);
+        await db.collection('shifts').updateOne({ _id: new ObjectId(req.params.id) }, { $set: update });
+        res.json({ message: 'Heures réelles enregistrées' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST service non planifié (extra)
+app.post('/api/shifts/extra', checkDB, requireAuth, async (req, res) => {
+    const user = req.session.user;
+    const { staff_id, staff_name, date, real_start, real_end, establishment_id } = req.body;
+    if (!date || real_start == null || real_end == null)
+        return res.status(400).json({ error: 'date, real_start, real_end requis' });
+    // Déterminer l'établissement selon le rôle
+    const estabId = user.role === 'etablissement' ? user.establishment_id : establishment_id;
+    if (!estabId) return res.status(400).json({ error: 'establishment_id requis' });
+    if (user.role !== 'etablissement' && !canAccessEstablishment(user, estabId))
+        return res.status(403).json({ error: 'Accès refusé' });
+    try {
+        // Chercher la couleur du staff si staff_id fourni
+        let color = '#95a5a6';
+        let resolvedName = staff_name || 'Inconnu';
+        if (staff_id && isValidObjectId(staff_id)) {
+            const staffDoc = await db.collection('staff').findOne({ _id: new ObjectId(staff_id) });
+            if (staffDoc) { color = staffDoc.color || color; resolvedName = staffDoc.name; }
+        }
+        const shift = {
+            staff_id:         staff_id || null,
+            staff_name:       resolvedName,
+            establishment_id: estabId,
+            date,
+            start_time:       parseFloat(real_start),
+            end_time:         parseFloat(real_end),
+            real_start:       parseFloat(real_start),
+            real_end:         parseFloat(real_end),
+            color,
+            extra:            true,
+            created_at:       new Date(),
+        };
+        const result = await db.collection('shifts').insertOne(shift);
+        res.status(201).json({ ...shift, _id: result.insertedId });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Route racine ──────────────────────────────────────────────────────────────
 
 app.get('/', (req, res) => {
-    res.redirect(req.session?.user ? '/index.html' : '/login.html');
+    if (!req.session?.user) return res.redirect('/login.html');
+    if (req.session.user.role === 'etablissement') return res.redirect('/pointage.html');
+    res.redirect('/index.html');
 });
 
 // ── Lancement ─────────────────────────────────────────────────────────────────
