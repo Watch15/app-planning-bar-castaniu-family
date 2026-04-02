@@ -440,18 +440,18 @@ app.get('/api/establishments', checkDB, requireAuth, async (req, res) => {
 });
 
 app.post('/api/establishments', checkDB, requireAdmin, async (req, res) => {
-    const { name, type, open_time, close_time } = req.body;
+    const { name, type, open_time, close_time, group } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'Nom requis' });
     if (!['bar', 'restaurant'].includes(type)) return res.status(400).json({ error: 'Type : bar ou restaurant' });
     try {
         const existing = await db.collection('establishments').findOne({ name: name.trim() });
         if (existing) return res.status(409).json({ error: 'Un établissement avec ce nom existe déjà' });
-        // Générer un id string à partir du nom (compatible avec le système existant)
         const id = name.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '') + '_' + type;
         const doc = {
             id,
             name:       name.trim(),
             type,
+            group:      group || null,
             open_time:  open_time  || null,
             close_time: close_time || null,
             created_at: new Date(),
@@ -463,15 +463,16 @@ app.post('/api/establishments', checkDB, requireAdmin, async (req, res) => {
 
 app.patch('/api/establishments/:id', checkDB, requireAdmin, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
-    const { name, type, open_time, close_time } = req.body;
-    if (!name && !type && open_time === undefined && close_time === undefined)
+    const { name, type, open_time, close_time, group } = req.body;
+    if (!name && !type && open_time === undefined && close_time === undefined && group === undefined)
         return res.status(400).json({ error: 'Au moins un champ requis' });
     try {
         const update = {};
-        if (name)                update.name       = name.trim();
-        if (type)                update.type       = type;
+        if (name)                    update.name       = name.trim();
+        if (type)                    update.type       = type;
         if (open_time  !== undefined) update.open_time  = open_time  || null;
         if (close_time !== undefined) update.close_time = close_time || null;
+        if (group !== undefined)     update.group      = group || null;
         const result = await db.collection('establishments').updateOne(
             { _id: new ObjectId(req.params.id) },
             { $set: update }
@@ -499,6 +500,19 @@ app.delete('/api/establishments/:id', checkDB, requireAdmin, async (req, res) =>
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Groupes ───────────────────────────────────────────────────────────────────
+
+// Retourne la liste des groupes distincts (depuis establishments + staff)
+app.get('/api/groups', checkDB, requireAuth, async (req, res) => {
+    try {
+        const estabs = await db.collection('establishments').distinct('group');
+        const staffG = await db.collection('staff').distinct('groups');
+        // Fusionner, dédupliquer, retirer null/vide
+        const all = [...new Set([...estabs, ...staffG.flat()])].filter(Boolean).sort();
+        res.json(all);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Staff ─────────────────────────────────────────────────────────────────────
 
 app.get('/api/staff', checkDB, requireAuth, async (req, res) => {
@@ -518,17 +532,18 @@ app.post('/api/staff', checkDB, requirePatron, async (req, res) => {
 
 app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
-    const { color, name, email, venues, can_submit_dispos } = req.body;
-    if (!color && !name && email === undefined && venues === undefined && can_submit_dispos === undefined && req.body.roles === undefined)
-        return res.status(400).json({ error: 'color, name, email, venues, roles ou can_submit_dispos requis' });
+    const { color, name, email, venues, can_submit_dispos, groups } = req.body;
+    if (!color && !name && email === undefined && venues === undefined && can_submit_dispos === undefined && req.body.roles === undefined && groups === undefined)
+        return res.status(400).json({ error: 'color, name, email, venues, roles, groups ou can_submit_dispos requis' });
     try {
         const update = {};
-        if (color)                        update.color             = color;
-        if (name)                         update.name              = name;
-        if (email !== undefined)          update.email             = email;
-        if (venues !== undefined)         update.venues            = venues;
-        if (req.body.roles !== undefined) update.roles             = req.body.roles;
+        if (color)                           update.color             = color;
+        if (name)                            update.name              = name;
+        if (email !== undefined)             update.email             = email;
+        if (venues !== undefined)            update.venues            = venues;
+        if (req.body.roles !== undefined)    update.roles             = req.body.roles;
         if (can_submit_dispos !== undefined) update.can_submit_dispos = !!can_submit_dispos;
+        if (groups !== undefined)            update.groups            = Array.isArray(groups) ? groups : [];
         const result = await db.collection('staff').updateOne(
             { _id: new ObjectId(req.params.id) }, { $set: update }
         );
@@ -584,9 +599,26 @@ app.get('/api/my-shifts', checkDB, requireAuth, async (req, res) => {
     const staffId = req.session.user.staff_id;
     if (!staffId) return res.status(400).json({ error: 'Aucun profil staff lié à ce compte' });
     try {
-        const myRawShifts = await db.collection('shifts').find({
-            staff_id: staffId, date: { $gte: from, $lte: to }
-        }).sort({ date: 1, start_time: 1 }).toArray();
+        // Récupérer le profil staff pour connaître ses groupes
+        const staffDoc = isValidObjectId(staffId)
+            ? await db.collection('staff').findOne({ _id: new ObjectId(staffId) })
+            : null;
+        const staffGroups = staffDoc?.groups || [];
+
+        // Si le staff a des groupes définis, limiter aux établissements de ces groupes
+        let allowedEstabIds = null;
+        if (staffGroups.length > 0) {
+            const groupEstabs = await db.collection('establishments').find({
+                group: { $in: staffGroups }
+            }).toArray();
+            allowedEstabIds = groupEstabs.map(e => e.id);
+        }
+
+        const shiftQuery = { staff_id: staffId, date: { $gte: from, $lte: to } };
+        if (allowedEstabIds) shiftQuery.establishment_id = { $in: allowedEstabIds };
+
+        const myRawShifts = await db.collection('shifts').find(shiftQuery)
+            .sort({ date: 1, start_time: 1 }).toArray();
 
         const myEstablishments = [...new Set(myRawShifts.map(s => s.establishment_id))];
         const myDates          = [...new Set(myRawShifts.map(s => s.date))];
@@ -604,11 +636,13 @@ app.get('/api/my-shifts', checkDB, requireAuth, async (req, res) => {
         const dates = [...new Set(myShifts.map(s => s.date))];
         const colleagueMap = {};
         for (const date of dates) {
-            colleagueMap[date] = await db.collection('shifts').find({
+            // Les collègues sont filtrés au même groupe si le staff a des groupes
+            const colleagueQuery = {
                 date,
                 establishment_id: { $in: myShifts.filter(s => s.date === date).map(s => s.establishment_id) },
-                staff_id: { $nin: [staffId, '__joker__'] }
-            }).toArray();
+                staff_id: { $nin: [staffId, '__joker__'] },
+            };
+            colleagueMap[date] = await db.collection('shifts').find(colleagueQuery).toArray();
         }
         res.json({ shifts: myShifts, colleagues: colleagueMap });
     } catch (e) { res.status(500).json({ error: e.message }); }

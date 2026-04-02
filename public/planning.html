@@ -371,6 +371,20 @@ async function init() {
         loadDisposTab();
     });
 
+    // Vérifier les droits dispos + groupes du staff en parallèle
+    try {
+        const sRes = await fetch('/api/dispo-settings', { credentials: 'include' });
+        if (sRes.ok) {
+            const s = await sRes.json();
+            if (s.staffCanSubmit === false) {
+                const tabDispos  = document.getElementById('tab-dispos');
+                const viewDispos = document.getElementById('view-dispos');
+                if (tabDispos)  tabDispos.style.display  = 'none';
+                if (viewDispos) viewDispos.style.display = 'none';
+            }
+        }
+    } catch { /* silencieux */ }
+
     // Semaine en cours
     const monday = getMondayOf(new Date());
     const sunday = addDays(monday, 6);

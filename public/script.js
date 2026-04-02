@@ -29,6 +29,8 @@ const JOKER_STAFF = {
     isJoker: true,
 };
 let currentVenueId    = null;
+let currentGroup      = null; // groupe actif ('Bar', 'Cuisine', null = Tous)
+let allGroups         = []; // groupes disponibles
 let confirmedDispos   = []; // dispos confirmées du jour affiché
 let allEstablishments = []; // tous les établissements
 let allRoles          = []; // rôles créés par le patron
@@ -170,7 +172,7 @@ async function init() {
     initDropZone();
     setupWeekNav();
     initViewTabs();
-    await Promise.all([loadEstablishments(), loadAllStaff(), loadRoles()]);
+    await Promise.all([loadEstablishments(), loadAllStaff(), loadRoles(), loadGroups()]);
 
     loadDisposBadge();
     loadDispoControl();
@@ -626,6 +628,11 @@ function renderSidebar() {
     const searchVal = (document.getElementById('staff-search')?.value || '').toLowerCase().trim();
 
     sorted.forEach(staff => {
+        // Filtrage par groupe actif
+        if (currentGroup) {
+            const staffGroups = staff.groups || [];
+            if (staffGroups.length > 0 && !staffGroups.includes(currentGroup)) return;
+        }
         const isPref = staff.venues && staff.venues.includes(currentVenueId);
 
         // Trouver le rôle responsable de ce staff (affichage prioritaire)
@@ -709,6 +716,66 @@ async function loadRoles() {
         const res = await fetch('/api/roles', { credentials: 'include' });
         if (res.ok) allRoles = await res.json();
     } catch { allRoles = []; }
+}
+
+async function loadGroups() {
+    try {
+        const res = await fetch('/api/groups', { credentials: 'include' });
+        if (res.ok) allGroups = await res.json();
+    } catch { allGroups = []; }
+    renderGroupFilter();
+}
+
+function renderGroupFilter() {
+    // Injecter le sélecteur de groupe dans la venue-bar si plusieurs groupes existent
+    let container = document.getElementById('group-filter-bar');
+    if (allGroups.length === 0) {
+        if (container) container.style.display = 'none';
+        return;
+    }
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'group-filter-bar';
+        container.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 16px;background:#f8f8f8;border-bottom:1px solid #eee;flex-wrap:wrap';
+        // Insérer après la venue-bar
+        const venueBar = document.querySelector('.venue-bar');
+        if (venueBar) venueBar.after(container);
+        else return;
+    }
+    container.style.display = '';
+    container.innerHTML = '<span style="font-size:11px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.4px;flex-shrink:0">Groupe ·</span>';
+
+    const groups = [null, ...allGroups]; // null = Tous
+    groups.forEach(g => {
+        const btn = document.createElement('button');
+        const isActive = g === currentGroup;
+        btn.textContent = g || 'Tous';
+        btn.style.cssText = 'padding:4px 12px;border-radius:20px;border:1.5px solid ' +
+            (isActive ? '#1a1a2e' : '#e0e0e0') + ';background:' +
+            (isActive ? '#1a1a2e' : 'white') + ';color:' +
+            (isActive ? 'white' : '#555') + ';font-size:12px;font-weight:' +
+            (isActive ? '600' : '400') + ';cursor:pointer';
+        btn.addEventListener('click', async () => {
+            currentGroup = g;
+            renderGroupFilter();
+            // Filtrer les tabs d'établissements
+            const filtered = currentGroup
+                ? allEstablishments.filter(e => e.group === currentGroup)
+                : allEstablishments;
+            renderTabs(filtered);
+            // Sélectionner le premier tab du groupe si le tab courant n'est pas dans ce groupe
+            if (filtered.length > 0 && !filtered.find(e => e.id === currentVenueId)) {
+                currentVenueId = filtered[0].id;
+                document.querySelectorAll('.venue-tab').forEach((t, i) => {
+                    t.classList.toggle('active', i === 0);
+                });
+            }
+            await refreshWeek();
+            if (selectedDate) await loadDayDetail(selectedDate);
+            renderSidebar();
+        });
+        container.appendChild(btn);
+    });
 }
 
 async function loadEstablishments() {
@@ -1601,13 +1668,14 @@ async function renderEstablishmentsList() {
             row.innerHTML =
                 '<div class="staff-manage-info" style="flex:1;gap:6px">' +
                     '<input type="text"  class="estab-name-input"  value="' + e.name + '" style="font-size:13px;font-weight:600;border:1px solid #e0e0e0;border-radius:6px;padding:5px 8px;width:100%">' +
-                    '<div style="display:flex;gap:6px;margin-top:4px">' +
+                    '<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">' +
                         '<select class="estab-type-select" style="font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px;flex:0.8">' +
                             '<option value="bar"' +        (e.type === 'bar'        ? ' selected' : '') + '>Bar</option>' +
                             '<option value="restaurant"' + (e.type === 'restaurant' ? ' selected' : '') + '>Restaurant</option>' +
                         '</select>' +
                         '<input type="time" class="estab-open-input"  value="' + (e.open_time  || '') + '" title="Ouverture"  style="font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px;flex:1">' +
                         '<input type="time" class="estab-close-input" value="' + (e.close_time || '') + '" title="Fermeture" style="font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px;flex:1">' +
+                        '<input type="text" class="estab-group-input" value="' + (e.group || '') + '" placeholder="Groupe (ex: Bar, Cuisine)" title="Groupe" style="font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px;flex:1.2">' +
                     '</div>' +
                 '</div>' +
                 '<button class="staff-manage-save"  data-action="save">Enregistrer</button>' +
@@ -1618,19 +1686,27 @@ async function renderEstablishmentsList() {
                 const type       = row.querySelector('.estab-type-select').value;
                 const open_time  = row.querySelector('.estab-open-input').value  || null;
                 const close_time = row.querySelector('.estab-close-input').value || null;
+                const group      = row.querySelector('.estab-group-input').value.trim() || null;
                 if (!name) { showToast('Le nom ne peut pas être vide', true); return; }
                 try {
                     const r = await fetch('/api/establishments/' + e._id, {
                         credentials: 'include', method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name, type, open_time, close_time }),
+                        body: JSON.stringify({ name, type, open_time, close_time, group }),
                     });
                     const d = await r.json();
                     if (!r.ok) throw new Error(d.error);
                     // Mettre à jour localement
                     const idx = allEstablishments.findIndex(x => String(x._id) === String(e._id) || x.id === e.id);
-                    if (idx !== -1) { allEstablishments[idx].name = name; allEstablishments[idx].type = type; allEstablishments[idx].open_time = open_time; allEstablishments[idx].close_time = close_time; }
-                    renderTabs(allEstablishments);
+                    if (idx !== -1) {
+                        allEstablishments[idx].name       = name;
+                        allEstablishments[idx].type       = type;
+                        allEstablishments[idx].open_time  = open_time;
+                        allEstablishments[idx].close_time = close_time;
+                        allEstablishments[idx].group      = group;
+                    }
+                    await loadGroups(); // recharger les groupes disponibles
+                    renderTabs(currentGroup ? allEstablishments.filter(x => x.group === currentGroup) : allEstablishments);
                     showToast(name + ' mis à jour');
                 } catch (err) { showToast(err.message, true); }
             });
@@ -1662,24 +1738,28 @@ async function renderEstablishmentsList() {
 async function addEstablishment() {
     const name       = document.getElementById('new-estab-name').value.trim();
     const type       = document.getElementById('new-estab-type').value;
-    const open_time  = document.getElementById('new-estab-open').value  || null;
-    const close_time = document.getElementById('new-estab-close').value || null;
+    const open_time  = document.getElementById('new-estab-open').value   || null;
+    const close_time = document.getElementById('new-estab-close').value  || null;
+    const group      = document.getElementById('new-estab-group')?.value.trim() || null;
     if (!name) { showToast('Le nom est obligatoire', true); return; }
     try {
         const res  = await fetch('/api/establishments', {
             credentials: 'include', method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, type, open_time, close_time }),
+            body: JSON.stringify({ name, type, open_time, close_time, group }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         allEstablishments.push(data);
-        renderTabs(allEstablishments);
+        await loadGroups();
+        renderTabs(currentGroup ? allEstablishments.filter(x => x.group === currentGroup) : allEstablishments);
         await renderEstablishmentsList();
         // Reset form
         document.getElementById('new-estab-name').value  = '';
         document.getElementById('new-estab-open').value  = '';
         document.getElementById('new-estab-close').value = '';
+        const groupInput = document.getElementById('new-estab-group');
+        if (groupInput) groupInput.value = '';
         showToast(name + ' ajouté');
     } catch (e) { showToast(e.message, true); }
 }
@@ -2556,7 +2636,20 @@ function renderStaffManageList() {
                   '</div>'
                 : '');
 
-        const canSubmit = staff.can_submit_dispos !== false; // true par défaut
+        const canSubmit    = staff.can_submit_dispos !== false; // true par défaut
+        const staffGroups  = staff.groups || [];
+        // Chips groupes disponibles
+        const groupChips = allGroups.length
+            ? '<div style="margin-top:6px"><div style="font-size:11px;color:#aaa;margin-bottom:4px">Groupes</div>' +
+              '<div style="display:flex;flex-wrap:wrap;gap:4px">' +
+              allGroups.map(g =>
+                  '<button type="button" class="staff-group-btn' + (staffGroups.includes(g) ? ' active' : '') + '" ' +
+                  'data-group="' + g + '" style="padding:3px 10px;border-radius:20px;border:1.5px solid ' +
+                  (staffGroups.includes(g) ? '#534AB7' : '#e0e0e0') + ';background:' +
+                  (staffGroups.includes(g) ? '#f0effe' : 'white') + ';color:' +
+                  (staffGroups.includes(g) ? '#534AB7' : '#888') + ';font-size:11px;cursor:pointer">' + g + '</button>'
+              ).join('') + '</div></div>'
+            : '';
 
         row.innerHTML =
             '<input type="color" class="staff-manage-color" value="' + staff.color + '" title="Changer la couleur">' +
@@ -2565,6 +2658,7 @@ function renderStaffManageList() {
                 '<input type="email" class="staff-manage-email-input" value="' + (staff.email || '') + '" placeholder="email (pour le login futur)">' +
                 '<div class="venue-pref-row">' + venueButtons + '</div>' +
                 '<div class="role-assign-section">' + rolesHTML + '</div>' +
+                groupChips +
                 '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#888;margin-top:6px;cursor:pointer">' +
                     '<input type="checkbox" class="staff-can-submit" ' + (canSubmit ? 'checked' : '') + '>' +
                     'Peut envoyer ses dispos' +
@@ -2575,6 +2669,17 @@ function renderStaffManageList() {
             '</span>' +
             '<button class="staff-manage-save">Enregistrer</button>' +
             '<button class="staff-manage-delete" title="Supprimer">×</button>';
+
+        // Toggle groupes
+        row.querySelectorAll('.staff-group-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.classList.toggle('active');
+                const isActive = btn.classList.contains('active');
+                btn.style.borderColor = isActive ? '#534AB7' : '#e0e0e0';
+                btn.style.background  = isActive ? '#f0effe' : 'white';
+                btn.style.color       = isActive ? '#534AB7' : '#888';
+            });
+        });
 
         // Toggle établissements préférentiels
         row.querySelectorAll('.venue-pref-btn').forEach(btn => {
@@ -2615,6 +2720,7 @@ function renderStaffManageList() {
             const newVenues     = Array.from(row.querySelectorAll('.venue-pref-btn.active')).map(b => b.dataset.venue);
             const newRoles      = Array.from(row.querySelectorAll('.role-assign-btn.active')).map(b => b.dataset.role);
             const newCanSubmit  = row.querySelector('.staff-can-submit').checked;
+            const newGroups     = Array.from(row.querySelectorAll('.staff-group-btn.active')).map(b => b.dataset.group);
 
             if (!newName) { showToast('Le nom ne peut pas être vide', true); return; }
 
@@ -2627,16 +2733,17 @@ function renderStaffManageList() {
                     method:      'PATCH',
                     credentials: 'include',
                     headers:     { 'Content-Type': 'application/json' },
-                    body:        JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit }),
+                    body:        JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups }),
                 });
                 if (!res.ok) throw new Error((await res.json()).error);
 
-                staff.name            = newName;
-                staff.color           = newColor;
-                staff.email           = newEmail;
-                staff.venues          = newVenues;
-                staff.roles           = newRoles;
+                staff.name              = newName;
+                staff.color             = newColor;
+                staff.email             = newEmail;
+                staff.venues            = newVenues;
+                staff.roles             = newRoles;
                 staff.can_submit_dispos = newCanSubmit;
+                staff.groups            = newGroups;
 
                 // Propager sur les shifts visibles
                 document.querySelectorAll('.shift').forEach(el => {
