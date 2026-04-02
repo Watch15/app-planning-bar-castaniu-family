@@ -327,8 +327,9 @@ async function checkAuth() {
             if (res.status === 401) { window.location.href = '/login.html'; return null; }
             if (!res.ok) { if (attempt === 0) { await new Promise(r => setTimeout(r, 800)); continue; } break; }
             const data = await res.json();
-            // Si par erreur un patron arrive ici, rediriger vers son interface
-            if (data.user?.role === 'patron') { window.location.href = '/index.html'; return null; }
+            // Patron → index.html, établissement → pointage.html
+            if (data.user?.role === 'patron')       { window.location.href = '/index.html';   return null; }
+            if (data.user?.role === 'etablissement') { window.location.href = '/pointage.html'; return null; }
             return data.user;
         } catch {
             if (attempt === 0) { await new Promise(r => setTimeout(r, 800)); continue; }
@@ -354,10 +355,12 @@ async function init() {
     const user = await checkAuth();
     if (!user) return;
 
-    // Le patron n'a pas accès à cette page
+    // Seul le staff et directeur ont accès à cette page
     if (user.role === 'patron') {
-        window.location.href = '/index.html';
-        return;
+        window.location.href = '/index.html'; return;
+    }
+    if (user.role === 'etablissement') {
+        window.location.href = '/pointage.html'; return;
     }
 
     document.getElementById('greeting-name').textContent = 'Bonjour ' + (user.name || '') + ' !';
