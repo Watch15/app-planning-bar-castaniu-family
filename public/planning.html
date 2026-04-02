@@ -307,7 +307,9 @@ function addDays(d, n) {
 }
 
 function fmtHour(h) {
-    return String(Math.floor(h % 24)).padStart(2, '0') + 'h';
+    const hh = Math.floor(h % 24);
+    const mm = Math.round((h % 1) * 60);
+    return String(hh).padStart(2, '0') + 'h' + (mm > 0 ? String(mm).padStart(2, '0') : '');
 }
 
 function fmtDuration(h) {
@@ -515,7 +517,12 @@ function renderStats(shifts) {
 
 function renderStatsInto(shifts, el) {
     const nbShifts = shifts.length;
-    const totalH   = shifts.reduce((a, s) => a + (s.end_time - s.start_time), 0);
+    // Utiliser les heures réelles si disponibles, sinon planifiées
+    const totalH = shifts.reduce((a, s) => {
+        const start = (s.real_start != null) ? s.real_start : s.start_time;
+        const end   = (s.real_end   != null) ? s.real_end   : s.end_time;
+        return a + (end - start);
+    }, 0);
     const nbJours  = new Set(shifts.map(s => s.date)).size;
     el.style.display = '';
     el.innerHTML =
