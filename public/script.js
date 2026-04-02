@@ -1672,41 +1672,61 @@ function renderDashboard() {
         days.forEach(({ date }) => {
             const shift = staff.shifts[date];
             if (shift) {
-                const h = shift.end_time - shift.start_time;
+                const dispStart  = shift.real_start != null ? shift.real_start : shift.start_time;
+                const dispEnd    = shift.real_end   != null ? shift.real_end   : shift.end_time;
+                const h          = dispEnd - dispStart;
                 totalH += h;
-                const fmt = v => `${Math.floor(v % 24).toString().padStart(2,'0')}h`;
+                const fmtD = v => {
+                    const hh = Math.floor(v % 24).toString().padStart(2,'0');
+                    const mm = Math.round((v % 1) * 60);
+                    return hh + 'h' + (mm > 0 ? String(mm).padStart(2,'0') : '');
+                };
+                const hasReal   = shift.real_start != null && shift.real_end != null;
                 const textColor = textColorFor(shift.color);
                 row += `<td><span class="dash-shift-pill"
                     style="background:${shift.color};color:${textColor}"
                     onclick="switchToDayView('${date}')"
-                    title="Cliquer pour voir ce jour">
-                    ${fmt(shift.start_time)}-${fmt(shift.end_time)}
+                    title="${hasReal ? 'Réel — ' : 'Planifié — '}Cliquer pour voir ce jour">
+                    ${fmtD(dispStart)}-${fmtD(dispEnd)}
                 </span></td>`;
             } else {
                 row += `<td><span class="dash-empty">—</span></td>`;
             }
         });
 
-        row += `<td class="dash-total-cell">${totalH.toFixed(0)}h</td>`;
+        const fmtTotal = h => {
+            const hrs  = Math.floor(h);
+            const mins = Math.round((h - hrs) * 60);
+            return mins > 0 ? hrs + 'h' + String(mins).padStart(2,'0') : hrs + 'h';
+        };
+        row += `<td class="dash-total-cell">${fmtTotal(totalH)}</td>`;
         tr.innerHTML = row;
         tbody.appendChild(tr);
     });
     table.appendChild(tbody);
     container.appendChild(table);
 
-    // Stats globales
-    const allShifts = Object.values(weekFullData).flat();
-    const totalHSemaine = allShifts.reduce((a, s) => a + (s.end_time - s.start_time), 0);
-    const joursStaffes  = Object.values(weekFullData).filter(arr => arr.length > 0).length;
-    const nbStaff       = staffMap.size;
+    const allShifts      = Object.values(weekFullData).flat();
+    const totalHSemaine  = allShifts.reduce((a, s) => {
+        const start = s.real_start != null ? s.real_start : s.start_time;
+        const end   = s.real_end   != null ? s.real_end   : s.end_time;
+        return a + (end - start);
+    }, 0);
+    const joursStaffes = Object.values(weekFullData).filter(arr => arr.length > 0).length;
+    const nbStaff      = staffMap.size;
 
+    const fmtTotalH = h => {
+        const hrs  = Math.floor(h);
+        const mins = Math.round((h - hrs) * 60);
+        return mins > 0 ? hrs + 'h' + String(mins).padStart(2,'0') : hrs + 'h';
+    };
     const stats = document.createElement('div');
     stats.className = 'dashboard-stats';
     [
-        { label: 'Heures semaine', value: totalHSemaine.toFixed(0) + 'h' },
+        { label: 'Heures semaine', value: fmtTotalH(totalHSemaine) },
         { label: 'Jours staffés',  value: `${joursStaffes} / 7` },
         { label: 'Staff actif',    value: nbStaff },
-        { label: 'Moy./personne',  value: nbStaff ? (totalHSemaine / nbStaff).toFixed(1) + 'h' : '—' },
+        { label: 'Moy./personne',  value: nbStaff ? fmtTotalH(totalHSemaine / nbStaff) : '—' },
     ].forEach(({ label, value }) => {
         stats.innerHTML += `<div class="dashboard-stat">
             <div class="dashboard-stat-label">${label}</div>
@@ -1751,27 +1771,38 @@ function renderAgenda() {
         if (empty) {
             pills.innerHTML = '<span class="agenda-empty-label">Aucun shift planifié</span>';
         } else {
-            const fmt = v => `${Math.floor(v % 24).toString().padStart(2,'0')}h`;
+            const fmtA = v => {
+                const hh = Math.floor(v % 24).toString().padStart(2,'0');
+                const mm = Math.round((v % 1) * 60);
+                return hh + 'h' + (mm > 0 ? String(mm).padStart(2,'0') : '');
+            };
             shifts.forEach(shift => {
-                const textColor = textColorFor(shift.color);
+                const textColor  = textColorFor(shift.color);
+                const dispStart  = shift.real_start != null ? shift.real_start : shift.start_time;
+                const dispEnd    = shift.real_end   != null ? shift.real_end   : shift.end_time;
                 const pill = document.createElement('span');
                 pill.className = 'agenda-pill';
-                pill.style.background = shift.color + '22'; // fond léger
+                pill.style.background = shift.color + '22';
                 pill.innerHTML = `
                     <span class="agenda-pill-dot" style="background:${shift.color}"></span>
                     <span style="color:${shift.color}">${shift.staff_name}</span>
-                    <span style="color:#888;font-weight:400">${fmt(shift.start_time)}-${fmt(shift.end_time)}</span>`;
+                    <span style="color:#888;font-weight:400">${fmtA(dispStart)}-${fmtA(dispEnd)}</span>`;
                 pills.appendChild(pill);
             });
         }
         row.appendChild(pills);
 
-        // Total heures du jour
         if (!empty) {
-            const totalH = shifts.reduce((a, s) => a + (s.end_time - s.start_time), 0);
+            const totalH = shifts.reduce((a, s) => {
+                const start = s.real_start != null ? s.real_start : s.start_time;
+                const end   = s.real_end   != null ? s.real_end   : s.end_time;
+                return a + (end - start);
+            }, 0);
             const total = document.createElement('span');
             total.className = 'agenda-total';
-            total.textContent = totalH.toFixed(0) + 'h';
+            const hrs  = Math.floor(totalH);
+            const mins = Math.round((totalH - hrs) * 60);
+            total.textContent = mins > 0 ? hrs + 'h' + String(mins).padStart(2,'0') : hrs + 'h';
             row.appendChild(total);
         }
 
@@ -3206,13 +3237,22 @@ async function updateStaffColor(staff, newColor, card) {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
     bar.innerHTML = '';
-    const totalH  = currentShifts.reduce((a, s) => a + (s.end_time - s.start_time), 0);
+    const totalH  = currentShifts.reduce((a, s) => {
+        const start = s.real_start != null ? s.real_start : s.start_time;
+        const end   = s.real_end   != null ? s.real_end   : s.end_time;
+        return a + (end - start);
+    }, 0);
     const nbStaff = displayedStaff.length;
+    const fmtH = h => {
+        const hrs  = Math.floor(h);
+        const mins = Math.round((h - hrs) * 60);
+        return mins > 0 ? hrs + 'h' + String(mins).padStart(2,'0') : hrs + 'h';
+    };
     [
-        { label: 'Staff planifié',    value: nbStaff,                                        sub: 'ce jour' },
-        { label: 'Shifts',            value: currentShifts.length,                           sub: 'ce jour' },
-        { label: 'Heures cumulées',   value: totalH.toFixed(0),                              sub: 'h au total' },
-        { label: 'Moy. par personne', value: nbStaff ? (totalH / nbStaff).toFixed(1) : '—', sub: 'h / employé' },
+        { label: 'Staff planifié',    value: nbStaff,                                          sub: 'ce jour' },
+        { label: 'Shifts',            value: currentShifts.length,                             sub: 'ce jour' },
+        { label: 'Heures cumulées',   value: fmtH(totalH),                                     sub: 'au total' },
+        { label: 'Moy. par personne', value: nbStaff ? fmtH(totalH / nbStaff) : '—',          sub: 'h / employé' },
     ].forEach(({ label, value, sub }) => {
         const card = document.createElement('div');
         card.className = 'stat-card';
