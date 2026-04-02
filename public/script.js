@@ -1857,6 +1857,7 @@ function openAssignBarsModal(user) {
         } catch (e) { showToast(e.message, true); }
     });
 }
+async function patronResetPassword(userId, userName) {
     showPrompt('Nouveau mot de passe pour ' + userName, '8 caractères minimum', async (pwd) => {
         if (pwd.length < 8) { showToast('Minimum 8 caractères', true); return; }
         try {
@@ -1871,6 +1872,7 @@ function openAssignBarsModal(user) {
             showToast('Mot de passe de ' + userName + ' mis à jour');
         } catch (e) { showToast(e.message, true); }
     });
+}
 
 async function deleteAccount(userId, userName) {
     showConfirm('Supprimer le compte de <strong>' + userName + '</strong> ?', async () => {
