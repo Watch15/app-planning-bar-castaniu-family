@@ -181,6 +181,9 @@ async function init() {
     const btnDispos = document.getElementById('btn-dispos');
     if (btnDispos) btnDispos.addEventListener('click', openDisposPanel);
 
+    const btnRecap = document.getElementById('btn-recap');
+    if (btnRecap) btnRecap.addEventListener('click', openRecapModal);
+
     const btnRefresh = document.getElementById('btn-refresh-day');
     if (btnRefresh) btnRefresh.addEventListener('click', async () => {
         if (selectedDate) {
@@ -473,6 +476,14 @@ async function loadDayDetail(dateStr) {
     renderTimelineHeader();
     renderBody();
     renderStats();
+
+    // Bouton refresh : visible uniquement si le jour est aujourd'hui ou passé
+    const btnRefresh = document.getElementById('btn-refresh-day');
+    if (btnRefresh) {
+        const todayStr = toDateStr(new Date());
+        btnRefresh.style.display = (dateStr <= todayStr) ? '' : 'none';
+    }
+
     document.getElementById('day-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
     // Charger et afficher le bouton Publier pour la semaine courante
@@ -664,7 +675,7 @@ function renderSidebar() {
         card.innerHTML =
             (isPref ? '<span class="staff-pref-dot" title="Affecté à cet établissement">★</span>' : '') +
             '<span class="staff-dot" style="background:' + staff.color + '"></span>' +
-            '<span class="staff-info-name">' + staff.name + '</span>' +
+            '<span class="staff-info-name"' + (staff.name_color ? ' style="color:' + staff.name_color + '"' : '') + '>' + staff.name + '</span>' +
             (firstRole
                 ? '<span class="staff-role-badge ' + firstRole.type + '">' + firstRole.name + '</span>'
                 : '') +
@@ -1055,6 +1066,42 @@ function openRealHoursModal(shift, shiftEl) {
     const startInput = overlay.querySelector('#_rh-start');
     const endInput   = overlay.querySelector('#_rh-end');
     const ecartEl    = overlay.querySelector('#_rh-ecart');
+
+    // Blocage si service pas terminé (sauf extra)
+    if (!shift.extra) {
+        const now = new Date();
+        const nowFloat = now.getHours() + now.getMinutes() / 60;
+        const shiftDate = shift.date || selectedDate;
+        const todayStr  = toDateStr(now);
+        let serviceFinished = true;
+        if (shiftDate === todayStr) {
+            if (shift.end_time > 24) {
+                serviceFinished = false;
+            } else {
+                serviceFinished = nowFloat >= shift.end_time;
+            }
+        } else if (shiftDate > todayStr) {
+            serviceFinished = false;
+        } else {
+            const yesterday = new Date(now);
+            yesterday.setDate(now.getDate() - 1);
+            if (toDateStr(yesterday) === shiftDate && shift.end_time > 24) {
+                serviceFinished = nowFloat >= (shift.end_time - 24);
+            }
+        }
+        if (!serviceFinished) {
+            startInput.disabled = true;
+            endInput.disabled   = true;
+            overlay.querySelector('#_rh-save').disabled = true;
+            overlay.querySelector('#_rh-save').style.background = '#ccc';
+            overlay.querySelector('#_rh-clear').disabled = true;
+            const endH = Math.floor(shift.end_time % 24);
+            const endM = Math.round((shift.end_time % 1) * 60);
+            const endLabel = String(endH).padStart(2,'0') + 'h' + (endM > 0 ? String(endM).padStart(2,'0') : '00');
+            ecartEl.textContent = 'Service en cours jusqu\'à ' + endLabel;
+            ecartEl.style.color = '#f39c12';
+        }
+    }
 
     function parseT(val, ref) {
         if (!val) return null;
@@ -1497,7 +1544,7 @@ function updateShiftText(el) {
     if (!display) return;
     const hStart = START_HOUR + el.offsetLeft / PX_PER_HOUR;
     const hEnd   = hStart + el.offsetWidth / PX_PER_HOUR;
-    const fmt = h => `${Math.floor(h % 24).toString().padStart(2, '0')}:00`;
+    const fmt = h => `${Math.floor(h % 24).toString().padStart(2, '0')}h${String(Math.round((h%1)*60)).padStart(2,'0')}`;
     display.textContent = `${fmt(hStart)} – ${fmt(hEnd)}`;
 }
 
@@ -1516,7 +1563,7 @@ function openCopyModal() {
     const preview = document.getElementById('copy-shifts-preview');
     preview.innerHTML = '';
     copyShiftsBuffer.forEach((shift, idx) => {
-        const fmt = h => `${Math.floor(h % 24).toString().padStart(2, '0')}:00`;
+        const fmt = h => `${Math.floor(h % 24).toString().padStart(2, '0')}:${String(Math.round((h%1)*60)).padStart(2,'0')}`;
         const row = document.createElement('div');
         row.className = 'copy-shift-row';
         row.innerHTML = `
@@ -1539,7 +1586,9 @@ function openCopyModal() {
             if (val !== null) {
                 if (field === 'start') copyShiftsBuffer[idx].start_time = val;
                 else                   copyShiftsBuffer[idx].end_time   = val;
-                e.target.value = `${Math.floor(val % 24).toString().padStart(2, '0')}:00`;
+                const rh = Math.floor(val % 24);
+                const rm = Math.round((val % 1) * 60);
+                e.target.value = `${String(rh).padStart(2, '0')}:${String(rm).padStart(2, '0')}`;
             } else {
                 showToast('Format invalide (ex: 18:00)', true);
             }
@@ -1569,8 +1618,9 @@ function parseTimeInput(str) {
     const match = str.match(/^(\d{1,2})(?::(\d{2}))?$/);
     if (!match) return null;
     const h = parseInt(match[1]);
+    const m = match[2] ? parseInt(match[2]) : 0;
     if (h < 0 || h > 26) return null;
-    return h;
+    return h + m / 60;
 }
 
 document.getElementById('copy-modal-close').addEventListener('click',  closeCopyModal);
@@ -2143,9 +2193,11 @@ async function renderAccountsList() {
             const color  = sm ? sm.color : '#888';
             const isAdmin = user.role === 'patron';
             const isP    = user.role === 'directeur';
+            const isEtab = user.role === 'etablissement';
             let statusLabel, statusBadge;
-            if (isAdmin)     { statusLabel = 'Patron';      statusBadge = 'linked'; }
-            else if (isP)    { statusLabel = 'Directeur';   statusBadge = 'linked'; }
+            if (isAdmin)     { statusLabel = 'Patron';        statusBadge = 'linked'; }
+            else if (isP)    { statusLabel = 'Directeur';     statusBadge = 'linked'; }
+            else if (isEtab) { statusLabel = 'Établissement'; statusBadge = 'linked'; }
             else             { statusLabel = user.active ? 'Actif' : 'Invitation envoyée'; statusBadge = user.active ? 'linked' : 'unlinked'; }
 
             row.innerHTML =
@@ -2429,6 +2481,159 @@ async function deleteAccount(userId, userName) {
     });
 }
 
+// ── Récap mensuel ────────────────────────────────────────────────────────────
+
+function openRecapModal() {
+    const modal = document.getElementById('recap-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+
+    // Peupler le sélecteur mois (12 derniers mois + mois en cours)
+    const monthSelect = document.getElementById('recap-month');
+    if (monthSelect.children.length === 0) {
+        const now = new Date();
+        for (let i = 0; i < 13; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const val = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+            const label = MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear();
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = label.charAt(0).toUpperCase() + label.slice(1);
+            if (i === 0) opt.selected = true;
+            monthSelect.appendChild(opt);
+        }
+    }
+
+    // Peupler le sélecteur établissement
+    const estabSelect = document.getElementById('recap-estab');
+    if (estabSelect.children.length <= 1) {
+        allEstablishments.forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = e.id;
+            opt.textContent = e.name;
+            estabSelect.appendChild(opt);
+        });
+    }
+
+    // Listener charger (une seule fois)
+    const btnLoad = document.getElementById('recap-load');
+    if (!btnLoad._bound) {
+        btnLoad._bound = true;
+        btnLoad.addEventListener('click', loadRecapData);
+    }
+
+    // Listener imprimer
+    const btnPrint = document.getElementById('recap-print');
+    if (!btnPrint._bound) {
+        btnPrint._bound = true;
+        btnPrint.addEventListener('click', () => window.print());
+    }
+
+    // Listener fermer
+    const btnClose = document.getElementById('recap-modal-close');
+    if (!btnClose._bound) {
+        btnClose._bound = true;
+        btnClose.addEventListener('click', () => { modal.style.display = 'none'; });
+    }
+
+    // Charger les données du mois en cours
+    loadRecapData();
+}
+
+async function loadRecapData() {
+    const month = document.getElementById('recap-month').value;
+    const estabId = document.getElementById('recap-estab').value;
+    const content = document.getElementById('recap-content');
+    content.innerHTML = '<div style="padding:24px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
+
+    try {
+        let url = '/api/recap-mensuel?month=' + month;
+        if (estabId) url += '&establishment_id=' + encodeURIComponent(estabId);
+        const res = await fetch(url, { credentials: 'include' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        if (data.length === 0) {
+            content.innerHTML = '<div style="padding:24px;text-align:center;color:#ccc;font-size:13px">Aucun shift ce mois-ci</div>';
+            return;
+        }
+
+        const fmtH = h => {
+            if (h == null) return '—';
+            const hrs = Math.floor(Math.abs(h));
+            const mins = Math.round((Math.abs(h) - hrs) * 60);
+            const str = hrs + 'h' + (mins > 0 ? String(mins).padStart(2, '0') : '');
+            return h < 0 ? '−' + str : str;
+        };
+
+        let totalPlanned = 0, totalReal = 0, totalDays = 0, totalExtra = 0, totalExtraH = 0;
+        let hasAnyReal = false;
+
+        let tableHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+        tableHTML += '<thead><tr style="background:#f8f8f8;border-bottom:2px solid #e0e0e0">' +
+            '<th style="text-align:left;padding:8px 10px">Nom</th>' +
+            '<th style="text-align:center;padding:8px 6px">Jours</th>' +
+            '<th style="text-align:center;padding:8px 6px">H. planifiées</th>' +
+            '<th style="text-align:center;padding:8px 6px">H. réelles</th>' +
+            '<th style="text-align:center;padding:8px 6px">Écart</th>' +
+            '<th style="text-align:center;padding:8px 6px">Extra</th>' +
+            '</tr></thead><tbody>';
+
+        data.forEach(s => {
+            totalPlanned += s.planned_hours;
+            totalDays    += s.days;
+            totalExtra   += s.extra_count;
+            totalExtraH  += s.extra_hours;
+            if (s.real_hours != null) { totalReal += s.real_hours; hasAnyReal = true; }
+
+            const ecartStr = s.ecart != null
+                ? (s.ecart > 0 ? '<span style="color:#d68910">+' + fmtH(s.ecart) + '</span>' : s.ecart < 0 ? '<span style="color:#c0392b">' + fmtH(s.ecart) + '</span>' : '<span style="color:#27ae60">=</span>')
+                : '—';
+
+            const realStr = s.real_hours != null
+                ? fmtH(s.real_hours) + (s.partial ? ' <span style="font-size:10px;color:#f39c12" title="Certains shifts non pointés">partiel</span>' : '')
+                : '—';
+
+            const extraStr = s.extra_count > 0
+                ? s.extra_count + ' (' + fmtH(s.extra_hours) + ')'
+                : '—';
+
+            tableHTML += '<tr style="border-bottom:1px solid #f0f0f0">' +
+                '<td style="padding:8px 10px;display:flex;align-items:center;gap:6px">' +
+                    '<span style="width:8px;height:8px;border-radius:50%;background:' + s.color + ';flex-shrink:0;display:inline-block"></span>' +
+                    '<span style="font-weight:600">' + s.staff_name + '</span>' +
+                '</td>' +
+                '<td style="text-align:center;padding:8px 6px">' + s.days + '</td>' +
+                '<td style="text-align:center;padding:8px 6px">' + fmtH(s.planned_hours) + '</td>' +
+                '<td style="text-align:center;padding:8px 6px">' + realStr + '</td>' +
+                '<td style="text-align:center;padding:8px 6px">' + ecartStr + '</td>' +
+                '<td style="text-align:center;padding:8px 6px">' + extraStr + '</td>' +
+                '</tr>';
+        });
+
+        // Ligne total
+        const totalEcart = hasAnyReal ? totalReal - totalPlanned : null;
+        const totalEcartStr = totalEcart != null
+            ? (totalEcart > 0 ? '<span style="color:#d68910">+' + fmtH(totalEcart) + '</span>' : totalEcart < 0 ? '<span style="color:#c0392b">' + fmtH(totalEcart) + '</span>' : '<span style="color:#27ae60">=</span>')
+            : '—';
+
+        tableHTML += '<tr style="border-top:2px solid #e0e0e0;font-weight:700;background:#f8f8f8">' +
+            '<td style="padding:8px 10px">Total (' + data.length + ' staff)</td>' +
+            '<td style="text-align:center;padding:8px 6px">' + totalDays + '</td>' +
+            '<td style="text-align:center;padding:8px 6px">' + fmtH(totalPlanned) + '</td>' +
+            '<td style="text-align:center;padding:8px 6px">' + (hasAnyReal ? fmtH(totalReal) : '—') + '</td>' +
+            '<td style="text-align:center;padding:8px 6px">' + totalEcartStr + '</td>' +
+            '<td style="text-align:center;padding:8px 6px">' + (totalExtra > 0 ? totalExtra + ' (' + fmtH(totalExtraH) + ')' : '—') + '</td>' +
+            '</tr>';
+
+        tableHTML += '</tbody></table>';
+        content.innerHTML = tableHTML;
+
+    } catch (e) {
+        content.innerHTML = '<div style="padding:16px;text-align:center;color:#e74c3c;font-size:13px">' + e.message + '</div>';
+    }
+}
+
 // ── Disponibilités — côté patron ──────────────────────────────────────────────
 
 async function loadDisposBadge() {
@@ -2482,7 +2687,7 @@ async function loadDisposList() {
         Object.entries(byStaff).forEach(([staffId, { name, dispos: staffDispos }]) => {
             const sm    = allStaff.find(s => String(s._id) === staffId);
             const color = sm ? sm.color : '#888';
-            const fmt   = h => String(Math.floor(h % 24)).padStart(2, '0') + 'h';
+            const fmt   = h => String(Math.floor(h % 24)).padStart(2, '0') + 'h' + (Math.round((h%1)*60) > 0 ? String(Math.round((h%1)*60)).padStart(2,'0') : '');
 
             const card = document.createElement('div');
             card.style.cssText = 'background:var(--color-bg-secondary,#f8f8f8);border:1px solid var(--color-border-secondary,#eee);border-radius:12px;margin:8px 16px;overflow:hidden';
@@ -3007,6 +3212,11 @@ function renderStaffManageList() {
             '<div class="staff-manage-info">' +
                 '<input type="text"  class="staff-manage-name-input"  value="' + staff.name + '" placeholder="Nom">' +
                 '<input type="email" class="staff-manage-email-input" value="' + (staff.email || '') + '" placeholder="email (pour le login futur)">' +
+                '<div style="display:flex;align-items:center;gap:6px;margin-top:4px">' +
+                    '<span style="font-size:11px;color:#aaa">Couleur nom :</span>' +
+                    '<input type="color" class="staff-manage-name-color" value="' + (staff.name_color || staff.color) + '" title="Couleur du nom">' +
+                    '<button type="button" class="staff-name-color-reset" style="font-size:10px;color:#bbb;border:1px solid #e0e0e0;background:white;border-radius:4px;padding:2px 6px;cursor:pointer" title="Utiliser la couleur du shift">Reset</button>' +
+                '</div>' +
                 '<div class="venue-pref-row">' + venueButtons + '</div>' +
                 '<div class="role-assign-section">' + rolesHTML + '</div>' +
                 groupChips +
@@ -3020,6 +3230,15 @@ function renderStaffManageList() {
             '</span>' +
             '<button class="staff-manage-save">Enregistrer</button>' +
             '<button class="staff-manage-delete" title="Supprimer">×</button>';
+
+        // Reset name_color
+        const resetNameColor = row.querySelector('.staff-name-color-reset');
+        if (resetNameColor) {
+            resetNameColor.addEventListener('click', () => {
+                const colorInput = row.querySelector('.staff-manage-name-color');
+                colorInput.value = row.querySelector('.staff-manage-color').value;
+            });
+        }
 
         // Toggle groupes
         row.querySelectorAll('.staff-group-btn').forEach(btn => {
@@ -3068,6 +3287,7 @@ function renderStaffManageList() {
             const newName       = row.querySelector('.staff-manage-name-input').value.trim();
             const newEmail      = row.querySelector('.staff-manage-email-input').value.trim();
             const newColor      = row.querySelector('.staff-manage-color').value;
+            const newNameColor  = row.querySelector('.staff-manage-name-color')?.value || null;
             const newVenues     = Array.from(row.querySelectorAll('.venue-pref-btn.active')).map(b => b.dataset.venue);
             const newRoles      = Array.from(row.querySelectorAll('.role-assign-btn.active')).map(b => b.dataset.role);
             const newCanSubmit  = row.querySelector('.staff-can-submit').checked;
@@ -3079,12 +3299,15 @@ function renderStaffManageList() {
             const dup = allStaff.find(s => s.color === newColor && s._id !== staff._id);
             if (dup) { showToast(dup.name + ' utilise déjà cette couleur', true); return; }
 
+            // Déterminer si name_color est différent de color (sinon null = reset)
+            const effectiveNameColor = newNameColor && newNameColor !== newColor ? newNameColor : null;
+
             try {
                 const res = await fetch('/api/staff/' + staff._id, {
                     method:      'PATCH',
                     credentials: 'include',
                     headers:     { 'Content-Type': 'application/json' },
-                    body:        JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups }),
+                    body:        JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups, name_color: effectiveNameColor }),
                 });
                 if (!res.ok) throw new Error((await res.json()).error);
 
@@ -3095,6 +3318,7 @@ function renderStaffManageList() {
                 staff.roles             = newRoles;
                 staff.can_submit_dispos = newCanSubmit;
                 staff.groups            = newGroups;
+                staff.name_color        = effectiveNameColor;
 
                 // Propager sur les shifts visibles
                 document.querySelectorAll('.shift').forEach(el => {

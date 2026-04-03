@@ -562,8 +562,8 @@ app.post('/api/staff', checkDB, requirePatron, async (req, res) => {
 app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { color, name, email, venues, can_submit_dispos, groups } = req.body;
-    if (!color && !name && email === undefined && venues === undefined && can_submit_dispos === undefined && req.body.roles === undefined && groups === undefined)
-        return res.status(400).json({ error: 'color, name, email, venues, roles, groups ou can_submit_dispos requis' });
+    if (!color && !name && email === undefined && venues === undefined && can_submit_dispos === undefined && req.body.roles === undefined && groups === undefined && req.body.name_color === undefined)
+        return res.status(400).json({ error: 'color, name, email, venues, roles, groups, name_color ou can_submit_dispos requis' });
     try {
         const update = {};
         if (color)                           update.color             = color;
@@ -573,6 +573,7 @@ app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
         if (req.body.roles !== undefined)    update.roles             = req.body.roles;
         if (can_submit_dispos !== undefined) update.can_submit_dispos = !!can_submit_dispos;
         if (groups !== undefined)            update.groups            = Array.isArray(groups) ? groups : [];
+        if (req.body.name_color !== undefined) update.name_color      = req.body.name_color || null;
         const result = await db.collection('staff').updateOne(
             { _id: new ObjectId(req.params.id) }, { $set: update }
         );
@@ -1047,6 +1048,77 @@ app.get('/api/shifts/:establishmentId/:date/check-responsable', checkDB, require
         );
 
         res.json({ hasResponsable, count: shifts.length });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Récap mensuel ────────────────────────────────────────────────────────────
+
+app.get('/api/recap-mensuel', checkDB, requirePatron, async (req, res) => {
+    const { month, establishment_id } = req.query;
+    if (!month || !/^\d{4}-\d{2}$/.test(month))
+        return res.status(400).json({ error: 'month requis (format YYYY-MM)' });
+    try {
+        const [y, m] = month.split('-').map(Number);
+        const firstDay = y + '-' + String(m).padStart(2, '0') + '-01';
+        const lastDate = new Date(y, m, 0); // dernier jour du mois
+        const lastDay  = y + '-' + String(m).padStart(2, '0') + '-' + String(lastDate.getDate()).padStart(2, '0');
+
+        const query = {
+            date: { $gte: firstDay, $lte: lastDay },
+            $and: [
+                { $or: [{ is_joker: { $ne: true } }, { is_joker: { $exists: false } }] },
+                { staff_id: { $ne: '__joker__' } },
+            ],
+        };
+        if (establishment_id) query.establishment_id = establishment_id;
+
+        const shifts = await db.collection('shifts').find(query).toArray();
+
+        // Grouper par staff_id
+        const byStaff = {};
+        shifts.forEach(s => {
+            if (!byStaff[s.staff_id]) byStaff[s.staff_id] = { staff_id: s.staff_id, staff_name: s.staff_name, shifts: [] };
+            byStaff[s.staff_id].shifts.push(s);
+        });
+
+        // Calculer les stats par staff
+        const staffList = await db.collection('staff').find().toArray();
+        const staffMap  = {};
+        staffList.forEach(s => { staffMap[String(s._id)] = s; });
+
+        const result = Object.values(byStaff).map(entry => {
+            const dates    = [...new Set(entry.shifts.map(s => s.date))];
+            const planned  = entry.shifts.reduce((a, s) => a + (s.end_time - s.start_time), 0);
+            const realShifts    = entry.shifts.filter(s => s.real_start != null && s.real_end != null);
+            const realTotal     = realShifts.reduce((a, s) => a + (s.real_end - s.real_start), 0);
+            const hasAnyReal    = realShifts.length > 0;
+            const allPointed    = realShifts.length === entry.shifts.length;
+            const extraShifts   = entry.shifts.filter(s => s.extra === true);
+            const extraHours    = extraShifts.reduce((a, s) => {
+                const start = s.real_start != null ? s.real_start : s.start_time;
+                const end   = s.real_end   != null ? s.real_end   : s.end_time;
+                return a + (end - start);
+            }, 0);
+
+            const sm = staffMap[entry.staff_id];
+            return {
+                staff_id:    entry.staff_id,
+                staff_name:  sm ? sm.name : entry.staff_name,
+                color:       sm ? sm.color : '#888',
+                days:        dates.length,
+                planned_hours: Math.round(planned * 100) / 100,
+                real_hours:    hasAnyReal ? Math.round(realTotal * 100) / 100 : null,
+                ecart:         hasAnyReal ? Math.round((realTotal - planned) * 100) / 100 : null,
+                all_pointed:   allPointed,
+                partial:       hasAnyReal && !allPointed,
+                extra_count:   extraShifts.length,
+                extra_hours:   Math.round(extraHours * 100) / 100,
+                total_shifts:  entry.shifts.length,
+            };
+        });
+
+        result.sort((a, b) => a.staff_name.localeCompare(b.staff_name));
+        res.json(result);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

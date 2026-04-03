@@ -229,6 +229,76 @@
         .empty-week-icon  { font-size: 36px; margin-bottom: 12px; }
         .empty-week-text  { font-size: 15px; font-weight: 600; color: #aaa; }
         .empty-week-sub   { font-size: 13px; color: #ccc; margin-top: 4px; }
+
+        /* ── Responsive mobile ── */
+        @media (max-width: 600px) {
+            .header {
+                padding: 10px 14px;
+            }
+            .header-logo {
+                font-size: 13px;
+            }
+            .tabs-bar {
+                padding: 0 10px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .tab-btn {
+                padding: 8px 12px;
+                font-size: 12px;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+            .greeting {
+                padding: 12px 14px 4px;
+            }
+            .greeting-name {
+                font-size: 17px;
+            }
+            .week-stats {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 6px;
+                padding: 10px 14px;
+            }
+            .stat-card {
+                padding: 8px 10px;
+            }
+            .stat-value {
+                font-size: 16px;
+            }
+            .days-list {
+                padding: 0 14px 24px;
+            }
+            .day-header {
+                padding: 10px 12px;
+                gap: 10px;
+            }
+            .shift-hours-badge {
+                font-size: 11px;
+                padding: 4px 8px;
+            }
+            .rest-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+            .colleague-pill {
+                font-size: 10px;
+                padding: 2px 6px;
+            }
+            .dispo-type-row {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .dispo-type-btn {
+                min-width: 64px;
+                flex-shrink: 0;
+                padding: 6px 8px;
+            }
+            .btn-submit-dispos {
+                font-size: 13px;
+                padding: 12px 16px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -370,6 +440,12 @@ async function init() {
     if (av) av.textContent = (user.name || user.email || '?').charAt(0).toUpperCase();
 
     initTabs();
+
+    // Charger le staff pour les couleurs et name_color
+    try {
+        const staffRes = await fetch('/api/staff', { credentials: 'include' });
+        if (staffRes.ok) allStaff = await staffRes.json();
+    } catch { allStaff = []; }
 
     // Charger les dispos quand on clique sur l'onglet
     document.querySelector('[data-tab="dispos"]').addEventListener('click', () => {
@@ -674,9 +750,12 @@ function renderDaysInto(from, shifts, colleagues, list, jokers) {
                 }
                 const allColleagues = [...dayColleagues, ...dayJokers];
                 if (allColleagues.length > 0) {
-                    const pills = allColleagues.map(c =>
-                        '<span class="colleague-pill"><span class="colleague-dot" style="background:' + (c.is_joker ? '#95a5a6' : (c.color || '#888')) + '"></span>' + (c.is_joker ? 'Joker' : c.staff_name) + '</span>'
-                    ).join('');
+                    const pills = allColleagues.map(c => {
+                        const sm = allStaff.find(s => String(s._id) === c.staff_id);
+                        const nameColor = sm && sm.name_color ? sm.name_color : '';
+                        const nameStyle = nameColor ? ' style="color:' + nameColor + '"' : '';
+                        return '<span class="colleague-pill"><span class="colleague-dot" style="background:' + (c.is_joker ? '#95a5a6' : (c.color || '#888')) + '"></span><span' + nameStyle + '>' + (c.is_joker ? 'Joker' : c.staff_name) + '</span></span>';
+                    }).join('');
                     html += '<div class="colleagues-row"><span class="colleagues-lbl">Collègues</span>' + pills + '</div>';
                 }
                 block.innerHTML = html;

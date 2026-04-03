@@ -24,6 +24,132 @@
             text-transform: uppercase;
             letter-spacing: .3px;
         }
+
+        /* ── Responsive mobile ── */
+        @media (max-width: 600px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+                padding: 10px 14px;
+            }
+            .header-left {
+                flex-wrap: wrap;
+                gap: 6px;
+                width: 100%;
+            }
+            .header-right {
+                width: 100%;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+            .header-right .date-display {
+                font-size: 11px;
+            }
+            .header-right .btn-logout {
+                font-size: 10px;
+                padding: 4px 8px;
+            }
+            .venue-bar {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                flex-wrap: nowrap;
+                padding: 6px 10px;
+                gap: 4px;
+            }
+            .venue-bar .venue-tab {
+                white-space: nowrap;
+                flex-shrink: 0;
+                font-size: 12px;
+                padding: 5px 10px;
+            }
+            .week-nav {
+                flex-wrap: wrap;
+                gap: 6px;
+                padding: 8px 10px;
+            }
+            .week-nav .week-label {
+                font-size: 12px;
+                max-width: 180px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .week-nav .btn-today,
+            .week-nav .week-arrow {
+                font-size: 12px;
+                padding: 4px 8px;
+            }
+            .view-tabs {
+                width: 100%;
+                justify-content: center;
+            }
+            .timeline-scroll {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                touch-action: pan-x pan-y;
+            }
+            .staff-bar {
+                padding: 8px 10px;
+            }
+            .staff-bar .staff-list {
+                max-height: 35vh;
+                overflow-y: auto;
+            }
+            .staff-card {
+                padding: 6px 8px;
+                font-size: 12px;
+            }
+            .modal {
+                max-width: 95vw !important;
+            }
+            .modal .staff-manage-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            .modal .staff-manage-row .staff-manage-info {
+                width: 100%;
+            }
+            .modal .staff-add-fields {
+                flex-direction: column;
+            }
+            .day-detail-header {
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+            .day-detail-header .day-detail-title {
+                width: 100%;
+                font-size: 14px;
+            }
+            #group-filter-bar {
+                overflow-x: auto;
+                flex-wrap: nowrap !important;
+                -webkit-overflow-scrolling: touch;
+            }
+            /* Print : masquer tout sauf recap */
+            @media print {
+                body > * { display: none !important; }
+                #recap-modal { display: flex !important; position: static !important; }
+                #recap-modal .modal { max-width: 100% !important; box-shadow: none !important; }
+                #recap-modal .modal-header button,
+                #recap-modal #recap-load,
+                #recap-modal #recap-print { display: none !important; }
+            }
+        }
+
+        /* Print styles (hors mobile) */
+        @media print {
+            body > * { display: none !important; }
+            #recap-modal { display: flex !important; position: static !important; background: none !important; }
+            #recap-modal .modal { max-width: 100% !important; box-shadow: none !important; border: none !important; }
+            #recap-modal .modal-header button,
+            #recap-modal #recap-load,
+            #recap-modal #recap-print,
+            #recap-modal select { display: none !important; }
+            #recap-content { max-height: none !important; overflow: visible !important; }
+        }
     </style>
 </head>
 <body>
@@ -38,6 +164,7 @@
                 <button class="btn-manage-staff" id="btn-dispos">Dispos</button>
                 <span id="dispos-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:#e74c3c;color:white;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;align-items:center;justify-content:center;pointer-events:none;z-index:1">0</span>
             </div>
+            <button class="btn-manage-staff" id="btn-recap" style="background:#f0fdf4;border-color:#27ae60;color:#27ae60">Récap</button>
             <div style="position:relative;display:flex;align-items:center;gap:5px;padding:0 8px;border-left:1px solid #eee">
                 <span id="dispo-toggle-label" style="font-size:11px;color:#bbb;white-space:nowrap;cursor:pointer">Dispos</span>
                 <input type="checkbox" id="dispo-toggle" style="cursor:pointer">
@@ -94,7 +221,7 @@
         <div class="day-detail-header">
             <span class="day-detail-title" id="day-detail-title"></span>
             <button class="btn-copy-day" id="btn-copy-day">Copier ce jour →</button>
-            <button class="btn-manage-staff" id="btn-refresh-day" title="Recharger les heures réelles" style="font-size:12px;padding:5px 10px;background:#f0fdf4;border-color:#2ecc71;color:#27ae60">⟳ Pointage</button>
+            <button class="btn-manage-staff" id="btn-refresh-day" title="Recharger les heures réelles saisies depuis la tablette de pointage" style="font-size:12px;padding:5px 10px;background:#f8f8f8;border-color:#e0e0e0;color:#888">⟳ Actualiser</button>
             <button class="btn-manage-staff" id="btn-publish-week" style="font-size:12px;padding:5px 12px">Publier la semaine</button>
             <button class="day-detail-close" id="day-detail-close">×</button>
         </div>
@@ -270,7 +397,7 @@
             <span class="modal-title">Établissements</span>
             <button class="modal-close" id="establishments-modal-close">&times;</button>
         </div>
-        <div id="establishments-list"></div>
+        <div id="establishments-list" style="max-height:50vh;overflow-y:auto"></div>
         <div class="staff-add-form">
             <div class="staff-add-title">Ajouter un établissement</div>
             <div class="staff-add-fields" style="flex-wrap:wrap;gap:6px">
@@ -285,6 +412,25 @@
                 <button class="btn-add-staff" id="btn-add-establishment">Ajouter</button>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Modale récap mensuel -->
+<div class="modal-overlay" id="recap-modal" style="display:none">
+    <div class="modal" style="width:720px;max-width:95vw">
+        <div class="modal-header">
+            <span class="modal-title">Récapitulatif mensuel</span>
+            <button class="modal-close" id="recap-modal-close">&times;</button>
+        </div>
+        <div style="display:flex;gap:8px;padding:0 0 12px;flex-wrap:wrap;align-items:center">
+            <select id="recap-month" class="staff-input" style="flex:0 0 auto;width:auto;font-size:13px"></select>
+            <select id="recap-estab" class="staff-input" style="flex:0 0 auto;width:auto;font-size:13px">
+                <option value="">Tous les établissements</option>
+            </select>
+            <button id="recap-load" class="btn-add-staff" style="padding:6px 14px;font-size:12px">Charger</button>
+            <button id="recap-print" class="btn-manage-staff" style="margin-left:auto;font-size:11px;padding:4px 10px" title="Imprimer ce récap">🖨 Imprimer</button>
+        </div>
+        <div id="recap-content" style="max-height:60vh;overflow-y:auto"></div>
     </div>
 </div>
 

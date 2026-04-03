@@ -449,6 +449,47 @@ function buildShiftCard(shift) {
     const ecartEl    = card.querySelector('.ecart-badge');
     const btnSave    = card.querySelector('.btn-save');
 
+    // Blocage si le service n'est pas terminé (sauf extra)
+    if (!shift.extra) {
+        const now = new Date();
+        const nowFloat = now.getHours() + now.getMinutes() / 60;
+        // Déterminer si on est le jour du shift ou le lendemain
+        const shiftDate = shift.date; // YYYY-MM-DD
+        const todayStr  = toDateStr(now);
+        let serviceFinished = true;
+        if (shiftDate === todayStr) {
+            // Même jour : comparer directement (end_time > 24 signifie lendemain)
+            if (shift.end_time > 24) {
+                serviceFinished = false; // passe minuit, on est encore le même jour
+            } else {
+                serviceFinished = nowFloat >= shift.end_time;
+            }
+        } else {
+            // Jour du shift est hier ou avant
+            const yesterday = new Date(now);
+            yesterday.setDate(now.getDate() - 1);
+            const yesterdayStr = toDateStr(yesterday);
+            if (shiftDate === yesterdayStr && shift.end_time > 24) {
+                // Shift d'hier qui passe minuit, vérifier si l'heure actuelle > end_time - 24
+                serviceFinished = nowFloat >= (shift.end_time - 24);
+            }
+            // Si le shift est plus ancien, il est forcément terminé
+        }
+
+        if (!serviceFinished) {
+            startInput.disabled = true;
+            endInput.disabled   = true;
+            btnSave.disabled    = true;
+            const endH = Math.floor(shift.end_time % 24);
+            const endM = Math.round((shift.end_time % 1) * 60);
+            const endLabel = String(endH).padStart(2,'0') + 'h' + (endM > 0 ? String(endM).padStart(2,'0') : '00');
+            const msg = document.createElement('div');
+            msg.style.cssText = 'width:100%;font-size:12px;color:#f39c12;background:#fff3cd;border:1px solid #f39c12;border-radius:6px;padding:6px 10px;margin-top:4px';
+            msg.textContent = 'Service en cours jusqu\'à ' + endLabel;
+            card.querySelector('.shift-body').appendChild(msg);
+        }
+    }
+
     function updateEcart() {
         const rs = parseTimeInput(startInput.value);
         const re = parseTimeInput(endInput.value, rs);
