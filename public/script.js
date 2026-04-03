@@ -2030,8 +2030,12 @@ async function renderEstablishmentsList() {
                             '<option value="bar"' +        (e.type === 'bar'        ? ' selected' : '') + '>Bar</option>' +
                             '<option value="restaurant"' + (e.type === 'restaurant' ? ' selected' : '') + '>Restaurant</option>' +
                         '</select>' +
-                        '<input type="time" class="estab-open-input"  value="' + (e.open_time  || '') + '" title="Ouverture"  style="font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px;flex:1">' +
-                        '<input type="time" class="estab-close-input" value="' + (e.close_time || '') + '" title="Fermeture" style="font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px;flex:1">' +
+                        '<label style="display:flex;flex-direction:column;gap:2px;flex:1;font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.3px">Ouverture' +
+                            '<input type="time" class="estab-open-input"  value="' + (e.open_time  || '') + '" style="font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px;font-weight:400;text-transform:none;letter-spacing:0;color:#1a1a2e">' +
+                        '</label>' +
+                        '<label style="display:flex;flex-direction:column;gap:2px;flex:1;font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.3px">Fermeture' +
+                            '<input type="time" class="estab-close-input" value="' + (e.close_time || '') + '" style="font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px;font-weight:400;text-transform:none;letter-spacing:0;color:#1a1a2e">' +
+                        '</label>' +
                     '</div>' +
                     groupChipsEstab +
                 '</div>' +
@@ -2566,7 +2570,7 @@ async function loadRecapData() {
             return h < 0 ? '−' + str : str;
         };
 
-        let totalPlanned = 0, totalReal = 0, totalDays = 0, totalExtra = 0, totalExtraH = 0;
+        let totalPlanned = 0, totalReal = 0, totalDays = 0;
         let hasAnyReal = false;
 
         let tableHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px">';
@@ -2576,7 +2580,6 @@ async function loadRecapData() {
             '<th style="text-align:center;padding:8px 6px">H. planifiées</th>' +
             '<th style="text-align:center;padding:8px 6px">H. réelles</th>' +
             '<th style="text-align:center;padding:8px 6px">Écart</th>' +
-            '<th style="text-align:center;padding:8px 6px">Extra</th>' +
             '</tr></thead><tbody>';
 
         data.forEach(s => {
@@ -2607,7 +2610,6 @@ async function loadRecapData() {
                 '<td style="text-align:center;padding:8px 6px">' + fmtH(s.planned_hours) + '</td>' +
                 '<td style="text-align:center;padding:8px 6px">' + realStr + '</td>' +
                 '<td style="text-align:center;padding:8px 6px">' + ecartStr + '</td>' +
-                '<td style="text-align:center;padding:8px 6px">' + extraStr + '</td>' +
                 '</tr>';
         });
 
@@ -2623,7 +2625,6 @@ async function loadRecapData() {
             '<td style="text-align:center;padding:8px 6px">' + fmtH(totalPlanned) + '</td>' +
             '<td style="text-align:center;padding:8px 6px">' + (hasAnyReal ? fmtH(totalReal) : '—') + '</td>' +
             '<td style="text-align:center;padding:8px 6px">' + totalEcartStr + '</td>' +
-            '<td style="text-align:center;padding:8px 6px">' + (totalExtra > 0 ? totalExtra + ' (' + fmtH(totalExtraH) + ')' : '—') + '</td>' +
             '</tr>';
 
         tableHTML += '</tbody></table>';
