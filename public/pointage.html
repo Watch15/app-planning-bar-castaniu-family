@@ -458,9 +458,15 @@ function buildShiftCard(shift) {
         const todayStr  = toDateStr(now);
         let serviceFinished = true;
         if (shiftDate === todayStr) {
-            // Même jour : comparer directement (end_time > 24 signifie lendemain)
+            // Même jour : comparer directement (end_time > 24 signifie que ça passe minuit)
             if (shift.end_time > 24) {
-                serviceFinished = false; // passe minuit, on est encore le même jour
+                // Si on est tôt le matin (passé minuit), vérifier si on a dépassé l'heure de fin
+                // Si on est encore dans la soirée (nowFloat >= 12), service forcément en cours
+                if (nowFloat < 12) {
+                    serviceFinished = nowFloat >= (shift.end_time - 24);
+                } else {
+                    serviceFinished = false;
+                }
             } else {
                 serviceFinished = nowFloat >= shift.end_time;
             }
@@ -542,15 +548,17 @@ function initExtraForm() {
     const freeName    = document.getElementById('extra-staff-name-free');
 
     // Autocomplete staff
-    searchInput.addEventListener('input', () => {
-        const val = searchInput.value.toLowerCase().trim();
+    function renderSuggestions(val) {
         hiddenId.value = '';
         freeName.style.display = 'none';
 
-        if (!val) { suggestions.style.display = 'none'; return; }
+        const matches = val
+            ? allStaff.filter(s => s.name.toLowerCase().includes(val)).slice(0, 8)
+            : allStaff.slice(0, 8);
 
-        const matches = allStaff.filter(s => s.name.toLowerCase().includes(val)).slice(0, 6);
         suggestions.innerHTML = '';
+
+        if (allStaff.length === 0) { suggestions.style.display = 'none'; return; }
 
         if (matches.length === 0) {
             // Aucun staff trouvé — proposer le nom libre
@@ -575,20 +583,30 @@ function initExtraForm() {
             suggestions.appendChild(item);
         });
 
-        // Option nom libre
-        const libre = document.createElement('div');
-        libre.className = 'staff-suggestion-item';
-        libre.style.color = '#aaa';
-        libre.innerHTML = '<span style="font-size:12px">✏️ Saisir "' + searchInput.value + '" comme nom libre</span>';
-        libre.addEventListener('click', () => {
-            hiddenId.value = '';
-            freeName.style.display = '';
-            freeName.value = searchInput.value;
-            suggestions.style.display = 'none';
-        });
-        suggestions.appendChild(libre);
+        // Option nom libre (seulement si l'utilisateur a tapé quelque chose)
+        if (val) {
+            const libre = document.createElement('div');
+            libre.className = 'staff-suggestion-item';
+            libre.style.color = '#aaa';
+            libre.innerHTML = '<span style="font-size:12px">✏️ Saisir "' + searchInput.value + '" comme nom libre</span>';
+            libre.addEventListener('click', () => {
+                hiddenId.value = '';
+                freeName.style.display = '';
+                freeName.value = searchInput.value;
+                suggestions.style.display = 'none';
+            });
+            suggestions.appendChild(libre);
+        }
 
         suggestions.style.display = '';
+    }
+
+    searchInput.addEventListener('focus', () => {
+        renderSuggestions(searchInput.value.toLowerCase().trim());
+    });
+
+    searchInput.addEventListener('input', () => {
+        renderSuggestions(searchInput.value.toLowerCase().trim());
     });
 
     // Fermer suggestions au clic extérieur
