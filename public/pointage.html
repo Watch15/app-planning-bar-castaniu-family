@@ -451,36 +451,35 @@ function buildShiftCard(shift) {
 
     // Blocage si le service n'est pas terminé (sauf extra)
     if (!shift.extra) {
-        const now = new Date();
-        const nowFloat = now.getHours() + now.getMinutes() / 60;
-        // Déterminer si on est le jour du shift ou le lendemain
-        const shiftDate = shift.date; // YYYY-MM-DD
-        const todayStr  = toDateStr(now);
+        const now      = new Date();
+        const nowHour  = now.getHours();
+        const nowFloat = nowHour + now.getMinutes() / 60;
+
+        // Fenêtre de clôture soirée : entre minuit et cutoff_hour, la saisie est
+        // toujours ouverte (les soirées peuvent finir à 2h, 3h, 4h…)
+        const inClosingWindow = nowHour < cutoffHour;
+
         let serviceFinished = true;
-        if (shiftDate === todayStr) {
-            // Même jour : comparer directement (end_time > 24 signifie que ça passe minuit)
-            if (shift.end_time > 24) {
-                // Si on est tôt le matin (passé minuit), vérifier si on a dépassé l'heure de fin
-                // Si on est encore dans la soirée (nowFloat >= 12), service forcément en cours
-                if (nowFloat < 12) {
-                    serviceFinished = nowFloat >= (shift.end_time - 24);
-                } else {
-                    serviceFinished = false;
-                }
-            } else {
-                serviceFinished = nowFloat >= shift.end_time;
-            }
-        } else {
-            // Jour du shift est hier ou avant
-            const yesterday = new Date(now);
+
+        if (!inClosingWindow) {
+            const shiftDate    = shift.date;
+            const todayStr     = toDateStr(now);
+            const yesterday    = new Date(now);
             yesterday.setDate(now.getDate() - 1);
             const yesterdayStr = toDateStr(yesterday);
-            if (shiftDate === yesterdayStr && shift.end_time > 24) {
-                // Shift d'hier qui passe minuit, vérifier si l'heure actuelle > end_time - 24
-                serviceFinished = nowFloat >= (shift.end_time - 24);
+
+            if (shiftDate === todayStr) {
+                if (shift.end_time > 24) {
+                    serviceFinished = false; // passe minuit, encore en cours dans la soirée
+                } else {
+                    serviceFinished = nowFloat >= shift.end_time;
+                }
+            } else if (shiftDate === yesterdayStr && shift.end_time > 24) {
+                // Shift d'hier passant minuit — terminé (on n'est plus dans la fenêtre)
+                serviceFinished = true;
             }
-            // Si le shift est plus ancien, il est forcément terminé
         }
+        // inClosingWindow === true → serviceFinished = true → saisie ouverte
 
         if (!serviceFinished) {
             startInput.disabled = true;
@@ -494,6 +493,7 @@ function buildShiftCard(shift) {
             msg.textContent = 'Service en cours jusqu\'à ' + endLabel;
             card.querySelector('.shift-body').appendChild(msg);
         }
+    }
     }
 
     function updateEcart() {
@@ -537,7 +537,6 @@ function buildShiftCard(shift) {
     });
 
     return card;
-}
 
 // ── Formulaire service extra ──────────────────────────────────────────────────
 
@@ -625,6 +624,12 @@ function initExtraForm() {
         const realEnd   = parseTimeInput(document.getElementById('extra-real-end').value, realStart);
 
         if (!staffName)       { showToast('Nom du staff requis', true);          return; }
+        // Avertir si le nom a été tapé sans être sélectionné dans la liste
+        if (!staffId && freeName.style.display === 'none' && allStaff.some(s => s.name.toLowerCase() === staffName.toLowerCase())) {
+            showToast('Sélectionne "' + staffName + '" dans la liste déroulante', true);
+            renderSuggestions(staffName.toLowerCase());
+            return;
+        }
         if (realStart == null) { showToast('Heure de début requise', true);       return; }
         if (realEnd   == null) { showToast('Heure de fin requise', true);         return; }
         if (realEnd <= realStart) { showToast('Fin doit être après le début', true); return; }

@@ -1198,15 +1198,26 @@ app.post('/api/shifts/extra', checkDB, requireAuth, async (req, res) => {
     if (user.role !== 'etablissement' && !canAccessEstablishment(user, estabId))
         return res.status(403).json({ error: 'Accès refusé' });
     try {
-        // Chercher la couleur du staff si staff_id fourni
+        // Chercher le profil staff : par staff_id si fourni, sinon par nom exact
         let color = '#95a5a6';
         let resolvedName = staff_name || 'Inconnu';
+        let resolvedStaffId = staff_id || null;
         if (staff_id && isValidObjectId(staff_id)) {
             const staffDoc = await db.collection('staff').findOne({ _id: new ObjectId(staff_id) });
             if (staffDoc) { color = staffDoc.color || color; resolvedName = staffDoc.name; }
+        } else if (staff_name) {
+            // Pas de staff_id — chercher par nom exact (insensible à la casse)
+            const staffDoc = await db.collection('staff').findOne({
+                name: { $regex: '^' + staff_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', $options: 'i' }
+            });
+            if (staffDoc) {
+                color           = staffDoc.color || color;
+                resolvedName    = staffDoc.name;
+                resolvedStaffId = String(staffDoc._id);
+            }
         }
         const shift = {
-            staff_id:         staff_id || null,
+            staff_id:         resolvedStaffId,
             staff_name:       resolvedName,
             establishment_id: estabId,
             date,
