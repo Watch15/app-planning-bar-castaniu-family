@@ -321,7 +321,8 @@
                 <select id="new-account-staff" class="staff-input" style="flex:1">
                     <option value="">&#8212; Lier au staff &#8212;</option>
                 </select>
-                <input type="email" id="new-account-email" class="staff-input" placeholder="email@exemple.com">
+                <input type="email" id="new-account-email" class="staff-input" placeholder="email@exemple.com (optionnel si tél)">
+                <input type="tel"   id="new-account-phone" class="staff-input" placeholder="06 12 34 56 78 (optionnel si email)" style="flex:1">
                 <button class="btn-add-staff" id="btn-invite-account">Inviter</button>
             </div>
             <!-- Sélection des bars — visible uniquement quand rôle = patron -->
@@ -332,7 +333,7 @@
                 </div>
                 <p style="font-size:10px;color:#bbb;margin-top:6px">Laisse tout décoché = aucun accès pour l'instant</p>
             </div>
-            <p style="font-size:11px;color:#bbb;margin-top:8px">Un lien de cr&#233;ation de mot de passe sera envoy&#233; par email.</p>
+            <p style="font-size:11px;color:#bbb;margin-top:8px">Email → lien d'activation envoyé par email &nbsp;·&nbsp; Téléphone seul → SMS de bienvenue, connexion par code OTP</p>
         </div>
     </div>
 </div>
@@ -445,4 +446,4 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 </body>
-</html>
+</html> 

@@ -84,6 +84,37 @@ async function sendEmail(to, subject, html) {
     }
 }
 
+// ── SMS via Twilio ────────────────────────────────────────────────────────────
+
+function normalizePhone(raw) {
+    // Supprime espaces, tirets, points — conserve + et chiffres
+    let p = String(raw).replace(/[\s\-\.]/g, '');
+    // France : 06... ou 07... → +336... / +337...
+    if (/^0[67]/.test(p)) p = '+33' + p.slice(1);
+    // Déjà au format international
+    if (!/^\+/.test(p)) p = '+' + p;
+    return p;
+}
+
+async function sendSMS(to, body) {
+    const sid   = process.env.TWILIO_ACCOUNT_SID;
+    const token = process.env.TWILIO_AUTH_TOKEN;
+    const from  = process.env.TWILIO_FROM;
+    if (!sid || !token || !from) throw new Error('Twilio non configuré (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM manquants)');
+    const res = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + sid + '/Messages.json', {
+        method:  'POST',
+        headers: {
+            'Authorization': 'Basic ' + Buffer.from(sid + ':' + token).toString('base64'),
+            'Content-Type':  'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ To: to, From: from, Body: body }).toString(),
+    });
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Erreur Twilio');
+    }
+}
+
 // ── Session ───────────────────────────────────────────────────────────────────
 
 function setupSession() {
@@ -180,24 +211,35 @@ function requireEtablissement(req, res, next) {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 app.post('/auth/login', checkDB, async (req, res) => {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
+    const { email, phone, password } = req.body;
+    if (!password) return res.status(400).json({ error: 'Mot de passe requis' });
+    if (!email && !phone) return res.status(400).json({ error: 'Email ou numéro de téléphone requis' });
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
     if (rateLimit('login:' + ip, 10, 15 * 60 * 1000))
         return res.status(429).json({ error: 'Trop de tentatives, réessaie dans 15 min.' });
     try {
-        const user = await db.collection('users').findOne({ email: email.toLowerCase().trim() });
-        if (!user || !user.password_hash) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
-        const match = await bcrypt.compare(password, user.password_hash);
-        if (!match) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+        let user = null;
+        if (phone) {
+            const normalized = normalizePhone(phone);
+            user = await db.collection('users').findOne({ phone: normalized });
+            if (!user || !user.password_hash) return res.status(401).json({ error: 'Numéro ou mot de passe incorrect' });
+            const match = await bcrypt.compare(password, user.password_hash);
+            if (!match) return res.status(401).json({ error: 'Numéro ou mot de passe incorrect' });
+        } else {
+            user = await db.collection('users').findOne({ email: email.toLowerCase().trim() });
+            if (!user || !user.password_hash) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+            const match = await bcrypt.compare(password, user.password_hash);
+            if (!match) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+        }
         req.session.user = {
-            _id:                    String(user._id),
-            email:                  user.email,
-            role:                   user.role,
-            staff_id:               user.staff_id || null,
-            name:                   user.name || '',
+            _id:                     String(user._id),
+            email:                   user.email  || null,
+            phone:                   user.phone  || null,
+            role:                    user.role,
+            staff_id:                user.staff_id || null,
+            name:                    user.name || '',
             assigned_establishments: user.assigned_establishments || [],
-            establishment_id:       user.establishment_id || null,
+            establishment_id:        user.establishment_id || null,
         };
         res.json({ message: 'Connecté', user: req.session.user });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -211,6 +253,7 @@ app.post('/auth/logout', (req, res) => {
     });
 });
 
+// Envoyer un OTP par SMS (pour connexion ou récupération de compte)
 app.get('/auth/me', (req, res) => {
     if (!req.session?.user) return res.status(401).json({ error: 'Non authentifié' });
     res.json({ user: req.session.user });
@@ -256,16 +299,23 @@ app.patch('/auth/reset-password', checkDB, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Mot de passe oublié — envoi email reset
+// Mot de passe oublié — envoi lien reset par email ou par SMS
 app.post('/auth/forgot-password', checkDB, async (req, res) => {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email requis' });
+    const { email, phone } = req.body;
+    if (!email && !phone) return res.status(400).json({ error: 'Email ou numéro de téléphone requis' });
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
     if (rateLimit('forgot:' + ip, 3, 60 * 60 * 1000))
         return res.status(429).json({ error: 'Trop de demandes, réessaie dans 1h.' });
     try {
-        const user = await db.collection('users').findOne({ email: email.toLowerCase().trim() });
-        if (!user) return res.json({ message: 'Si cet email existe, un lien a été envoyé.' });
+        let user = null;
+        if (phone) {
+            const normalized = normalizePhone(phone);
+            user = await db.collection('users').findOne({ phone: normalized });
+            if (!user) return res.json({ message: 'Si ce numéro existe, un SMS a été envoyé.' });
+        } else {
+            user = await db.collection('users').findOne({ email: email.toLowerCase().trim() });
+            if (!user) return res.json({ message: 'Si cet email existe, un lien a été envoyé.' });
+        }
 
         const token   = crypto.randomBytes(32).toString('hex');
         const expires = new Date(Date.now() + 60 * 60 * 1000);
@@ -275,6 +325,23 @@ app.post('/auth/forgot-password', checkDB, async (req, res) => {
         );
 
         const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token + '&mode=reset';
+
+        // ── Envoi par SMS si compte téléphone ──────────────────────────────────
+        if (phone) {
+            let manual = false;
+            try {
+                await sendSMS(normalizePhone(phone), 'Planning Bar — Réinitialise ton mot de passe : ' + link + ' (expire dans 1h)');
+            } catch (smsErr) {
+                console.error('❌ Reset SMS failed:', smsErr.message);
+                manual = true;
+            }
+            return res.json({
+                message: 'Si ce numéro existe, un SMS a été envoyé.',
+                ...(manual && { link, manual: true }),
+            });
+        }
+
+        // ── Envoi par email ────────────────────────────────────────────────────
         const html =
             '<p>Bonjour ' + (user.name || '') + ',</p>' +
             '<p>Tu as demandé à réinitialiser ton mot de passe.</p>' +
@@ -312,10 +379,10 @@ app.get('/api/users', checkDB, requirePatron, async (req, res) => {
 
 // Inviter un utilisateur (staff, directeur ou etablissement)
 app.post('/api/users', checkDB, requirePatron, async (req, res) => {
-    const { email, staff_id, name, role, assigned_establishments, establishment_id } = req.body;
+    const { email, phone, staff_id, name, role, assigned_establishments, establishment_id } = req.body;
     const validRoles = ['staff', 'directeur', 'etablissement'];
     const userRole = validRoles.includes(role) ? role : 'staff';
-    if (!email) return res.status(400).json({ error: 'Email requis' });
+    if (!email && !phone) return res.status(400).json({ error: 'Email ou numéro de téléphone requis' });
     if (userRole === 'directeur' && req.session.user.role !== 'patron')
         return res.status(403).json({ error: 'Seul l\'administrateur peut inviter un directeur' });
     if (userRole === 'etablissement' && req.session.user.role !== 'patron')
@@ -323,14 +390,62 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
     if (userRole === 'etablissement' && !establishment_id)
         return res.status(400).json({ error: 'establishment_id requis pour un compte établissement' });
     try {
-        const existing = await db.collection('users').findOne({ email: email.toLowerCase().trim() });
-        if (existing) return res.status(409).json({ error: 'Cet email est déjà utilisé' });
+        // Vérifier doublon email
+        if (email) {
+            const existingEmail = await db.collection('users').findOne({ email: email.toLowerCase().trim() });
+            if (existingEmail) return res.status(409).json({ error: 'Cet email est déjà utilisé' });
+        }
+        // Vérifier doublon téléphone
+        let normalizedPhone = null;
+        if (phone) {
+            normalizedPhone = normalizePhone(phone);
+            const existingPhone = await db.collection('users').findOne({ phone: normalizedPhone });
+            if (existingPhone) return res.status(409).json({ error: 'Ce numéro est déjà utilisé' });
+        }
 
+        // Compte téléphone uniquement : pas de token d'invitation, activation par OTP
+        if (!email && normalizedPhone) {
+            const userDoc = {
+                phone:                   normalizedPhone,
+                email:                   null,
+                password_hash:           null,
+                role:                    userRole,
+                staff_id:                userRole === 'staff' ? (staff_id || null) : null,
+                assigned_establishments: userRole === 'directeur' ? (assigned_establishments || []) : [],
+                establishment_id:        userRole === 'etablissement' ? establishment_id : null,
+                name:                    name || '',
+                active:                  true, // actif dès création — connexion par OTP
+                created_at:              new Date(),
+            };
+            await db.collection('users').insertOne(userDoc);
+            if (staff_id && userRole === 'staff' && isValidObjectId(staff_id)) {
+                await db.collection('staff').updateOne(
+                    { _id: new ObjectId(staff_id) },
+                    { $set: { phone: normalizedPhone } }
+                );
+            }
+            // Envoyer un SMS de bienvenue avec instruction de connexion
+            const appUrl = process.env.APP_URL || 'http://localhost:3000';
+            let smsSent = true;
+            try {
+                await sendSMS(normalizedPhone, 'Planning Bar — Bienvenue ' + (name || '') + ' ! Connecte-toi sur ' + appUrl + '/login.html avec ton numéro de téléphone.');
+            } catch (smsErr) {
+                console.error('❌ SMS bienvenue non envoyé:', smsErr.message);
+                smsSent = false;
+            }
+            return res.status(201).json({
+                message: smsSent ? 'Compte créé, SMS envoyé.' : 'Compte créé mais SMS non envoyé.',
+                ...(!smsSent && { manual: true, phone: normalizedPhone }),
+            });
+        }
+
+        // Compte email (avec ou sans téléphone secondaire)
         const token   = crypto.randomBytes(32).toString('hex');
         const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
         await db.collection('users').insertOne({
             email:                   email.toLowerCase().trim(),
+            phone:                   normalizedPhone,
             password_hash:           null,
             role:                    userRole,
             staff_id:                userRole === 'staff' ? (staff_id || null) : null,
@@ -346,7 +461,7 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
         if (staff_id && userRole === 'staff' && isValidObjectId(staff_id)) {
             await db.collection('staff').updateOne(
                 { _id: new ObjectId(staff_id) },
-                { $set: { email: email.toLowerCase().trim() } }
+                { $set: { email: email.toLowerCase().trim(), ...(normalizedPhone && { phone: normalizedPhone }) } }
             );
         }
 
@@ -364,7 +479,6 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
         } catch (mailErr) {
             console.error('❌ Erreur envoi email:', mailErr.message);
             manual = true;
-            // Ne pas supprimer le compte — retourner le lien pour envoi manuel
         }
 
         res.status(201).json({

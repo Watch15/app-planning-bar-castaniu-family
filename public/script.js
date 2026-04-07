@@ -2269,8 +2269,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnInvite) btnInvite.addEventListener('click', async () => {
         const staffId = document.getElementById('new-account-staff')?.value || '';
         const email   = document.getElementById('new-account-email')?.value.trim();
+        const phone   = document.getElementById('new-account-phone')?.value.trim();
         const role    = document.getElementById('new-account-role')?.value || 'staff';
-        if (!email) { showToast('Email requis', true); return; }
+        if (!email && !phone) { showToast('Email ou numéro de téléphone requis', true); return; }
 
         // Récupérer les établissements cochés si invitation patron
         let assignedEstablishments = [];
@@ -2288,25 +2289,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 credentials: 'include',
                 method:      'POST',
                 headers:     { 'Content-Type': 'application/json' },
-                body:        JSON.stringify({ email, staff_id: role === 'staff' ? (staffId || null) : null, name, role, assigned_establishments: assignedEstablishments }),
+                body:        JSON.stringify({ email: email || undefined, phone: phone || undefined, staff_id: role === 'staff' ? (staffId || null) : null, name, role, assigned_establishments: assignedEstablishments }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
             await renderAccountsList();
             if (data.manual && data.link) {
+                // Email non envoyé — afficher le lien
                 const box = document.createElement('div');
                 box.style.cssText = 'background:#fff9e6;border:1.5px solid #f39c12;border-radius:8px;padding:12px;margin:10px 0;font-size:12px';
                 box.innerHTML =
                     '<div style="font-weight:600;color:#f39c12;margin-bottom:6px">⚠️ Email non envoyé — copie ce lien :</div>' +
                     '<div style="word-break:break-all;color:#555;cursor:pointer;text-decoration:underline" ' +
-                    'onclick="navigator.clipboard.writeText(this.dataset.link);showToast(\'Lien copi\u00e9 !\');" data-link="' + data.link + '">' +
+                    'onclick="navigator.clipboard.writeText(this.dataset.link);showToast(\'Lien copié !\');" data-link="' + data.link + '">' +
                     data.link + '</div>';
                 document.getElementById('accounts-list').after(box);
                 showToast('Compte créé — envoie le lien manuellement', true);
+            } else if (data.manual && data.phone) {
+                // SMS non envoyé
+                showToast('Compte créé (SMS non envoyé) — numéro : ' + data.phone, true);
+            } else if (phone && !email) {
+                showToast('Compte créé, SMS envoyé au ' + phone);
             } else {
                 showToast('Invitation envoyée à ' + email);
             }
             if (document.getElementById('new-account-email'))  document.getElementById('new-account-email').value  = '';
+            if (document.getElementById('new-account-phone'))  document.getElementById('new-account-phone').value  = '';
             if (document.getElementById('new-account-staff'))  document.getElementById('new-account-staff').value  = '';
             // Décocher toutes les cases bars
             if (barsRow) barsRow.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
