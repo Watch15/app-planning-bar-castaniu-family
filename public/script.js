@@ -2210,7 +2210,7 @@ async function renderAccountsList() {
                 '<span class="staff-manage-dot" style="background:' + color + '"></span>' +
                 '<div class="staff-manage-info" style="flex:1">' +
                     '<div style="font-size:13px;font-weight:600;color:#333">' + (user.name || '—') + '</div>' +
-                    '<div style="font-size:12px;color:#999">' + user.email + '</div>' +
+                    '<div style="font-size:12px;color:#999">' + (user.email || user.phone || '—') + '</div>' +
                 '</div>' +
                 '<span class="staff-login-badge ' + statusBadge + '" style="margin-right:8px">' + statusLabel + '</span>' +
                 (currentUser.role === 'patron' && String(user._id) !== currentUser._id
