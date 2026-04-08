@@ -581,12 +581,28 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
                 if (ex) { results.skipped.push({ name, reason: 'Numéro déjà utilisé : ' + normalizedPhone }); continue; }
             }
 
-            const token   = require('crypto').randomBytes(32).toString('hex');
+            const token   = crypto.randomBytes(32).toString('hex');
             const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+            // Créer le profil staff (couleur aléatoire parmi une palette)
+            const COLORS = ['#3498db','#e74c3c','#2ecc71','#9b59b6','#f39c12','#1abc9c','#e67e22','#e91e63','#00bcd4','#8bc34a'];
+            const color  = COLORS[Math.floor(Math.random() * COLORS.length)];
+            const staffDoc = {
+                name,
+                color,
+                email: email || '',
+                phone: normalizedPhone || '',
+                venues: [],
+                roles:  [],
+                can_submit_dispos: true,
+                created_at: new Date(),
+            };
+            const staffResult = await db.collection('staff').insertOne(staffDoc);
+            const staffId = String(staffResult.insertedId);
 
             await db.collection('users').insertOne({
                 email, phone: normalizedPhone, password_hash: null, role: 'staff',
-                staff_id: null, assigned_establishments: [],
+                staff_id: staffId, assigned_establishments: [],
                 name, invite_token: hashToken(token), invite_expires: expires,
                 active: false, created_at: new Date(),
             });
