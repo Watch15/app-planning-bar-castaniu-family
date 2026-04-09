@@ -171,6 +171,39 @@ async function sendPushToStaff(staffIds, payload) {
     }
 }
 
+
+// ── Notifications in-app pour patron/directeurs ───────────────────────────────
+
+// Crée une notification en base pour tous les patrons + directeurs concernés par un établissement
+async function createNotifForPatrons(establishmentId, type, message, extra = {}) {
+    try {
+        // Récupérer tous les users patron + directeurs ayant accès à cet établissement
+        const allUsers = await db.collection('users').find({
+            role: { $in: ['patron', 'directeur'] },
+        }, { projection: { _id: 1, role: 1, assigned_establishments: 1 } }).toArray();
+
+        const targets = allUsers.filter(u => {
+            if (u.role === 'patron') return true;
+            const assigned = u.assigned_establishments || [];
+            return assigned.includes(establishmentId);
+        });
+
+        if (targets.length === 0) return;
+
+        const docs = targets.map(u => ({
+            user_id:          String(u._id),
+            type,
+            message,
+            establishment_id: establishmentId,
+            read:             false,
+            created_at:       new Date(),
+            ...extra,
+        }));
+        await db.collection('notifications').insertMany(docs);
+    } catch (e) {
+        console.error('❌ createNotifForPatrons error:', e.message);
+    }
+}
 // ── Session ───────────────────────────────────────────────────────────────────
 
 function setupSession() {
@@ -985,6 +1018,31 @@ app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
             ...(is_joker || staff_id === '__joker__' ? { is_joker: true } : {}),
         };
         const result = await db.collection('shifts').insertOne(shift);
+
+        // Notifier les patrons/directeurs si la semaine est déjà publiée
+        if (!is_joker && staff_id !== '__joker__') {
+            db.collection('settings').findOne({ key: 'publish_' + date.substring(0, 7) + '-01' })
+                .then(async () => {
+                    const allPubs = await db.collection('settings').find({
+                        key: { $regex: '^publish_' }, published: true,
+                    }).toArray();
+                    const isPublished = allPubs.some(p => {
+                        const weekKey  = p.key.replace('publish_', '');
+                        const weekDate = new Date(weekKey + 'T12:00:00');
+                        const shiftDate = new Date(date + 'T12:00:00');
+                        return Math.abs(shiftDate - weekDate) < 8 * 24 * 60 * 60 * 1000;
+                    });
+                    if (isPublished) {
+                        await createNotifForPatrons(
+                            establishment_id,
+                            'shift_added',
+                            (staff_name || 'Un membre') + ' — shift ajouté le ' + date + ' (' + formatShiftTime(parseFloat(start_time)) + '→' + formatShiftTime(parseFloat(end_time)) + ')',
+                            { date, shift_id: String(result.insertedId) }
+                        );
+                    }
+                }).catch(() => {});
+        }
+
         res.status(201).json({ ...shift, _id: result.insertedId, warnings });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1041,35 +1099,38 @@ app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
             { $set: updateFields }
         );
 
-        // ── Notification push au staff concerné (si le planning était déjà publié) ──
-        const weekStart = existing.date.substring(0, 8) + '01'; // approximatif — on vérifie via settings
+        // ── Notifications (push staff + in-app patron) si semaine publiée ──────
         const targetStaffId = updateFields.staff_id || existing.staff_id;
         if (targetStaffId && targetStaffId !== '__joker__') {
-            // Vérifier si la semaine est publiée (async, ne bloque pas la réponse)
-            db.collection('settings').findOne({ key: 'publish_' + existing.date.substring(0, 7) + '-01' })
-                .then(async pub => {
-                    // Chercher la publication pour n'importe quelle date de cette semaine
-                    // On cherche via date du shift — si la semaine est publiée, notifier
-                    const allPubs = await db.collection('settings').find({
-                        key: { $regex: '^publish_' },
-                        published: true,
-                    }).toArray();
+            db.collection('settings').find({ key: { $regex: '^publish_' }, published: true })
+                .toArray()
+                .then(async allPubs => {
                     const isPublished = allPubs.some(p => {
-                        const weekKey = p.key.replace('publish_', '');
-                        const weekDate = new Date(weekKey + 'T12:00:00');
+                        const weekDate  = new Date(p.key.replace('publish_', '') + 'T12:00:00');
                         const shiftDate = new Date(existing.date + 'T12:00:00');
-                        const diff = Math.abs(shiftDate - weekDate);
-                        return diff < 8 * 24 * 60 * 60 * 1000; // même semaine (7 jours)
+                        return Math.abs(shiftDate - weekDate) < 8 * 24 * 60 * 60 * 1000;
                     });
-                    if (isPublished) {
-                        await sendPushToStaff([targetStaffId], {
-                            title: 'Planning Bar — Modification',
-                            body:  'Ton planning du ' + existing.date + ' a été modifié.',
-                            url:   '/planning.html',
-                        });
-                    }
+                    if (!isPublished) return;
+
+                    // Push au staff concerné
+                    await sendPushToStaff([targetStaffId], {
+                        title: 'Planning Bar — Modification',
+                        body:  'Ton planning du ' + existing.date + ' a été modifié.',
+                        url:   '/planning.html',
+                    });
+
+                    // Notif in-app pour patron/directeurs
+                    const staffNameLabel = updateFields.staff_name || existing.staff_name || 'Un membre';
+                    const newS = updateFields.start_time != null ? updateFields.start_time : existing.start_time;
+                    const newE = updateFields.end_time   != null ? updateFields.end_time   : existing.end_time;
+                    await createNotifForPatrons(
+                        existing.establishment_id,
+                        'shift_modified',
+                        staffNameLabel + ' — shift modifié le ' + existing.date + ' (' + formatShiftTime(newS) + '→' + formatShiftTime(newE) + ')',
+                        { date: existing.date, shift_id: String(existing._id) }
+                    );
                 })
-                .catch(() => { /* silencieux */ });
+                .catch(() => {});
         }
 
         res.json({ message: 'Shift mis à jour', warnings });
@@ -1583,6 +1644,41 @@ app.delete('/api/push/subscribe', checkDB, requireAuth, async (req, res) => {
             'subscription.endpoint': endpoint,
         });
         res.json({ message: 'Désabonné' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Utilitaire formatage heure shift ─────────────────────────────────────────
+
+function formatShiftTime(h) {
+    const hh = Math.floor(h % 24);
+    const mm = Math.round((h % 1) * 60);
+    return String(hh).padStart(2, '0') + 'h' + (mm > 0 ? String(mm).padStart(2, '0') : '');
+}
+
+// ── Routes notifications in-app ───────────────────────────────────────────────
+
+// GET notifications du patron/directeur connecté (50 dernières)
+app.get('/api/notifications', checkDB, requirePatron, async (req, res) => {
+    const userId = req.session.user._id;
+    try {
+        const notifications = await db.collection('notifications')
+            .find({ user_id: userId })
+            .sort({ created_at: -1 })
+            .limit(50)
+            .toArray();
+        res.json({ notifications });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH marquer toutes les notifications comme lues
+app.patch('/api/notifications/read-all', checkDB, requirePatron, async (req, res) => {
+    const userId = req.session.user._id;
+    try {
+        await db.collection('notifications').updateMany(
+            { user_id: userId, read: false },
+            { $set: { read: true } }
+        );
+        res.json({ message: 'Notifications marquées comme lues' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

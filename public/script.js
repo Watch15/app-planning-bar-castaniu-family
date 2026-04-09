@@ -175,6 +175,8 @@ async function init() {
     await Promise.all([loadEstablishments(), loadAllStaff(), loadRoles(), loadGroups()]);
 
     loadDisposBadge();
+    loadNotifBadge();
+    _notifPollTimer = setInterval(loadNotifBadge, 60000);
     loadDispoControl();
     initStaffSearch();
 
@@ -3728,3 +3730,95 @@ function openCsvImportModal() {
         }
     });
 }
+// ── Notifications patron/directeur ────────────────────────────────────────────
+
+let _notifPollTimer = null;
+
+async function loadNotifBadge() {
+    try {
+        const res  = await fetch('/api/notifications', { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const unread = (data.notifications || []).filter(n => !n.read).length;
+        const badge  = document.getElementById('notif-badge');
+        if (!badge) return;
+        badge.textContent = unread > 99 ? '99+' : String(unread);
+        badge.classList.toggle('visible', unread > 0);
+    } catch { /* silencieux */ }
+}
+
+async function openNotifPanel() {
+    const modal = document.getElementById('notif-modal');
+    const list  = document.getElementById('notif-list');
+    if (!modal || !list) return;
+    modal.style.display = 'flex';
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
+
+    try {
+        const res  = await fetch('/api/notifications', { credentials: 'include' });
+        const data = await res.json();
+        const notifs = data.notifications || [];
+
+        if (notifs.length === 0) {
+            list.innerHTML = '<div class="notif-empty">Aucune activité récente</div>';
+        } else {
+            list.innerHTML = notifs.map(n => {
+                const date = new Date(n.created_at);
+                const timeAgo = formatTimeAgo(date);
+                return '<div class="notif-item' + (n.read ? '' : ' unread') + '">' +
+                    '<div class="notif-dot' + (n.read ? ' read' : '') + '"></div>' +
+                    '<div class="notif-text">' +
+                        '<div>' + escapeHtml(n.message) + '</div>' +
+                        '<div class="notif-time">' + timeAgo + '</div>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        // Marquer tout comme lu et rafraîchir le badge
+        await fetch('/api/notifications/read-all', { method: 'PATCH', credentials: 'include' });
+        const badge = document.getElementById('notif-badge');
+        if (badge) { badge.textContent = '0'; badge.classList.remove('visible'); }
+
+    } catch (e) {
+        list.innerHTML = '<div class="notif-empty" style="color:#e74c3c">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+function formatTimeAgo(date) {
+    const diffMs  = Date.now() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1)  return 'à l\'instant';
+    if (diffMin < 60) return 'il y a ' + diffMin + ' min';
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24)   return 'il y a ' + diffH + 'h';
+    const diffD = Math.floor(diffH / 24);
+    if (diffD < 7)    return 'il y a ' + diffD + 'j';
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+}
+
+function escapeHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Fermeture modale notifs
+(function () {
+    const closeBtn = document.getElementById('notif-modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', () => {
+        document.getElementById('notif-modal').style.display = 'none';
+    });
+    const markAll = document.getElementById('notif-mark-all-read');
+    if (markAll) markAll.addEventListener('click', async () => {
+        await fetch('/api/notifications/read-all', { method: 'PATCH', credentials: 'include' });
+        const badge = document.getElementById('notif-badge');
+        if (badge) { badge.textContent = '0'; badge.classList.remove('visible'); }
+        // Retirer les points bleus visuellement
+        document.querySelectorAll('#notif-list .notif-dot').forEach(d => d.classList.add('read'));
+        document.querySelectorAll('#notif-list .notif-item').forEach(i => i.classList.remove('unread'));
+    });
+    // Fermer en cliquant en dehors
+    const overlay = document.getElementById('notif-modal');
+    if (overlay) overlay.addEventListener('click', e => {
+        if (e.target === overlay) overlay.style.display = 'none';
+    });
+})();
