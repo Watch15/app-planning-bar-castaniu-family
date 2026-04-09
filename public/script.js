@@ -176,7 +176,7 @@ async function init() {
 
     loadDisposBadge();
     loadNotifBadge();
-    _notifPollTimer = setInterval(loadNotifBadge, 60000);
+    _notifPollTimer = setInterval(loadNotifBadge, 30000);
     startAutoRefresh();
     loadDispoControl();
     initStaffSearch();
@@ -3755,7 +3755,7 @@ async function startAutoRefresh() {
                 await silentRefresh();
             }
         } catch { /* silencieux */ }
-    }, 60000);
+    }, 30000);
 }
 
 async function silentRefresh() {
