@@ -3811,7 +3811,7 @@ async function openNotifPanel() {
             }).join('');
         }
 
-        // Marquer tout comme lu et rafraîchir le badge
+        // Supprimer les notifications lues et vider le badge
         await fetch('/api/notifications/read-all', { method: 'PATCH', credentials: 'include' });
         const badge = document.getElementById('notif-badge');
         if (badge) { badge.textContent = '0'; badge.classList.remove('visible'); }

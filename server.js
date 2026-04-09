@@ -1733,11 +1733,8 @@ app.get('/api/notifications', checkDB, requirePatron, async (req, res) => {
 app.patch('/api/notifications/read-all', checkDB, requirePatron, async (req, res) => {
     const userId = req.session.user._id;
     try {
-        await db.collection('notifications').updateMany(
-            { user_id: userId, read: false },
-            { $set: { read: true } }
-        );
-        res.json({ message: 'Notifications marquées comme lues' });
+        await db.collection('notifications').deleteMany({ user_id: userId });
+        res.json({ message: 'Notifications supprimées' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
