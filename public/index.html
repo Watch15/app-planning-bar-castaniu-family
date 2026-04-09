@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#1a1a2e">
+    <meta name="theme-color" content="#0f0f1a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Planning Bar">
@@ -15,15 +15,61 @@
         .shift-real-badge {
             font-size: 9px;
             font-weight: 700;
-            background: rgba(255,255,255,0.25);
-            border: 1px solid rgba(255,255,255,0.4);
+            background: rgba(255,255,255,0.22);
+            border: 1px solid rgba(255,255,255,0.35);
             border-radius: 4px;
             padding: 1px 4px;
             flex-shrink: 0;
             cursor: help;
             text-transform: uppercase;
             letter-spacing: .3px;
+            color: #fff;
         }
+
+        /* ── Bouton notifications patron ── */
+        .btn-notif-patron {
+            position: relative;
+            background: transparent;
+            border: 1px solid var(--dark-border);
+            color: rgba(255,255,255,0.55);
+            font-size: 13px; font-weight: 700;
+            width: 30px; height: 30px;
+            border-radius: 50%; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: all 0.15s;
+            line-height: 1;
+        }
+        .btn-notif-patron:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-notif-patron .notif-badge {
+            display: none;
+            position: absolute; top: -4px; right: -4px;
+            background: var(--danger); color: white;
+            font-size: 9px; font-weight: 700;
+            min-width: 14px; height: 14px;
+            border-radius: 7px; padding: 0 3px;
+            align-items: center; justify-content: center;
+            pointer-events: none;
+            border: 1.5px solid var(--dark-bg);
+        }
+        .btn-notif-patron .notif-badge.visible { display: flex; }
+
+        /* ── Modale notifications ── */
+        #notif-modal .notif-item {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--light-border);
+            font-size: 13px; color: var(--text-primary);
+            display: flex; gap: 10px; align-items: flex-start;
+        }
+        #notif-modal .notif-item:last-child { border-bottom: none; }
+        #notif-modal .notif-item.unread { background: #fafaff; }
+        #notif-modal .notif-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--accent); flex-shrink: 0; margin-top: 5px;
+        }
+        #notif-modal .notif-dot.read { background: transparent; }
+        #notif-modal .notif-text { flex: 1; line-height: 1.4; }
+        #notif-modal .notif-time { font-size: 10px; color: var(--text-muted); white-space: nowrap; margin-top: 2px; }
+        #notif-modal .notif-empty { padding: 32px 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
 
         /* ── Responsive mobile ── */
         @media (max-width: 600px) {
@@ -35,100 +81,45 @@
             }
             .header-left {
                 flex-wrap: wrap;
-                gap: 6px;
+                gap: 5px;
                 width: 100%;
             }
             .header-right {
                 width: 100%;
                 justify-content: space-between;
                 flex-wrap: wrap;
-                gap: 6px;
+                gap: 5px;
             }
-            .header-right .date-display {
-                font-size: 11px;
-            }
-            .header-right .btn-logout {
-                font-size: 10px;
-                padding: 4px 8px;
-            }
+            .header-right .date-display { font-size: 10px; }
+            .header-right .btn-logout   { font-size: 10px; padding: 3px 7px; }
             .venue-bar {
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
                 flex-wrap: nowrap;
-                padding: 6px 10px;
+                padding: 0 10px;
                 gap: 4px;
             }
             .venue-bar .venue-tab {
                 white-space: nowrap;
                 flex-shrink: 0;
-                font-size: 12px;
-                padding: 5px 10px;
+                font-size: 10px;
+                padding: 3px 10px;
             }
-            .week-nav {
-                flex-wrap: wrap;
-                gap: 6px;
-                padding: 8px 10px;
-            }
-            .week-nav .week-label {
-                font-size: 12px;
-                max-width: 180px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-            .week-nav .btn-today,
-            .week-nav .week-arrow {
-                font-size: 12px;
-                padding: 4px 8px;
-            }
-            .view-tabs {
-                width: 100%;
-                justify-content: center;
-            }
-            .timeline-scroll {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-                touch-action: pan-x pan-y;
-            }
-            .staff-bar {
-                padding: 8px 10px;
-            }
-            .staff-bar .staff-list {
-                max-height: 35vh;
-                overflow-y: auto;
-            }
-            .staff-card {
-                padding: 6px 8px;
-                font-size: 12px;
-            }
-            .modal {
-                max-width: 95vw !important;
-            }
-            .modal .staff-manage-row {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
-            }
-            .modal .staff-manage-row .staff-manage-info {
-                width: 100%;
-            }
-            .modal .staff-add-fields {
-                flex-direction: column;
-            }
-            .day-detail-header {
-                flex-wrap: wrap;
-                gap: 6px;
-            }
-            .day-detail-header .day-detail-title {
-                width: 100%;
-                font-size: 14px;
-            }
-            #group-filter-bar {
-                overflow-x: auto;
-                flex-wrap: nowrap !important;
-                -webkit-overflow-scrolling: touch;
-            }
-            /* Print : masquer tout sauf recap */
+            .week-nav { flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
+            .week-nav .week-label { font-size: 12px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .week-nav .btn-today, .week-nav .week-arrow { font-size: 12px; padding: 4px 8px; }
+            .view-tabs { width: 100%; justify-content: center; }
+            .timeline-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
+            .staff-bar { padding: 8px 10px; }
+            .staff-bar .staff-list { max-height: 35vh; overflow-y: auto; }
+            .staff-card { padding: 5px 8px; font-size: 12px; }
+            .modal { max-width: 95vw !important; }
+            .modal .staff-manage-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+            .modal .staff-manage-row .staff-manage-info { width: 100%; }
+            .modal .staff-add-fields { flex-direction: column; }
+            .day-detail-header { flex-wrap: wrap; gap: 6px; }
+            .day-detail-header .day-detail-title { width: 100%; font-size: 13px; }
+            #group-filter-bar { overflow-x: auto; flex-wrap: nowrap !important; -webkit-overflow-scrolling: touch; }
             @media print {
                 body > * { display: none !important; }
                 #recap-modal { display: flex !important; position: static !important; }
@@ -150,50 +141,6 @@
             #recap-modal select { display: none !important; }
             #recap-content { max-height: none !important; overflow: visible !important; }
         }
-
-        /* ── Bouton notifications patron ── */
-        .btn-notif-patron {
-            position: relative;
-            background: transparent;
-            border: 0.5px solid #e0e0e0;
-            color: #999;
-            font-size: 13px; font-weight: 700;
-            width: 30px; height: 30px;
-            border-radius: 50%; cursor: pointer;
-            display: inline-flex; align-items: center; justify-content: center;
-            flex-shrink: 0; transition: all 0.15s;
-            line-height: 1;
-        }
-        .btn-notif-patron:hover { border-color: #534AB7; color: #534AB7; }
-        .btn-notif-patron .notif-badge {
-            display: none;
-            position: absolute; top: -4px; right: -4px;
-            background: #e74c3c; color: white;
-            font-size: 9px; font-weight: 700;
-            min-width: 14px; height: 14px;
-            border-radius: 7px; padding: 0 3px;
-            align-items: center; justify-content: center;
-            pointer-events: none;
-        }
-        .btn-notif-patron .notif-badge.visible { display: flex; }
-
-        /* ── Modale notifications ── */
-        #notif-modal .notif-item {
-            padding: 10px 16px;
-            border-bottom: 0.5px solid #f5f5f5;
-            font-size: 13px; color: #333;
-            display: flex; gap: 10px; align-items: flex-start;
-        }
-        #notif-modal .notif-item:last-child { border-bottom: none; }
-        #notif-modal .notif-item.unread { background: #fafafe; }
-        #notif-modal .notif-dot {
-            width: 7px; height: 7px; border-radius: 50%;
-            background: #534AB7; flex-shrink: 0; margin-top: 5px;
-        }
-        #notif-modal .notif-dot.read { background: transparent; }
-        #notif-modal .notif-text { flex: 1; line-height: 1.4; }
-        #notif-modal .notif-time { font-size: 10px; color: #bbb; white-space: nowrap; margin-top: 2px; }
-        #notif-modal .notif-empty { padding: 32px 16px; text-align: center; color: #ccc; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -203,25 +150,26 @@
     <header class="header">
         <div class="header-left">
             <button class="btn-manage-staff" id="btn-manage-staff">Staff</button>
-            <button class="btn-manage-staff" id="btn-manage-accounts" style="background:#f0effe;border-color:#7F77DD;color:#534AB7">Comptes</button>
+            <button class="btn-manage-staff" id="btn-manage-accounts" style="background:var(--accent-subtle);border-color:var(--accent);color:var(--accent)">Comptes</button>
             <div style="position:relative;display:inline-block">
                 <button class="btn-manage-staff" id="btn-dispos">Dispos</button>
-                <span id="dispos-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:#e74c3c;color:white;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;align-items:center;justify-content:center;pointer-events:none;z-index:1">0</span>
+                <span id="dispos-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--danger);color:white;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;align-items:center;justify-content:center;pointer-events:none;z-index:1;border:1.5px solid var(--dark-bg)">0</span>
             </div>
-            <button class="btn-manage-staff" id="btn-recap" style="background:#f0fdf4;border-color:#27ae60;color:#27ae60">Récap</button>
-            <div style="position:relative;display:flex;align-items:center;gap:5px;padding:0 8px;border-left:1px solid #eee">
-                <span id="dispo-toggle-label" style="font-size:11px;color:#bbb;white-space:nowrap;cursor:pointer">Dispos</span>
+            <button class="btn-manage-staff" id="btn-recap" style="background:rgba(16,185,129,0.12);border-color:#10b981;color:#10b981">Récap</button>
+            <div style="position:relative;display:flex;align-items:center;gap:5px;padding:0 8px;border-left:1px solid var(--dark-border)">
+                <span id="dispo-toggle-label" style="font-size:11px;color:var(--dark-muted);white-space:nowrap;cursor:pointer">Dispos</span>
                 <input type="checkbox" id="dispo-toggle" style="cursor:pointer">
-                <button id="dispo-settings-btn" title="Paramètres dispos" style="background:none;border:none;cursor:pointer;font-size:13px;color:#bbb;padding:0 2px;line-height:1">⚙️</button>
-                <div id="dispo-advanced-panel" style="display:none;position:absolute;top:36px;left:0;background:white;border:1.5px solid #e0e0e0;border-radius:10px;padding:12px 14px;z-index:200;min-width:260px;box-shadow:0 4px 16px rgba(0,0,0,0.10)"></div>
+                <button id="dispo-settings-btn" title="Paramètres dispos" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--dark-muted);padding:0 2px;line-height:1">⚙️</button>
+                <div id="dispo-advanced-panel" style="display:none;position:absolute;top:36px;left:0;background:var(--light-card);border:1.5px solid var(--light-border);border-radius:10px;padding:12px 14px;z-index:200;min-width:260px;box-shadow:var(--shadow-lg)"></div>
             </div>
         </div>
         <div class="header-right">
             <span class="date-display" id="date-display"></span>
             <div style="display:flex;align-items:center;gap:7px">
                 <div class="user-avatar" id="user-avatar">?</div>
-                <span class="user-badge" id="user-badge" style="font-size:13px;font-weight:500;color:#1a1a2e"></span>
+                <span class="user-badge" id="user-badge" style="font-size:12px;font-weight:500;color:rgba(255,255,255,0.55)"></span>
             </div>
+            <button class="btn-notif-patron" id="btn-notif-patron" title="Activité récente" onclick="openNotifPanel()">ℹ<span class="notif-badge" id="notif-badge">0</span></button>
             <button class="btn-logout" onclick="logout()">Déconnexion</button>
         </div>
     </header>
@@ -230,7 +178,7 @@
     <div class="venue-bar">
         <span class="venue-bar-label">Bar ·</span>
         <div id="venue-tabs" style="display:contents"></div>
-        <button id="btn-manage-establishments" title="Gérer les établissements" style="background:none;border:none;cursor:pointer;font-size:15px;padding:2px 6px;color:#bbb;line-height:1;flex-shrink:0">＋</button>
+        <button id="btn-manage-establishments" title="Gérer les établissements" style="background:none;border:none;cursor:pointer;font-size:16px;padding:2px 6px;color:rgba(255,255,255,0.30);line-height:1;flex-shrink:0;transition:color 0.15s" onmouseover="this.style.color='rgba(255,255,255,0.75)'" onmouseout="this.style.color='rgba(255,255,255,0.30)'">＋</button>
     </div>
 
     <!-- ── Barre de navigation + onglets vue ── -->
@@ -239,7 +187,6 @@
         <span class="week-label" id="week-label"></span>
         <button class="week-arrow" id="next-week">&#8594;</button>
         <button class="btn-today" id="btn-today">Aujourd'hui</button>
-        <button class="btn-notif-patron" id="btn-notif-patron" title="Activité récente" onclick="openNotifPanel()">ℹ<span class="notif-badge" id="notif-badge">0</span></button>
 
         <div class="view-tabs">
             <button class="view-tab active" data-view="day">Jour</button>
@@ -266,8 +213,8 @@
         <div class="day-detail-header">
             <span class="day-detail-title" id="day-detail-title"></span>
             <button class="btn-copy-day" id="btn-copy-day">Copier ce jour →</button>
-            <button class="btn-manage-staff" id="btn-refresh-day" title="Recharger les heures réelles saisies depuis la tablette de pointage" style="font-size:12px;padding:5px 10px;background:#f8f8f8;border-color:#e0e0e0;color:#888">⟳ Actualiser</button>
-            <button class="btn-manage-staff" id="btn-publish-week" style="font-size:12px;padding:5px 12px">Publier la semaine</button>
+            <button class="btn-manage-staff" id="btn-refresh-day" title="Recharger les heures réelles saisies depuis la tablette de pointage" style="font-size:12px;padding:5px 10px">⟳ Actualiser</button>
+            <button class="btn-manage-staff" id="btn-publish-week" style="font-size:12px;padding:5px 12px;background:var(--accent);border-color:var(--accent);color:#fff">Publier la semaine</button>
             <button class="day-detail-close" id="day-detail-close">×</button>
         </div>
 
@@ -307,7 +254,7 @@
             <button class="modal-close" id="staff-modal-close">&times;</button>
         </div>
         <!-- Onglets -->
-        <div style="display:flex;border-bottom:1px solid #f0f0f0;margin-bottom:0">
+        <div style="display:flex;border-bottom:1px solid var(--light-border);margin-bottom:0">
             <button class="staff-modal-tab active" data-tab="staff">Membres</button>
             <button class="staff-modal-tab" data-tab="roles">R&ocirc;les</button>
         </div>
@@ -339,7 +286,7 @@
                     </select>
                     <button class="btn-add-staff" id="btn-add-role">Cr&eacute;er</button>
                 </div>
-                <p style="font-size:11px;color:#bbb;margin-top:8px">
+                <p style="font-size:11px;color:var(--text-muted);margin-top:8px">
                     <strong>Responsable</strong> : doit &ecirc;tre pr&eacute;sent &agrave; chaque service (alerte si absent) &nbsp;·&nbsp;
                     <strong>Informatif</strong> : indication seulement
                 </p>
@@ -353,7 +300,7 @@
     <div class="modal" style="width:520px;max-width:95vw">
         <div class="modal-header">
             <span class="modal-title">Comptes</span>
-            <button id="btn-import-csv" title="Importer un CSV nom + téléphone" style="margin-left:auto;margin-right:8px;background:#f0fdf4;border:1.5px solid #27ae60;color:#27ae60;font-size:12px;font-weight:600;padding:5px 12px;border-radius:8px;cursor:pointer">⬆ Import CSV</button>
+            <button id="btn-import-csv" title="Importer un CSV nom + téléphone" style="margin-left:auto;margin-right:8px;background:var(--success-bg);border:1.5px solid var(--success);color:var(--success-text);font-size:12px;font-weight:600;padding:5px 12px;border-radius:var(--radius);cursor:pointer;font-family:var(--font)">⬆ Import CSV</button>
             <button class="modal-close" id="accounts-modal-close">&times;</button>
         </div>
         <div id="accounts-list"></div>
@@ -371,15 +318,13 @@
                 <input type="tel"   id="new-account-phone" class="staff-input" placeholder="06 12 34 56 78 (optionnel si email)" style="flex:2;min-width:160px">
                 <button class="btn-add-staff" id="btn-invite-account">Inviter</button>
             </div>
-            <!-- Sélection des bars — visible uniquement quand rôle = patron -->
-            <div id="new-account-bars-row" style="display:none;margin-top:10px;padding:10px 12px;background:#f8f8f8;border-radius:8px;border:1px solid #eee">
-                <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Bars accessibles</div>
-                <div id="new-account-bars-list" style="display:flex;flex-wrap:wrap;gap:8px">
-                    <!-- Rempli dynamiquement par script.js via populateBarsCheckboxes() -->
-                </div>
-                <p style="font-size:10px;color:#bbb;margin-top:6px">Laisse tout décoché = aucun accès pour l'instant</p>
+            <!-- Sélection des bars -->
+            <div id="new-account-bars-row" style="display:none;margin-top:10px;padding:10px 12px;background:var(--light-bg);border-radius:var(--radius);border:1px solid var(--light-border)">
+                <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Bars accessibles</div>
+                <div id="new-account-bars-list" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+                <p style="font-size:10px;color:var(--text-muted);margin-top:6px">Laisse tout décoché = aucun accès pour l'instant</p>
             </div>
-            <p style="font-size:11px;color:#bbb;margin-top:8px">Email → lien d'activation par email &nbsp;·&nbsp; Téléphone seul → SMS avec lien d'activation, connexion par numéro + mot de passe</p>
+            <p style="font-size:11px;color:var(--text-muted);margin-top:8px">Email → lien d'activation par email &nbsp;·&nbsp; Téléphone seul → SMS avec lien d'activation</p>
         </div>
     </div>
 </div>
@@ -391,13 +336,10 @@
             <span class="modal-title">Copier le planning vers…</span>
             <button class="modal-close" id="copy-modal-close">×</button>
         </div>
-
         <p class="modal-hint">Shifts à copier (tu peux les modifier avant de confirmer)</p>
         <div class="copy-shifts-preview" id="copy-shifts-preview"></div>
-
         <p class="modal-hint" style="margin-top:14px">Jours cibles</p>
         <div class="copy-days-grid" id="copy-days-grid"></div>
-
         <div class="modal-actions">
             <button class="btn-cancel" id="copy-modal-cancel">Annuler</button>
             <button class="btn-confirm" id="copy-modal-confirm">Copier</button>
@@ -422,16 +364,16 @@
         <div class="modal-header">
             <span class="modal-title">Confirmer la dispo</span>
         </div>
-        <div style="padding:4px 0 16px">
-            <p class="modal-hint" style="margin-bottom:8px">Assigner &agrave; quel &eacute;tablissement ?</p>
+        <div style="padding:16px 0">
+            <p class="modal-hint" style="margin-top:0;margin-bottom:8px">Assigner &agrave; quel &eacute;tablissement ?</p>
             <select id="confirm-dispo-establishment" class="staff-input" style="width:100%;margin-bottom:14px"></select>
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;cursor:pointer">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);cursor:pointer">
                 <input type="checkbox" id="confirm-create-shift" checked>
                 Cr&eacute;er le shift automatiquement
             </label>
         </div>
         <div class="modal-actions">
-            <button class="btn-cancel" id="confirm-dispo-cancel" style="border-color:#e74c3c;color:#e74c3c">Refuser</button>
+            <button class="btn-cancel" id="confirm-dispo-cancel" style="border-color:var(--danger);color:var(--danger)">Refuser</button>
             <button class="btn-confirm" id="confirm-dispo-btn">Confirmer</button>
         </div>
     </div>
@@ -469,7 +411,7 @@
             <span class="modal-title">Récapitulatif mensuel</span>
             <button class="modal-close" id="recap-modal-close">&times;</button>
         </div>
-        <div style="display:flex;gap:8px;padding:0 0 12px;flex-wrap:wrap;align-items:center">
+        <div style="display:flex;gap:8px;padding:16px 0 12px;flex-wrap:wrap;align-items:center">
             <select id="recap-month" class="staff-input" style="flex:0 0 auto;width:auto;font-size:13px"></select>
             <select id="recap-estab" class="staff-input" style="flex:0 0 auto;width:auto;font-size:13px">
                 <option value="">Tous les établissements</option>
@@ -486,7 +428,7 @@
     <div class="modal" style="width:480px;max-width:95vw">
         <div class="modal-header">
             <span class="modal-title">Activité récente</span>
-            <button id="notif-mark-all-read" style="margin-left:auto;margin-right:8px;background:none;border:none;font-size:11px;color:#534AB7;cursor:pointer;font-weight:600">Tout marquer lu</button>
+            <button id="notif-mark-all-read" style="margin-left:auto;margin-right:8px;background:none;border:none;font-size:11px;color:var(--accent);cursor:pointer;font-weight:600;font-family:var(--font)">Tout marquer lu</button>
             <button class="modal-close" id="notif-modal-close">&times;</button>
         </div>
         <div id="notif-list" style="max-height:60vh;overflow-y:auto"></div>

@@ -4,27 +4,51 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#1a1a2e">
+    <meta name="theme-color" content="#0f0f1a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Planning Bar">
     <link rel="apple-touch-icon" href="/icons/icon-192.png">
     <title>Mon planning — Planning Bar</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+        :root {
+            --dark-bg:      #0f0f1a;
+            --dark-surface: #1a1a2e;
+            --dark-border:  #2a2a42;
+            --accent:       #6C63FF;
+            --accent-soft:  #534AB7;
+            --accent-glow:  rgba(108,99,255,0.15);
+            --accent-subtle:rgba(108,99,255,0.08);
+            --light-bg:     #f4f5f8;
+            --light-card:   #ffffff;
+            --light-border: #e8eaed;
+            --text-primary: #1a1a2e;
+            --text-secondary:#4a5068;
+            --text-muted:   #8892a4;
+            --success:      #10b981;
+            --success-bg:   #d1fae5;
+            --success-text: #065f46;
+            --danger:       #ef4444;
+            --font: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
         body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background: #f0f2f5;
+            font-family: var(--font);
+            background: var(--light-bg);
             min-height: 100vh;
-            color: #1a1a2e;
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
         }
 
         /* ── Header ── */
         .header {
-            background: white;
-            border-bottom: 0.5px solid #e8e8e8;
-            padding: 12px 20px;
+            background: var(--dark-bg);
+            border-bottom: 1px solid var(--dark-border);
+            padding: 0 20px;
+            height: 52px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -33,286 +57,241 @@
             z-index: 10;
         }
         .header-left  { display: flex; align-items: center; gap: 10px; }
-        .header-logo  { font-size: 15px; font-weight: 600; color: #1a1a2e; }
-        .header-week  { font-size: 11px; color: #aaa; margin-top: 1px; }
+        .header-logo  { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.2px; }
+        .header-week  { font-size: 11px; color: rgba(255,255,255,0.40); margin-top: 1px; }
         .btn-logout {
             background: transparent;
-            border: 0.5px solid #e74c3c;
-            color: #e74c3c; font-size: 11px;
-            padding: 5px 10px; border-radius: 8px;
-            cursor: pointer;
+            border: 1px solid rgba(239,68,68,0.5);
+            color: rgba(239,68,68,0.85);
+            font-size: 11px; padding: 5px 10px;
+            border-radius: 8px; cursor: pointer;
+            font-family: var(--font); transition: all 0.15s;
         }
+        .btn-logout:hover { background: rgba(239,68,68,0.1); border-color: var(--danger); color: var(--danger); }
         .user-avatar-sm {
             width: 28px; height: 28px; border-radius: 50%;
-            background: #EEEDFE; display: flex; align-items: center;
-            justify-content: center; font-size: 12px; font-weight: 600; color: #534AB7;
-            flex-shrink: 0;
+            background: var(--accent-soft);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 600; color: #fff; flex-shrink: 0;
+            border: 1.5px solid rgba(255,255,255,0.15);
         }
         .header-user { display: flex; align-items: center; gap: 8px; }
 
         /* ── Onglets ── */
         .tabs-bar {
             display: flex;
-            background: white;
-            border-bottom: 0.5px solid #f0f0f0;
+            background: var(--dark-surface);
+            border-bottom: 1px solid var(--dark-border);
             padding: 0 20px;
             position: sticky;
-            top: 53px;
+            top: 52px;
             z-index: 9;
         }
         .tab-btn {
-            padding: 10px 18px;
-            border: none; background: transparent;
-            font-size: 13px; font-weight: 500; color: #aaa;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            margin-bottom: -1px;
-            transition: all 0.15s;
+            padding: 10px 18px; border: none; background: transparent;
+            font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.40);
+            cursor: pointer; border-bottom: 2px solid transparent;
+            margin-bottom: -1px; transition: all 0.15s; font-family: var(--font);
         }
-        .tab-btn.active { color: #1a1a2e; border-bottom-color: #1a1a2e; }
-        .tab-btn:disabled { color: #ddd; cursor: not-allowed; }
+        .tab-btn.active { color: #fff; border-bottom-color: var(--accent); font-weight: 600; }
+        .tab-btn:disabled { color: rgba(255,255,255,0.20); cursor: not-allowed; }
 
         /* ── Bonjour ── */
-        .greeting { padding: 16px 20px 4px; }
-        .greeting-name { font-size: 20px; font-weight: 600; color: #1a1a2e; }
-        .greeting-sub  { font-size: 12px; color: #aaa; margin-top: 2px; }
+        .greeting { padding: 20px 20px 6px; }
+        .greeting-name { font-size: 19px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.3px; }
+        .greeting-sub  { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
 
         /* ── Stats semaine ── */
         .week-stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            padding: 12px 20px;
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 8px; padding: 12px 20px;
         }
         .stat-card {
-            background: #f8f8f8;
-            border-radius: 10px;
-            padding: 10px 14px;
+            background: var(--light-card);
+            border-radius: 12px; padding: 12px 14px;
             display: flex; align-items: center; gap: 10px;
+            border: 1px solid var(--light-border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        .stat-value { font-size: 20px; font-weight: 600; color: #1a1a2e; }
-        .stat-label { font-size: 10px; color: #bbb; text-transform: uppercase; letter-spacing: 0.4px; }
+        .stat-value { font-size: 20px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.4px; }
+        .stat-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
         /* ── Liste des jours ── */
-        .days-list { padding: 0 20px 32px; display: flex; flex-direction: column; gap: 6px; }
+        .days-list { padding: 0 20px 32px; display: flex; flex-direction: column; gap: 8px; }
 
         /* ── Carte jour avec shift ── */
         .day-card {
-            background: white;
-            border: 0.5px solid #e8e8e8;
-            border-radius: 12px;
+            background: var(--light-card);
+            border: 1px solid var(--light-border);
+            border-radius: 14px;
             overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
         .day-card.has-shift { border-left: 3px solid #3498db; }
-        .day-card.today     { border: 2px solid #534AB7; }
-        .day-card.today.has-shift { border-left-width: 2px; border-color: #534AB7; }
+        .day-card.today     { border: 2px solid var(--accent); }
+        .day-card.today.has-shift { border-left-width: 2px; border-color: var(--accent); }
 
         .day-header {
             display: flex; align-items: center;
             padding: 12px 16px; gap: 14px;
         }
         .day-date-block { min-width: 36px; }
-        .day-weekday { font-size: 10px; font-weight: 600; color: #aaa; text-transform: uppercase; letter-spacing: 0.4px; }
-        .day-num { font-size: 20px; font-weight: 600; color: #1a1a2e; line-height: 1.1; }
-        .day-card.today .day-weekday { color: #534AB7; }
-        .day-card.today .day-num     { color: #534AB7; }
-        .day-divider { width: 0.5px; height: 32px; background: #eee; flex-shrink: 0; }
+        .day-weekday { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .day-num { font-size: 20px; font-weight: 700; color: var(--text-primary); line-height: 1.1; }
+        .day-card.today .day-weekday { color: var(--accent); }
+        .day-card.today .day-num     { color: var(--accent); }
+        .day-divider { width: 1px; height: 32px; background: var(--light-border); flex-shrink: 0; }
         .day-header-info { flex: 1; }
-        .day-establishment { font-size: 13px; font-weight: 600; color: #1a1a2e; }
-        .day-duration { font-size: 11px; color: #aaa; margin-top: 1px; }
+        .day-establishment { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .day-duration { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
         .today-chip {
-            display: none; background: #534AB7; color: white;
-            font-size: 9px; font-weight: 600; padding: 2px 7px;
+            display: none; background: var(--accent); color: white;
+            font-size: 9px; font-weight: 700; padding: 2px 7px;
             border-radius: 10px; white-space: nowrap;
         }
         .day-card.today .today-chip { display: inline-block; }
         .shift-hours-badge {
-            background: #f0f2f5; color: #333; font-size: 12px; font-weight: 600;
+            background: var(--light-bg); color: var(--text-primary);
+            font-size: 12px; font-weight: 600;
             padding: 5px 10px; border-radius: 8px; white-space: nowrap; flex-shrink: 0;
+            border: 1px solid var(--light-border);
         }
 
         /* Collègues dans shift */
         .shift-block { padding: 0 16px 12px; }
         .colleagues-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .colleagues-lbl { font-size: 10px; color: #bbb; text-transform: uppercase; letter-spacing: 0.4px; }
+        .colleagues-lbl { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
         .colleague-pill {
             display: flex; align-items: center; gap: 4px;
-            background: #f5f5f5; border-radius: 20px;
-            padding: 3px 8px; font-size: 11px; color: #555;
+            background: var(--light-bg); border-radius: 20px;
+            padding: 3px 8px; font-size: 11px; color: var(--text-secondary);
+            border: 1px solid var(--light-border);
         }
         .colleague-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
         /* ── Jours repos — grille compacte ── */
         .rest-grid {
-            display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            gap: 6px;
+            display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px;
         }
         .rest-card {
-            background: #f8f8f8; border-radius: 10px;
-            padding: 10px 8px; text-align: center; opacity: 0.6;
+            background: var(--light-card); border-radius: 10px; border: 1px solid var(--light-border);
+            padding: 10px 8px; text-align: center; opacity: 0.55;
         }
-        .rest-weekday { font-size: 10px; color: #bbb; text-transform: uppercase; }
-        .rest-num     { font-size: 16px; font-weight: 600; color: #aaa; }
+        .rest-weekday { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+        .rest-num     { font-size: 16px; font-weight: 700; color: var(--text-muted); }
 
         /* ── État chargement / erreur ── */
-        .state-msg { padding: 40px 20px; text-align: center; font-size: 14px; color: #aaa; }
-        .state-msg.error { color: #e74c3c; }
+        .state-msg { padding: 40px 20px; text-align: center; font-size: 14px; color: var(--text-muted); }
+        .state-msg.error { color: var(--danger); }
 
         /* ── Carte dispo ── */
         .dispo-card {
-            background: white; border: 0.5px solid #e8e8e8;
-            border-left: 3px solid #534AB7; border-radius: 12px;
+            background: var(--light-card); border: 1px solid var(--light-border);
+            border-left: 3px solid var(--accent); border-radius: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        .dispo-day-header { padding: 10px 16px; border-bottom: 0.5px solid #f5f5f5; }
-        .dispo-day-name { font-size: 12px; font-weight: 600; color: #666; }
-        .dispo-body { padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; }
-
-        /* Header dispo avec résumé horaire */
         .dispo-day-header {
-            padding: 10px 16px;
-            border-bottom: 0.5px solid #f5f5f5;
+            padding: 10px 16px; border-bottom: 1px solid var(--light-border);
             display: flex; align-items: center; justify-content: space-between;
         }
-        .dispo-day-selected { font-size: 11px; color: #534AB7; font-weight: 600; }
+        .dispo-day-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+        .dispo-day-selected { font-size: 11px; color: var(--accent); font-weight: 600; }
+        .dispo-body { padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; }
 
         .dispo-type-row { display: flex; gap: 6px; flex-wrap: wrap; }
         .dispo-type-btn {
             padding: 7px 12px; border-radius: 10px;
-            border: 0.5px solid #e8e8e8; background: #f8f8f8;
+            border: 1px solid var(--light-border); background: var(--light-bg);
             cursor: pointer; transition: all 0.12s;
             display: flex; flex-direction: column; align-items: center; gap: 1px;
-            min-width: 72px;
+            min-width: 72px; font-family: var(--font);
         }
-        .dispo-type-btn:hover { border-color: #ccc; background: white; }
-        .dispo-btn-label { font-size: 12px; font-weight: 600; color: #444; line-height: 1.2; }
-        .dispo-btn-sub   { font-size: 10px; color: #aaa; white-space: nowrap; }
-        .dispo-type-btn.selected-soir   { background: #1a1a2e; border-color: #1a1a2e; }
+        .dispo-type-btn:hover { border-color: #c8ccd6; background: var(--light-card); }
+        .dispo-btn-label { font-size: 12px; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
+        .dispo-btn-sub   { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+        .dispo-type-btn.selected-soir   { background: var(--dark-surface); border-color: var(--dark-surface); }
         .dispo-type-btn.selected-soir   .dispo-btn-label,
         .dispo-type-btn.selected-soir   .dispo-btn-sub   { color: white; }
-        .dispo-type-btn.selected-midi   { background: #534AB7; border-color: #534AB7; }
+        .dispo-type-btn.selected-midi   { background: var(--accent); border-color: var(--accent); }
         .dispo-type-btn.selected-midi   .dispo-btn-label,
         .dispo-type-btn.selected-midi   .dispo-btn-sub   { color: white; }
-        .dispo-type-btn.selected-custom { background: #2ecc71; border-color: #2ecc71; }
+        .dispo-type-btn.selected-custom { background: var(--success); border-color: var(--success); }
         .dispo-type-btn.selected-custom .dispo-btn-label,
         .dispo-type-btn.selected-custom .dispo-btn-sub   { color: white; }
-        .dispo-type-btn.selected-off    { background: #f0f0f0; border-color: #ddd; }
-        .dispo-type-btn.selected-off    .dispo-btn-label { color: #aaa; }
+        .dispo-type-btn.selected-off    { background: var(--light-bg); border-color: #c8ccd6; }
+        .dispo-type-btn.selected-off    .dispo-btn-label { color: var(--text-muted); }
 
         .dispo-custom-row { display: none; gap: 8px; align-items: center; }
         .dispo-custom-row.visible { display: flex; }
         .dispo-time-input {
             flex: 1; padding: 7px 10px;
-            border: 0.5px solid #e0e0e0; border-radius: 8px;
-            font-size: 13px; text-align: center; outline: none;
+            border: 1.5px solid var(--light-border); border-radius: 8px;
+            font-size: 13px; text-align: center; outline: none; font-family: var(--font);
+            background: var(--light-bg); transition: border-color 0.15s;
         }
-        .dispo-time-input:focus { border-color: #534AB7; }
+        .dispo-time-input:focus { border-color: var(--accent); background: #fff; box-shadow: 0 0 0 3px var(--accent-glow); }
         .dispo-note-input {
             width: 100%; padding: 7px 10px;
-            border: 0.5px solid #f0f0f0; border-radius: 8px;
-            font-size: 12px; font-family: inherit; color: #555;
-            outline: none; resize: none;
+            border: 1px solid var(--light-border); border-radius: 8px;
+            font-size: 12px; font-family: var(--font); color: var(--text-primary);
+            outline: none; resize: none; background: var(--light-bg);
+            transition: border-color 0.15s;
         }
-        .dispo-note-input:focus { border-color: #ccc; }
+        .dispo-note-input:focus { border-color: #c8ccd6; }
+        .dispo-note-input::placeholder { color: var(--text-muted); }
 
         /* ── Bouton envoi dispos ── */
         .btn-submit-dispos {
             position: fixed; bottom: 0; left: 0; right: 0;
-            padding: 14px 20px; background: #1a1a2e; color: white;
-            border: none; font-size: 14px; font-weight: 600;
-            cursor: pointer; z-index: 20;
+            padding: 16px 20px; background: var(--dark-surface); color: white;
+            border: none; font-size: 14px; font-weight: 700;
+            cursor: pointer; z-index: 20; font-family: var(--font);
+            transition: background 0.15s;
+            border-top: 1px solid var(--dark-border);
         }
-        .btn-submit-dispos:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-submit-dispos:hover:not(:disabled) { background: var(--accent); }
+        .btn-submit-dispos:disabled { background: #c8ccd6; cursor: not-allowed; }
 
         /* ── Empty week ── */
         .empty-week { padding: 48px 20px; text-align: center; }
         .empty-week-icon  { font-size: 36px; margin-bottom: 12px; }
-        .empty-week-text  { font-size: 15px; font-weight: 600; color: #aaa; }
-        .empty-week-sub   { font-size: 13px; color: #ccc; margin-top: 4px; }
-
-        /* ── Responsive mobile ── */
-        @media (max-width: 600px) {
-            .header {
-                padding: 10px 14px;
-            }
-            .header-logo {
-                font-size: 13px;
-            }
-            .tabs-bar {
-                padding: 0 10px;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-            }
-            .tab-btn {
-                padding: 8px 12px;
-                font-size: 12px;
-                white-space: nowrap;
-                flex-shrink: 0;
-            }
-            .greeting {
-                padding: 12px 14px 4px;
-            }
-            .greeting-name {
-                font-size: 17px;
-            }
-            .week-stats {
-                grid-template-columns: repeat(3, 1fr);
-                gap: 6px;
-                padding: 10px 14px;
-            }
-            .stat-card {
-                padding: 8px 10px;
-            }
-            .stat-value {
-                font-size: 16px;
-            }
-            .days-list {
-                padding: 0 14px 24px;
-            }
-            .day-header {
-                padding: 10px 12px;
-                gap: 10px;
-            }
-            .shift-hours-badge {
-                font-size: 11px;
-                padding: 4px 8px;
-            }
-            .rest-grid {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-            }
-            .colleague-pill {
-                font-size: 10px;
-                padding: 2px 6px;
-            }
-            .dispo-type-row {
-                flex-wrap: nowrap;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-            }
-            .dispo-type-btn {
-                min-width: 64px;
-                flex-shrink: 0;
-                padding: 6px 8px;
-            }
-            .btn-submit-dispos {
-                font-size: 13px;
-                padding: 12px 16px;
-            }
-        }
+        .empty-week-text  { font-size: 15px; font-weight: 600; color: var(--text-muted); }
+        .empty-week-sub   { font-size: 13px; color: var(--text-muted); margin-top: 4px; opacity: 0.7; }
 
         /* ── Bouton notifications ── */
         .btn-notif {
             background: transparent;
-            border: 0.5px solid #e0e0e0;
-            color: #999; font-size: 16px;
+            border: 1px solid var(--dark-border);
+            color: rgba(255,255,255,0.50); font-size: 16px;
             width: 32px; height: 32px;
             border-radius: 50%; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
             flex-shrink: 0; transition: all 0.15s;
         }
-        .btn-notif:hover  { border-color: #534AB7; color: #534AB7; }
-        .btn-notif.active { background: #534AB7; border-color: #534AB7; color: white; }
+        .btn-notif:hover  { border-color: var(--accent); color: var(--accent); }
+        .btn-notif.active { background: var(--accent); border-color: var(--accent); color: white; }
         .btn-notif.denied { opacity: 0.3; cursor: not-allowed; }
+
+        /* ── Responsive mobile ── */
+        @media (max-width: 600px) {
+            .header { padding: 0 14px; }
+            .header-logo { font-size: 13px; }
+            .tabs-bar { padding: 0 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .tab-btn { padding: 8px 12px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+            .greeting { padding: 14px 14px 4px; }
+            .greeting-name { font-size: 17px; }
+            .week-stats { grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 10px 14px; }
+            .stat-card { padding: 8px 10px; }
+            .stat-value { font-size: 16px; }
+            .days-list { padding: 0 14px 80px; gap: 6px; }
+            .day-header { padding: 10px 12px; gap: 10px; }
+            .shift-hours-badge { font-size: 11px; padding: 4px 8px; }
+            .rest-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+            .colleague-pill { font-size: 10px; padding: 2px 6px; }
+            .dispo-type-row { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .dispo-type-btn { min-width: 64px; flex-shrink: 0; padding: 6px 8px; }
+            .btn-submit-dispos { font-size: 13px; padding: 14px 16px; }
+        }
     </style>
 </head>
 <body>

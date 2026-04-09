@@ -3,21 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#1a1a2e">
+    <meta name="theme-color" content="#0f0f1a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>Pointage — Planning Bar</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background: #f0f2f5;
-            min-height: 100vh;
-            color: #1a1a2e;
+
+        :root {
+            --dark-bg:      #0f0f1a;
+            --dark-surface: #1a1a2e;
+            --dark-border:  #2a2a42;
+            --accent:       #6C63FF;
+            --accent-soft:  #534AB7;
+            --accent-glow:  rgba(108,99,255,0.15);
+            --light-bg:     #f4f5f8;
+            --light-card:   #ffffff;
+            --light-border: #e8eaed;
+            --text-primary: #1a1a2e;
+            --text-secondary:#4a5068;
+            --text-muted:   #8892a4;
+            --success:      #10b981;
+            --success-bg:   #d1fae5;
+            --success-text: #065f46;
+            --warning:      #f59e0b;
+            --warning-bg:   #fef3c7;
+            --warning-text: #92400e;
+            --danger:       #ef4444;
+            --danger-bg:    #fee2e2;
+            --font: 'Inter', system-ui, -apple-system, sans-serif;
         }
+
+        body {
+            font-family: var(--font);
+            background: var(--light-bg);
+            min-height: 100vh;
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Header ── */
         .header {
-            background: white;
-            border-bottom: 1px solid #e8e8e8;
-            padding: 14px 20px;
+            background: var(--dark-bg);
+            border-bottom: 1px solid var(--dark-border);
+            padding: 0 20px;
+            height: 56px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -25,188 +56,215 @@
             top: 0;
             z-index: 10;
         }
-        .header-title { font-size: 16px; font-weight: 700; color: #1a1a2e; }
-        .header-sub   { font-size: 12px; color: #aaa; margin-top: 2px; }
+        .header-title {
+            font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.2px;
+        }
+        .header-sub {
+            font-size: 11px; color: rgba(255,255,255,0.40); margin-top: 2px;
+        }
         .btn-logout {
             background: transparent;
-            border: 1px solid #e74c3c;
-            color: #e74c3c;
-            font-size: 12px;
-            padding: 6px 12px;
-            border-radius: 8px;
-            cursor: pointer;
+            border: 1px solid rgba(239,68,68,0.45);
+            color: rgba(239,68,68,0.80);
+            font-size: 12px; padding: 6px 12px;
+            border-radius: 8px; cursor: pointer;
+            font-family: var(--font); transition: all 0.15s;
         }
-        .container { max-width: 680px; margin: 0 auto; padding: 20px 16px 40px; }
+        .btn-logout:hover {
+            background: rgba(239,68,68,0.10);
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        /* ── Contenu ── */
+        .container {
+            max-width: 680px; margin: 0 auto; padding: 20px 16px 60px;
+        }
 
         /* ── Shift card ── */
         .shift-card {
-            background: white;
-            border-radius: 12px;
-            border: 1px solid #e8e8e8;
+            background: var(--light-card);
+            border-radius: 14px;
+            border: 1px solid var(--light-border);
             margin-bottom: 12px;
             overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            transition: box-shadow 0.15s;
         }
+        .shift-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         .shift-card.extra-card {
-            border-color: #f39c12;
+            border-color: var(--warning);
             background: #fffbf0;
         }
+
         .shift-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            display: flex; align-items: center; gap: 10px;
             padding: 12px 16px;
-            border-bottom: 1px solid #f5f5f5;
+            border-bottom: 1px solid var(--light-border);
+            background: var(--light-bg);
         }
         .shift-dot {
-            width: 10px; height: 10px;
-            border-radius: 50%;
-            flex-shrink: 0;
+            width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
         }
-        .shift-name  { font-size: 14px; font-weight: 700; flex: 1; }
+        .shift-name  { font-size: 14px; font-weight: 700; flex: 1; color: var(--text-primary); }
         .shift-planned {
-            font-size: 12px;
-            color: #aaa;
-            background: #f8f8f8;
-            padding: 3px 8px;
-            border-radius: 6px;
+            font-size: 12px; color: var(--text-muted);
+            background: var(--light-card); padding: 3px 8px;
+            border-radius: 6px; border: 1px solid var(--light-border);
+            white-space: nowrap;
         }
         .extra-badge {
-            font-size: 10px;
-            font-weight: 700;
-            color: #f39c12;
-            background: #fff3cd;
-            padding: 2px 7px;
-            border-radius: 6px;
-            border: 1px solid #f39c12;
+            font-size: 10px; font-weight: 700;
+            color: var(--warning-text); background: var(--warning-bg);
+            padding: 2px 7px; border-radius: 6px;
+            border: 1px solid var(--warning); white-space: nowrap;
         }
+
         .shift-body {
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
+            padding: 14px 16px;
+            display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;
         }
-        .time-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 100px; }
-        .time-label { font-size: 10px; color: #aaa; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+
+        .time-group {
+            display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 100px;
+        }
+        .time-label {
+            font-size: 10px; font-weight: 700; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: .5px;
+        }
         .time-input {
-            border: 1.5px solid #e0e0e0;
+            border: 1.5px solid var(--light-border);
             border-radius: 8px;
-            padding: 8px 10px;
-            font-size: 15px;
-            font-weight: 600;
-            color: #1a1a2e;
-            width: 100%;
-            outline: none;
-            transition: border-color .15s;
+            padding: 10px 12px;
+            font-size: 16px; font-weight: 600; color: var(--text-primary);
+            width: 100%; outline: none; font-family: var(--font);
+            background: var(--light-bg);
+            transition: border-color .15s, box-shadow .15s;
+            height: 48px;
         }
-        .time-input:focus { border-color: #534AB7; }
-        .time-input.filled { border-color: #2ecc71; background: #f0fdf4; }
+        .time-input:focus {
+            border-color: var(--accent);
+            background: #fff;
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .time-input.filled {
+            border-color: var(--success);
+            background: #f0fdf8;
+        }
+        .time-input:disabled {
+            background: var(--light-bg); color: var(--text-muted);
+            cursor: not-allowed; opacity: 0.7;
+        }
+
         .ecart-badge {
-            font-size: 12px;
-            font-weight: 700;
-            padding: 4px 10px;
-            border-radius: 8px;
-            white-space: nowrap;
-            flex-shrink: 0;
+            font-size: 12px; font-weight: 700;
+            padding: 4px 10px; border-radius: 8px;
+            white-space: nowrap; flex-shrink: 0; align-self: flex-end; margin-bottom: 2px;
         }
-        .ecart-badge.pos  { background: #fff3cd; color: #d68910; }
-        .ecart-badge.neg  { background: #fde8e8; color: #c0392b; }
-        .ecart-badge.zero { background: #eafaf1; color: #27ae60; }
+        .ecart-badge.pos  { background: var(--warning-bg); color: var(--warning-text); }
+        .ecart-badge.neg  { background: var(--danger-bg); color: #991b1b; }
+        .ecart-badge.zero { background: var(--success-bg); color: var(--success-text); }
+
         .btn-save {
-            padding: 8px 18px;
-            background: #1a1a2e;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            flex-shrink: 0;
+            padding: 0 18px; height: 48px;
+            background: var(--dark-surface); color: white;
+            border: none; border-radius: 8px;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            flex-shrink: 0; font-family: var(--font);
+            transition: background 0.15s; white-space: nowrap;
         }
-        .btn-save:disabled { background: #ccc; cursor: not-allowed; }
-        .btn-save.saved { background: #2ecc71; }
+        .btn-save:hover:not(:disabled) { background: var(--accent); }
+        .btn-save:disabled { background: #c8ccd6; cursor: not-allowed; }
+        .btn-save.saved { background: var(--success); }
 
         /* ── Section extra ── */
         .extra-section {
-            background: white;
-            border-radius: 12px;
-            border: 1.5px dashed #e0e0e0;
-            padding: 18px 16px;
+            background: var(--light-card);
+            border-radius: 14px;
+            border: 1.5px dashed var(--light-border);
+            padding: 20px 16px;
             margin-top: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         }
         .extra-title {
-            font-size: 13px;
-            font-weight: 700;
-            color: #555;
-            margin-bottom: 14px;
+            font-size: 13px; font-weight: 700; color: var(--text-primary);
+            margin-bottom: 16px;
         }
         .extra-form { display: flex; flex-direction: column; gap: 10px; }
         .extra-form input, .extra-form select {
-            border: 1.5px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 9px 12px;
-            font-size: 13px;
-            outline: none;
-            width: 100%;
+            border: 1.5px solid var(--light-border); border-radius: 8px;
+            padding: 10px 12px; font-size: 13px; outline: none; width: 100%;
+            font-family: var(--font); background: var(--light-bg); color: var(--text-primary);
+            transition: border-color 0.15s, box-shadow 0.15s;
         }
-        .extra-form input:focus { border-color: #534AB7; }
+        .extra-form input:focus, .extra-form select:focus {
+            border-color: var(--accent);
+            background: #fff;
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .extra-form input::placeholder { color: var(--text-muted); }
         .extra-row { display: flex; gap: 8px; }
         .extra-row .time-input { flex: 1; }
+
         .staff-suggestions {
-            background: white;
-            border: 1.5px solid #e0e0e0;
-            border-radius: 8px;
-            max-height: 160px;
-            overflow-y: auto;
-            display: none;
+            background: var(--light-card);
+            border: 1.5px solid var(--light-border); border-radius: 8px;
+            max-height: 180px; overflow-y: auto; display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         }
         .staff-suggestion-item {
-            padding: 8px 12px;
-            font-size: 13px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            padding: 9px 12px; font-size: 13px; cursor: pointer;
+            display: flex; align-items: center; gap: 8px;
+            font-family: var(--font); transition: background 0.1s;
+            border-bottom: 1px solid var(--light-border);
         }
-        .staff-suggestion-item:hover { background: #f5f5f5; }
+        .staff-suggestion-item:last-child { border-bottom: none; }
+        .staff-suggestion-item:hover { background: var(--light-bg); }
+
         .btn-add-extra {
-            padding: 10px;
-            background: #f39c12;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
-            width: 100%;
-            margin-top: 4px;
+            padding: 0 18px; height: 52px;
+            background: var(--warning); color: white;
+            border: none; border-radius: 8px;
+            font-size: 13px; font-weight: 700; cursor: pointer;
+            width: 100%; margin-top: 4px; font-family: var(--font);
+            transition: background 0.15s;
         }
-        .btn-add-extra:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-add-extra:hover:not(:disabled) { background: #d97706; }
+        .btn-add-extra:disabled { background: #c8ccd6; cursor: not-allowed; }
 
         .empty-msg {
-            text-align: center;
-            color: #ccc;
-            font-size: 14px;
-            padding: 40px 0;
+            text-align: center; color: var(--text-muted);
+            font-size: 14px; padding: 48px 0;
         }
+
+        /* ── Toast ── */
         .toast {
-            position: fixed;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1a1a2e;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 600;
-            opacity: 0;
-            transition: opacity .2s;
-            pointer-events: none;
-            z-index: 9999;
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: var(--dark-surface); color: white;
+            padding: 10px 20px; border-radius: 10px;
+            font-size: 13px; font-weight: 600;
+            opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 9999;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            border: 1px solid var(--dark-border);
+            white-space: nowrap;
         }
         .toast.visible { opacity: 1; }
-        .toast.error   { background: #e74c3c; }
+        .toast.error   { background: var(--danger); border-color: var(--danger); }
+
+        /* ── Mobile ── */
+        @media (max-width: 600px) {
+            .header { padding: 0 14px; height: 52px; }
+            .container { padding: 14px 12px 80px; }
+            .shift-card { border-radius: 12px; }
+            .shift-body { gap: 8px; padding: 12px; }
+            .time-input { height: 52px; font-size: 17px; }
+            .btn-save { height: 52px; padding: 0 16px; width: 100%; }
+            .time-group { min-width: calc(50% - 4px); }
+            .ecart-badge { width: 100%; text-align: center; }
+            .extra-section { border-radius: 12px; padding: 16px 12px; }
+            .btn-add-extra { height: 52px; }
+        }
     </style>
 </head>
 <body>
@@ -399,7 +457,7 @@ async function loadShifts() {
         visible.forEach(s => list.appendChild(buildShiftCard(s)));
 
     } catch (e) {
-        list.innerHTML = '<div class="empty-msg" style="color:#e74c3c">' + e.message + '</div>';
+        list.innerHTML = '<div class="empty-msg" style="color:var(--danger)">' + e.message + '</div>';
     }
 }
 
@@ -489,7 +547,7 @@ function buildShiftCard(shift) {
             const endM = Math.round((shift.end_time % 1) * 60);
             const endLabel = String(endH).padStart(2,'0') + 'h' + (endM > 0 ? String(endM).padStart(2,'0') : '00');
             const msg = document.createElement('div');
-            msg.style.cssText = 'width:100%;font-size:12px;color:#f39c12;background:#fff3cd;border:1px solid #f39c12;border-radius:6px;padding:6px 10px;margin-top:4px';
+            msg.style.cssText = 'width:100%;font-size:12px;color:var(--warning-text);background:var(--warning-bg);border:1px solid var(--warning);border-radius:6px;padding:6px 10px;margin-top:4px';
             msg.textContent = 'Service en cours jusqu\'à ' + endLabel;
             card.querySelector('.shift-body').appendChild(msg);
         }
@@ -586,7 +644,7 @@ function initExtraForm() {
         if (val) {
             const libre = document.createElement('div');
             libre.className = 'staff-suggestion-item';
-            libre.style.color = '#aaa';
+            libre.style.color = 'var(--text-muted)';
             libre.innerHTML = '<span style="font-size:12px">✏️ Saisir "' + searchInput.value + '" comme nom libre</span>';
             libre.addEventListener('click', () => {
                 hiddenId.value = '';
