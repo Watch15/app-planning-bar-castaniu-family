@@ -792,11 +792,8 @@ function renderGroupFilter() {
                 ? allEstablishments.filter(e => (e.groups || []).includes(currentGroup))
                 : allEstablishments;
             renderTabs(filtered);
-            if (filtered.length > 0 && !filtered.find(e => e.id === currentVenueId)) {
-                currentVenueId = filtered[0].id;
-                document.querySelectorAll('.venue-tab').forEach((t, i) => {
-                    t.classList.toggle('active', i === 0);
-                });
+                if (filtered.length > 0) {
+                    currentVenueId = filtered[0].id;
             }
             await refreshWeek();
             if (selectedDate) await loadDayDetail(selectedDate);
