@@ -172,6 +172,28 @@ async function sendPushToStaff(staffIds, payload) {
 }
 
 
+// ── Debounce notifications shift (évite le spam lors du drag/resize) ─────────
+
+const _shiftNotifDebounce = new Map(); // shiftId → { timer, payload }
+
+function scheduleShiftNotif(shiftId, pushPayload, notifPatronFn) {
+    // Annuler le timer précédent s'il existe (nouveau drag sur le même shift)
+    if (_shiftNotifDebounce.has(shiftId)) {
+        clearTimeout(_shiftNotifDebounce.get(shiftId).timer);
+    }
+    // Programmer l'envoi après 60 secondes de silence
+    const timer = setTimeout(async () => {
+        _shiftNotifDebounce.delete(shiftId);
+        try {
+            await pushPayload();
+            await notifPatronFn();
+        } catch (e) {
+            console.error('❌ scheduleShiftNotif error:', e.message);
+        }
+    }, 60 * 1000);
+    _shiftNotifDebounce.set(shiftId, { timer });
+}
+
 // ── Notifications in-app pour patron/directeurs ───────────────────────────────
 
 // Crée une notification en base pour tous les patrons + directeurs concernés par un établissement
@@ -1101,38 +1123,54 @@ app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
             { $set: updateFields }
         );
 
-        // ── Notifications (push staff + in-app patron) si semaine publiée ──────
+        // ── Notifications (push staff + in-app patron) — avec debounce 60s ───────
         const targetStaffId = updateFields.staff_id || existing.staff_id;
         if (targetStaffId && targetStaffId !== '__joker__') {
-            db.collection('settings').find({ key: { $regex: '^publish_' }, published: true })
-                .toArray()
-                .then(async allPubs => {
+            const shiftId      = String(existing._id);
+            const staffName    = updateFields.staff_name || existing.staff_name || 'Un membre';
+            const newS         = updateFields.start_time != null ? updateFields.start_time : existing.start_time;
+            const newE         = updateFields.end_time   != null ? updateFields.end_time   : existing.end_time;
+            const capturedDate = existing.date;
+            const capturedEstab = existing.establishment_id;
+
+            scheduleShiftNotif(
+                shiftId,
+                // Push au staff — lancé après 60s de silence
+                async () => {
+                    const allPubs = await db.collection('settings').find({
+                        key: { $regex: '^publish_' }, published: true,
+                    }).toArray();
                     const isPublished = allPubs.some(p => {
                         const weekDate  = new Date(p.key.replace('publish_', '') + 'T12:00:00');
-                        const shiftDate = new Date(existing.date + 'T12:00:00');
+                        const shiftDate = new Date(capturedDate + 'T12:00:00');
                         return Math.abs(shiftDate - weekDate) < 8 * 24 * 60 * 60 * 1000;
                     });
                     if (!isPublished) return;
-
-                    // Push au staff concerné
+                    // Relire les horaires finaux depuis la base (après tous les resizes)
+                    const finalShift = await db.collection('shifts').findOne({ _id: existing._id });
+                    const fS = finalShift ? finalShift.start_time : newS;
+                    const fE = finalShift ? finalShift.end_time   : newE;
+                    const dayLabel = new Date(capturedDate + 'T12:00:00')
+                        .toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
                     await sendPushToStaff([targetStaffId], {
-                        title: 'Planning Bar — Modification',
-                        body:  'Ton planning du ' + existing.date + ' a été modifié.',
+                        title: 'Planning Bar',
+                        body:  'Ton shift du ' + dayLabel + ' a été modifié : ' + formatShiftTime(fS) + ' → ' + formatShiftTime(fE),
                         url:   '/planning.html',
                     });
-
-                    // Notif in-app pour patron/directeurs
-                    const staffNameLabel = updateFields.staff_name || existing.staff_name || 'Un membre';
-                    const newS = updateFields.start_time != null ? updateFields.start_time : existing.start_time;
-                    const newE = updateFields.end_time   != null ? updateFields.end_time   : existing.end_time;
+                },
+                // Notif in-app patron/directeurs
+                async () => {
+                    const finalShift = await db.collection('shifts').findOne({ _id: existing._id });
+                    const fS = finalShift ? finalShift.start_time : newS;
+                    const fE = finalShift ? finalShift.end_time   : newE;
                     await createNotifForPatrons(
-                        existing.establishment_id,
+                        capturedEstab,
                         'shift_modified',
-                        staffNameLabel + ' — shift modifié le ' + existing.date + ' (' + formatShiftTime(newS) + '→' + formatShiftTime(newE) + ')',
-                        { date: existing.date, shift_id: String(existing._id) }
+                        staffName + ' — shift modifié le ' + capturedDate + ' (' + formatShiftTime(fS) + '→' + formatShiftTime(fE) + ')',
+                        { date: capturedDate, shift_id: shiftId }
                     );
-                })
-                .catch(() => {});
+                }
+            );
         }
 
         res.json({ message: 'Shift mis à jour', warnings });
