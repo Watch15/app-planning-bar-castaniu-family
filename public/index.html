@@ -180,53 +180,79 @@
             .shift-name { font-size: 10px !important; }
             .shift-hours { font-size: 10px !important; }
 
-            /* ── Staff bar → bottom sheet (ouverte via FAB) ── */
+            /* ── Staff bar → barre horizontale compacte en bas ── */
             .staff-bar {
                 position: fixed !important;
                 bottom: 0; left: 0; right: 0;
                 transform: translateY(100%);
-                transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+                transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1);
                 z-index: 300;
                 background: white;
-                border-radius: 20px 20px 0 0;
-                box-shadow: 0 -4px 32px rgba(0,0,0,0.15);
-                max-height: 42vh;
-                display: flex;
+                border-top: 1px solid #e8eaed;
+                box-shadow: 0 -2px 12px rgba(0,0,0,0.10);
+                padding: 8px 12px max(8px,env(safe-area-inset-bottom)) !important;
+                display: flex !important;
                 flex-direction: column;
-                padding: 8px 14px max(12px,env(safe-area-inset-bottom)) !important;
+                gap: 6px !important;
+                max-height: 50vh;
             }
             .staff-bar::before {
                 content: '';
                 display: block;
-                width: 36px; height: 4px;
+                width: 32px; height: 3px;
                 background: #e0e0e0;
                 border-radius: 2px;
-                margin: 0 auto 10px;
+                margin: 0 auto 4px;
                 flex-shrink: 0;
             }
             .staff-bar.open {
                 transform: translateY(0);
             }
-            /* Recherche + filtres fixes en haut du sheet */
+            /* Recherche + filtres : ligne compacte */
             .staff-bar .staff-bar-top {
                 flex-shrink: 0;
-                padding-bottom: 8px;
-                border-bottom: 1px solid #f0f0f0;
-                margin-bottom: 6px;
-            }
-            /* Liste scrollable */
-            .staff-bar .staff-list {
-                overflow-y: auto;
-                overflow-x: hidden;
-                flex-wrap: wrap !important;
-                -webkit-overflow-scrolling: touch;
-                flex: 1;
-                min-height: 0;
+                flex-wrap: nowrap !important;
                 gap: 6px !important;
+            }
+            .staff-bar .staff-search-input {
+                min-width: 0 !important;
+                max-width: none !important;
+                height: 32px;
+                font-size: 12px !important;
+            }
+            .staff-bar .staff-role-filters {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                gap: 4px !important;
+            }
+            /* Liste : scroll horizontal sur une ligne */
+            .staff-bar .staff-list {
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                overflow-y: hidden !important;
+                -webkit-overflow-scrolling: touch;
+                gap: 6px !important;
+                padding-bottom: 2px;
+                flex-shrink: 0;
+            }
+            .staff-bar .staff-card {
+                flex-shrink: 0;
+                padding: 5px 10px !important;
+                font-size: 12px !important;
             }
             .staff-bar-hint { display: none !important; }
 
-            /* ── Stats bar ── */
+            /* FAB au-dessus de la barre quand ouverte */
+            .staff-bar.open ~ #fab-staff,
+            body:has(.staff-bar.open) #fab-staff {
+                bottom: calc(max(8px,env(safe-area-inset-bottom)) + 50vh + 8px) !important;
+            }
+            /* Espace en bas du planning pour que la barre ne cache pas les shifts */
+            .staff-bar.open ~ .app .day-detail,
+            body:has(.staff-bar.open) .day-detail {
+                padding-bottom: 50vh;
+            }
             .stats-bar {
                 flex-wrap: wrap;
                 padding: 8px 10px !important;
@@ -767,16 +793,6 @@ function _openStaffBar() {
     if (!bar) return;
     bar.classList.add('open');
     fab.textContent = '✕';
-    // Overlay léger pour fermer en tapant sur le planning
-    let ov = document.getElementById('staff-bar-overlay');
-    if (!ov) {
-        ov = document.createElement('div');
-        ov.id = 'staff-bar-overlay';
-        ov.style.cssText = 'position:fixed;inset:0;bottom:42vh;z-index:299;background:rgba(0,0,0,0.18)';
-        ov.addEventListener('touchend', () => _closeStaffBar());
-        document.body.appendChild(ov);
-    }
-    ov.style.display = 'block';
 }
 
 function _closeStaffBar() {

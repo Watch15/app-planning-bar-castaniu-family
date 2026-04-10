@@ -1645,10 +1645,12 @@ async function onUp() {
 
     const el        = activeEl; // capturer avant reset
     const id        = el.dataset.id;
-    // Arrondi au quart d'heure (snap 15 min) — évite les valeurs comme 18.066...
-    const snapH     = PX_PER_HOUR / 4;
-    const startTime = START_HOUR + Math.round(el.offsetLeft / snapH) * 0.25;
-    const endTime   = startTime  + Math.round(el.offsetWidth / snapH) * 0.25;
+    // Arrondi au quart d'heure — on travaille en quarts entiers pour éviter les erreurs flottantes
+    const snapH      = PX_PER_HOUR / 4;
+    const startQuart = Math.round(el.offsetLeft / snapH);
+    const widthQuart = Math.round(el.offsetWidth / snapH);
+    const startTime  = START_HOUR + startQuart / 4;
+    const endTime    = START_HOUR + (startQuart + widthQuart) / 4;
 
     activeEl = null; activeAction = null;
 
