@@ -439,9 +439,30 @@ app.post('/auth/forgot-password', checkDB, async (req, res) => {
 
         // ── Envoi par SMS si compte téléphone ──────────────────────────────────
         if (phone) {
+            // Limite : 2 SMS reset par numéro par semaine glissante (coût)
+            const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            const smsCount = user.sms_reset_count || 0;
+            const smsLastReset = user.sms_reset_week_start ? new Date(user.sms_reset_week_start) : null;
+            // Réinitialiser le compteur si la fenêtre d'une semaine est dépassée
+            const countInWindow = smsLastReset && smsLastReset > oneWeekAgo ? smsCount : 0;
+            if (countInWindow >= 2) {
+                return res.status(429).json({ error: 'Limite de 2 SMS par semaine atteinte. Contacte ton responsable.' });
+            }
+            // Incrémenter le compteur en base
+            const newCount = countInWindow + 1;
+            await db.collection('users').updateOne(
+                { _id: user._id },
+                { $set: {
+                    sms_reset_count: newCount,
+                    sms_reset_week_start: newCount === 1 ? new Date() : (user.sms_reset_week_start || new Date()),
+                }}
+            );
+
             let manual = false;
             try {
-                await sendSMS(normalizePhone(phone), 'Planning Bar — Réinitialise ton mot de passe : ' + link + ' (expire dans 1h)');
+                // Message court : 1 segment SMS = 1 seul tarif Twilio (< 160 chars)
+                const shortLink = link.replace(/^https?:\/\//, '');
+                await sendSMS(normalizePhone(phone), 'Planning Bar - Reset mdp:\n' + shortLink + '\n(1h)');
             } catch (smsErr) {
                 console.error('❌ Reset SMS failed:', smsErr.message);
                 manual = true;
@@ -539,9 +560,10 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
                 );
             }
             const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token;
+            const shortLink = link.replace(/^https?:\/\//, '');
             let smsSent = true;
             try {
-                await sendSMS(normalizedPhone, 'Planning Bar — Bienvenue ' + (name || '') + ' ! Crée ton mot de passe : ' + link);
+                await sendSMS(normalizedPhone, 'Planning Bar\nBienvenue' + (name ? ' ' + name : '') + ' ! Cree ton mdp :\n' + shortLink);
             } catch (smsErr) {
                 console.error('❌ SMS bienvenue non envoyé:', smsErr.message);
                 smsSent = false;
@@ -719,11 +741,12 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
             });
 
             const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token;
+            const shortLink = link.replace(/^https?:\/\//, '');
             let sent = false;
 
             if (normalizedPhone) {
                 try {
-                    await sendSMS(normalizedPhone, 'Planning Bar — Bienvenue ' + name + ' ! Crée ton mot de passe : ' + link);
+                    await sendSMS(normalizedPhone, 'Planning Bar\nBienvenue' + (name ? ' ' + name : '') + ' ! Cree ton mdp :\n' + shortLink);
                     sent = true;
                 } catch (e) { console.error('Bulk SMS erreur ' + name + ':', e.message); }
             }
