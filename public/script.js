@@ -653,14 +653,28 @@ function renderSidebar() {
     // Construire les filtres rôles si pas encore fait
     buildRoleFilters();
 
-    // Trier : staff affecté à l'établissement courant en premier
-    const sorted = [...allStaff].sort((a, b) => {
+    // Trier : staff affecté à l'établissement courant en premier, puis alphabétique
+    let sorted = [...allStaff].sort((a, b) => {
         const aHas = a.venues && a.venues.includes(currentVenueId) ? 0 : 1;
         const bHas = b.venues && b.venues.includes(currentVenueId) ? 0 : 1;
-        return aHas - bHas;
+        if (aHas !== bHas) return aHas - bHas;
+        return a.name.localeCompare(b.name, 'fr');
     });
 
     const searchVal = (document.getElementById('staff-search')?.value || '').toLowerCase().trim();
+
+    // Filtrage + tri par pertinence si recherche active
+    if (searchVal) {
+        // Garder uniquement ceux qui contiennent la recherche
+        sorted = sorted.filter(s => s.name.toLowerCase().includes(searchVal));
+        // Trier : commence par la recherche en premier, contient ensuite
+        sorted.sort((a, b) => {
+            const aStarts = a.name.toLowerCase().startsWith(searchVal) ? 0 : 1;
+            const bStarts = b.name.toLowerCase().startsWith(searchVal) ? 0 : 1;
+            if (aStarts !== bStarts) return aStarts - bStarts;
+            return a.name.localeCompare(b.name, 'fr');
+        });
+    }
 
     sorted.forEach(staff => {
         // Filtrage par groupe actif
@@ -675,9 +689,7 @@ function renderSidebar() {
         const responsableRole = allRoles.find(r => r.type === 'responsable' && staffRoleIds.includes(String(r._id)));
         const firstRole = responsableRole || allRoles.find(r => staffRoleIds.includes(String(r._id)));
 
-        // Filtrage par recherche
-        if (searchVal && !staff.name.toLowerCase().includes(searchVal)) return;
-        // Filtrage par rôle
+        // Filtrage par rôle (le filtre searchVal est déjà appliqué avant le forEach)
         if (_staffFilterRole && !staffRoleIds.includes(_staffFilterRole)) return;
 
         const card = document.createElement('div');

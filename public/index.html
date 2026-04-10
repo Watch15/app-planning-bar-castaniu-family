@@ -194,7 +194,6 @@
                 display: flex !important;
                 flex-direction: column;
                 gap: 6px !important;
-                max-height: 50vh;
             }
             .staff-bar::before {
                 content: '';
@@ -202,7 +201,7 @@
                 width: 32px; height: 3px;
                 background: #e0e0e0;
                 border-radius: 2px;
-                margin: 0 auto 4px;
+                margin: 0 auto 2px;
                 flex-shrink: 0;
             }
             .staff-bar.open {
@@ -225,7 +224,7 @@
                 overflow-x: auto;
                 gap: 4px !important;
             }
-            /* Liste : scroll horizontal sur une ligne */
+            /* Liste : une seule ligne horizontale scrollable */
             .staff-bar .staff-list {
                 display: flex !important;
                 flex-wrap: nowrap !important;
@@ -243,15 +242,9 @@
             }
             .staff-bar-hint { display: none !important; }
 
-            /* FAB au-dessus de la barre quand ouverte */
-            .staff-bar.open ~ #fab-staff,
+            /* FAB remonte au-dessus de la barre (hauteur auto ~110px) */
             body:has(.staff-bar.open) #fab-staff {
-                bottom: calc(max(8px,env(safe-area-inset-bottom)) + 50vh + 8px) !important;
-            }
-            /* Espace en bas du planning pour que la barre ne cache pas les shifts */
-            .staff-bar.open ~ .app .day-detail,
-            body:has(.staff-bar.open) .day-detail {
-                padding-bottom: 50vh;
+                bottom: calc(max(8px,env(safe-area-inset-bottom)) + 120px) !important;
             }
             .stats-bar {
                 flex-wrap: wrap;
