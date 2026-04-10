@@ -51,6 +51,13 @@ let startX, startLeft, startWidth;
 
 let draggedStaff = null;
 
+// ── État tap-to-place mobile ──────────────────────────────────────────────────
+let _tapSelectedStaff = null; // staff sélectionné via tap mobile
+
+function isMobileDevice() {
+    return window.innerWidth < 768;
+}
+
 // Copie de jour
 let copyShiftsBuffer = []; // shifts modifiables avant confirmation
 
@@ -170,6 +177,7 @@ async function init() {
     renderUserBadge(me);
     renderDateDisplay();
     initDropZone();
+    initTimelineBodyTap();
     setupWeekNav();
     initViewTabs();
     await Promise.all([loadEstablishments(), loadAllStaff(), loadRoles(), loadGroups()]);
@@ -697,6 +705,14 @@ function renderSidebar() {
         });
         card.addEventListener('dragend', () => onSidebarDragEnd(card));
 
+        // ── Tap-to-place (mobile) ─────────────────────────────────────────────
+        card.addEventListener('touchend', e => {
+            if (e.target.closest('.color-controls')) return;
+            e.preventDefault();
+            if (!isMobileDevice()) return;
+            tapSelectStaff(staff, card);
+        }, { passive: false });
+
         const picker = card.querySelector('.color-picker');
         picker.addEventListener('change', async e => { e.stopPropagation(); await updateStaffColor(staff, e.target.value, card); });
         picker.addEventListener('mousedown', e => e.stopPropagation());
@@ -733,6 +749,13 @@ function renderSidebar() {
         onSidebarDragStart(e, joker, jokerCard);
     });
     jokerCard.addEventListener('dragend', () => onSidebarDragEnd(jokerCard));
+
+    // ── Tap-to-place Joker (mobile) ───────────────────────────────────────────
+    jokerCard.addEventListener('touchend', e => {
+        e.preventDefault();
+        if (!isMobileDevice()) return;
+        tapSelectStaff({ _id: '__joker__', name: 'Joker', color: '#95a5a6', isJoker: true }, jokerCard);
+    }, { passive: false });
     list.appendChild(jokerCard);
 }
 
@@ -973,6 +996,23 @@ function createStaffRow(staff) {
         })
         .forEach(shift => rail.appendChild(createShiftEl(shift)));
 
+    // ── Tap-to-place sur le rail (mobile) ─────────────────────────────────────
+    rail.addEventListener('touchend', async e => {
+        if (!isMobileDevice() || !_tapSelectedStaff) return;
+        // Ignorer si le tap est sur un shift existant
+        if (e.target.closest('.shift')) return;
+        e.preventDefault();
+        const touch    = e.changedTouches[0];
+        const rect     = rail.getBoundingClientRect();
+        const rawH     = (touch.clientX - rect.left) / PX_PER_HOUR;
+        const snappedH = Math.round(rawH * 4) / 4 + START_HOUR;
+        const startTime = Math.max(START_HOUR, Math.min(snappedH, END_HOUR - 2));
+        const endTime   = startTime + 2;
+        const staff     = _tapSelectedStaff;
+        clearTapSelection();
+        await createShift(staff, startTime, endTime);
+    }, { passive: false });
+
     row.appendChild(label);
     row.appendChild(rail);
     return row;
@@ -1019,18 +1059,115 @@ function createShiftEl(shift) {
         <button class="shift-delete" onclick="deleteShift(event, '${shift._id}', '${shift.staff_id}')">×</button>
         <div class="resizer right"></div>`;
 
-    // Clic → modale heures réelles (hors resizers et delete)
+    // Clic → modale horaires (mobile : édition planifié | desktop : heures réelles)
     if (!shift.is_joker && shift.staff_id !== '__joker__') {
         el.addEventListener('click', e => {
             if (e.target.closest('.resizer') || e.target.closest('.shift-delete')) return;
-            openRealHoursModal(shift, el);
+            if (isMobileDevice()) {
+                openMobileShiftEditModal(shift);
+            } else {
+                openRealHoursModal(shift, el);
+            }
         });
     }
 
     return el;
 }
 
+// ── Modale édition horaires planifiés (mobile) ───────────────────────────────
+
+function openMobileShiftEditModal(shift) {
+    const fmt = h => h == null ? '' : String(Math.floor(h % 24)).padStart(2, '0') + ':' + String(Math.round((h % 1) * 60)).padStart(2, '0');
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+
+    overlay.innerHTML =
+        '<div style="background:white;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:480px;box-shadow:0 -4px 32px rgba(0,0,0,0.18);padding-bottom:max(24px,env(safe-area-inset-bottom))">' +
+            '<div style="width:40px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 20px"></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">' +
+                '<span style="width:12px;height:12px;border-radius:50%;background:' + (shift.color || '#888') + ';flex-shrink:0;display:inline-block"></span>' +
+                '<span style="font-size:15px;font-weight:700;color:#1a1a2e">' + shift.staff_name + '</span>' +
+            '</div>' +
+            '<div style="display:flex;gap:12px;margin-bottom:20px">' +
+                '<div style="flex:1">' +
+                    '<div style="font-size:11px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Début</div>' +
+                    '<input id="_ms-start" type="time" value="' + fmt(shift.start_time) + '" style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:16px;outline:none;color:#1a1a2e">' +
+                '</div>' +
+                '<div style="flex:1">' +
+                    '<div style="font-size:11px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Fin</div>' +
+                    '<input id="_ms-end" type="time" value="' + fmt(shift.end_time) + '" style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:16px;outline:none;color:#1a1a2e">' +
+                '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px">' +
+                '<button id="_ms-delete" style="padding:12px 16px;border-radius:10px;border:1.5px solid #e74c3c;background:white;font-size:13px;cursor:pointer;color:#e74c3c;flex-shrink:0">Supprimer</button>' +
+                '<button id="_ms-cancel" style="padding:12px 16px;border-radius:10px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555;flex:1">Annuler</button>' +
+                '<button id="_ms-save"   style="padding:12px 16px;border-radius:10px;border:none;background:#1a1a2e;color:white;font-size:13px;font-weight:600;cursor:pointer;flex:1">Enregistrer</button>' +
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(overlay);
+    const close = () => document.body.removeChild(overlay);
+
+    overlay.querySelector('#_ms-cancel').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    overlay.querySelector('#_ms-delete').addEventListener('click', () => {
+        close();
+        deleteShift(new Event('click'), String(shift._id), shift.staff_id);
+    });
+
+    overlay.querySelector('#_ms-save').addEventListener('click', async () => {
+        const parseT = v => {
+            if (!v) return null;
+            const [hh, mm] = v.split(':').map(Number);
+            let h = hh + mm / 60;
+            // Gestion nuit (ex: 01:00 → 25)
+            if (h < START_HOUR) h += 24;
+            return h;
+        };
+        const newStart = parseT(overlay.querySelector('#_ms-start').value);
+        const newEnd   = parseT(overlay.querySelector('#_ms-end').value);
+        if (newStart == null || newEnd == null) { showToast('Horaires invalides', true); return; }
+        if (newEnd <= newStart) { showToast('La fin doit être après le début', true); return; }
+
+        const btn = overlay.querySelector('#_ms-save');
+        btn.disabled    = true;
+        btn.textContent = '…';
+        try {
+            const res  = await fetch('/api/shifts/' + shift._id, {
+                method: 'PATCH', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ start_time: newStart, end_time: newEnd }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            if (data.warnings?.length) showConflictAlert(data.warnings, shift.staff_name);
+
+            // Mettre à jour en mémoire
+            const idx = currentShifts.findIndex(s => String(s._id) === String(shift._id));
+            if (idx !== -1) {
+                currentShifts[idx].start_time = newStart;
+                currentShifts[idx].end_time   = newEnd;
+            }
+            if (weekFullData[selectedDate]) {
+                const wIdx = weekFullData[selectedDate].findIndex(s => String(s._id) === String(shift._id));
+                if (wIdx !== -1) {
+                    weekFullData[selectedDate][wIdx].start_time = newStart;
+                    weekFullData[selectedDate][wIdx].end_time   = newEnd;
+                }
+            }
+            currentShiftsWeek = Object.values(weekFullData).flat();
+            close();
+            renderBody();
+            renderStats();
+            showToast('Horaires mis à jour');
+        } catch (err) { showToast(err.message || 'Erreur', true); btn.disabled = false; btn.textContent = 'Enregistrer'; }
+    });
+}
+
 // ── Modale heures réelles (côté patron) ──────────────────────────────────────
+
 
 function openRealHoursModal(shift, shiftEl) {
     const fmt     = h => h == null ? '' : String(Math.floor(h % 24)).padStart(2, '0') + ':' + String(Math.round((h % 1) * 60)).padStart(2, '0');
@@ -1545,16 +1682,122 @@ async function onUp() {
     }
 }
 
-function updateShiftText(el) {
+// ── Touch events — resize & drag shifts ──────────────────────────────────────
+
+document.addEventListener('touchstart', onTouchStart, { passive: false });
+document.addEventListener('touchmove',  onTouchMove,  { passive: false });
+document.addEventListener('touchend',   onTouchEnd);
+
+function onTouchStart(e) {
+    const shiftEl = e.target.closest('.shift');
+    if (!shiftEl || e.target.closest('.shift-delete')) return;
+
+    const isResizer = e.target.closest('.resizer');
+    if (!isResizer && !shiftEl) return;
+
+    // Bloquer le scroll uniquement sur resizer ou shift
+    e.preventDefault();
+
+    refreshPxPerHour();
+    const touch = e.touches[0];
+
+    activeEl     = shiftEl;
+    startX       = touch.clientX;
+    startLeft    = activeEl.offsetLeft;
+    startWidth   = activeEl.offsetWidth;
+
+    const isLeft  = e.target.closest('.resizer.left');
+    const isRight = e.target.closest('.resizer.right');
+    activeAction  = isLeft ? 'res-left' : isRight ? 'res-right' : 'drag';
+}
+
+function onTouchMove(e) {
+    if (!activeEl) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    // Réutiliser onMove avec un objet simulé
+    onMove({ clientX: touch.clientX });
+}
+
+function onTouchEnd() {
+    if (!activeEl) return;
+    onUp();
+}
+
+
     const display = el.querySelector('.shift-hours');
     if (!display) return;
     const hStart = START_HOUR + el.offsetLeft / PX_PER_HOUR;
     const hEnd   = hStart + el.offsetWidth / PX_PER_HOUR;
     const fmt = h => `${Math.floor(h % 24).toString().padStart(2, '0')}h${String(Math.round((h%1)*60)).padStart(2,'0')}`;
     display.textContent = `${fmt(hStart)} – ${fmt(hEnd)}`;
+
+// ── Tap-to-place — sélection staff mobile ────────────────────────────────────
+
+function tapSelectStaff(staff, card) {
+    // Deuxième tap sur la même carte → désélection
+    if (_tapSelectedStaff && _tapSelectedStaff._id === staff._id) {
+        clearTapSelection();
+        return;
+    }
+
+    // Désélectionner l'ancien si différent
+    clearTapSelection();
+
+    _tapSelectedStaff = staff;
+
+    // Feedback visuel sur la carte
+    card.classList.add('staff-tap-selected');
+
+    // Afficher le bandeau
+    showTapBanner(staff.name, staff.color);
 }
 
-// ── Copie de jour ─────────────────────────────────────────────────────────────
+function clearTapSelection() {
+    _tapSelectedStaff = null;
+    document.querySelectorAll('.staff-tap-selected').forEach(el => el.classList.remove('staff-tap-selected'));
+    hideTapBanner();
+}
+
+function showTapBanner(name, color) {
+    let banner = document.getElementById('tap-place-banner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'tap-place-banner';
+        document.body.appendChild(banner);
+    }
+    banner.innerHTML =
+        '<span style="width:10px;height:10px;border-radius:50%;background:' + (color || '#888') + ';flex-shrink:0;display:inline-block"></span>' +
+        '<span style="flex:1"><strong>' + name + '</strong> — Tape sur une ligne pour placer</span>' +
+        '<button id="tap-place-cancel" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;flex-shrink:0">✕</button>';
+    banner.style.display = 'flex';
+    banner.querySelector('#tap-place-cancel').addEventListener('click', clearTapSelection);
+}
+
+function hideTapBanner() {
+    const banner = document.getElementById('tap-place-banner');
+    if (banner) banner.style.display = 'none';
+}
+
+// ── Tap sur la zone vide du timeline-body (aucune ligne existante) ─────────────
+
+function initTimelineBodyTap() {
+    const body = document.getElementById('timeline-body');
+    if (!body) return;
+
+    body.addEventListener('touchend', async e => {
+        if (!isMobileDevice() || !_tapSelectedStaff) return;
+        // Ne traiter que si le tap est directement sur le body (zone vide, pas sur un rail)
+        if (e.target.closest('.row-rail') || e.target.closest('.shift')) return;
+        e.preventDefault();
+        const staff = _tapSelectedStaff;
+        clearTapSelection();
+        // Créer avec horaires par défaut
+        await createShift(staff, 18, 20);
+    }, { passive: false });
+}
+
+
 
 document.getElementById('btn-copy-day').addEventListener('click', () => {
     if (!currentShifts.length) { showToast('Aucun shift à copier', true); return; }
