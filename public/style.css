@@ -203,6 +203,17 @@ a:hover { color: var(--accent-soft); }
   background: var(--light-bg);
 }
 .day-detail-title { font-size: 14px; font-weight: 700; color: var(--text-primary); flex: 1; }
+/* Boutons dans le header jour (fond clair) — surcharge le style header sombre */
+.day-detail-header .btn-manage-staff {
+  color: var(--text-secondary);
+  border-color: var(--light-border);
+  background: var(--light-card);
+}
+.day-detail-header .btn-manage-staff:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+  background: var(--light-bg);
+}
 .btn-copy-day {
   padding: 5px 12px; border-radius: var(--radius);
   border: 1px solid var(--light-border); background: var(--light-card);
@@ -270,8 +281,8 @@ a:hover { color: var(--accent-soft); }
 }
 .shift:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.22); }
 .shift.conflict { outline: 2.5px solid var(--warning); outline-offset: 2px; }
-.shift-name  { font-size: 11px; font-weight: 700; pointer-events: none; color: #fff; }
-.shift-hours { font-size: 10px; opacity: 0.85; pointer-events: none; color: #fff; }
+.shift-name  { font-size: 11px; font-weight: 700; pointer-events: none; color: inherit; }
+.shift-hours { font-size: 10px; opacity: 0.85; pointer-events: none; color: inherit; }
 .shift-delete {
   position: absolute; top: -6px; right: -6px;
   width: 16px; height: 16px; border-radius: 50%;
