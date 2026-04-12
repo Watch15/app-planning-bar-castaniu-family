@@ -247,6 +247,12 @@ a:hover { color: var(--accent-soft); }
 }
 .row-delete:hover { background: var(--danger-bg); color: var(--danger); }
 .row-rail { flex: 1; position: relative; min-height: 64px; }
+.row-total {
+  flex-shrink: 0; width: 42px; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: var(--text-muted);
+  border-left: 1px solid var(--light-border); background: var(--light-bg);
+  letter-spacing: -0.3px;
+}
 .row-rail::before {
   content: ''; position: absolute; inset: 0;
   background-image: repeating-linear-gradient(to right, transparent, transparent 59px, var(--light-border) 59px, var(--light-border) 60px);
@@ -390,10 +396,7 @@ a:hover { color: var(--accent-soft); }
 }
 .copy-time-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 .copy-shift-sep { color: var(--text-muted); font-size: 11px; }
-.copy-days-grid { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
-.copy-week-section { display: flex; flex-direction: column; gap: 6px; }
-.copy-week-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-.copy-week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.copy-days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 20px; }
 .copy-day-btn {
   padding: 8px 4px; border-radius: var(--radius);
   border: 1.5px solid var(--light-border); background: var(--light-card);
@@ -548,7 +551,7 @@ a:hover { color: var(--accent-soft); }
 .view-tab {
   padding: 4px 14px; border-radius: 6px; border: none;
   background: transparent; font-size: 12px; font-weight: 500;
-  color: rgba(255,255,255,0.50); cursor: pointer; transition: all var(--transition);
+  color: rgba(255,255,255,0.82); cursor: pointer; transition: all var(--transition);
   white-space: nowrap; font-family: var(--font);
 }
 .view-tab.active { background: rgba(255,255,255,0.12); color: #fff; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
@@ -584,8 +587,6 @@ a:hover { color: var(--accent-soft); }
 .dash-shift-pill { display: inline-block; padding: 3px 8px; border-radius: var(--radius-sm); font-size: 11px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: opacity var(--transition); }
 .dash-shift-pill:hover { opacity: 0.8; }
 .dash-empty { color: var(--light-border); font-size: 14px; }
-.dash-cell-multi { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.dash-day-total { font-size: 10px; font-weight: 700; color: var(--text-muted); margin-top: 1px; }
 .dash-total-cell { font-size: 12px; font-weight: 700; color: var(--accent); white-space: nowrap; }
 .dashboard-stats {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;
@@ -703,6 +704,7 @@ a:hover { color: var(--accent-soft); }
   .timeline-top  { position: sticky; top: 0; z-index: 20; }
   .tl-corner { width: 70px; }
   .row-label { width: 70px; font-size: 11px; padding: 0 6px; }
+  .row-total { width: 32px; font-size: 10px; }
   .tl-hour   { width: 50px; font-size: 10px; }
   .row-rail  { min-width: calc(16 * 50px); }
   .shift-name  { font-size: 10px; }
@@ -723,6 +725,7 @@ a:hover { color: var(--accent-soft); }
   #dispo-toggle-label { display: none; }
   .tl-corner { width: 55px; }
   .row-label  { width: 55px; font-size: 10px; padding: 0 4px; }
+  .row-total  { width: 28px; font-size: 9px; }
 }
 
 /* ── Staff bar — prête pour bottom-sheet mobile (transition ajoutée) ─────────*/
