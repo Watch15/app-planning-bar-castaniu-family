@@ -545,16 +545,17 @@ a:hover { color: var(--accent-soft); }
 
 /* ── Onglets Jour / Semaine ──────────────────────────────────────────────────*/
 .view-tabs {
-  display: flex; gap: 3px; background: rgba(255,255,255,0.08);
+  display: flex; gap: 3px; background: var(--light-bg);
   border-radius: var(--radius); padding: 3px; margin-left: auto;
+  border: 1px solid var(--light-border);
 }
 .view-tab {
   padding: 4px 14px; border-radius: 6px; border: none;
   background: transparent; font-size: 12px; font-weight: 500;
-  color: rgba(255,255,255,0.82); cursor: pointer; transition: all var(--transition);
+  color: var(--text-muted); cursor: pointer; transition: all var(--transition);
   white-space: nowrap; font-family: var(--font);
 }
-.view-tab.active { background: rgba(255,255,255,0.12); color: #fff; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+.view-tab.active { background: var(--light-card); color: var(--text-primary); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.10); }
 
 /* ── Vue semaine complète ────────────────────────────────────────────────────*/
 .week-full { background: var(--light-card); border-radius: 0; box-shadow: none; overflow: hidden; border-top: 1px solid var(--light-border); }
