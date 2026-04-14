@@ -4,9 +4,9 @@ let START_HOUR  = 10;
 let END_HOUR    = 26;
 let TOTAL_HOURS = END_HOUR - START_HOUR;
 
-// PX_PER_HOUR dynamique selon la largeur d'écran (50px sur mobile, 60px desktop)
+// PX_PER_HOUR : 60px/h sur tous les écrans — SNAP = 15px (entier, élimine les pixels fractionnaires sur mobile)
 function getPxPerHour() {
-    return window.innerWidth <= 480 ? 50 : (window.innerWidth <= 768 ? 50 : 60);
+    return 60;
 }
 // Alias constant pour la compatibilité — recalculé à chaque action drag/resize
 let PX_PER_HOUR = 60;
@@ -1042,8 +1042,8 @@ function createStaffRow(staff) {
         const rect     = rail.getBoundingClientRect();
         const rawH     = (touch.clientX - rect.left + scrollLeft) / PX_PER_HOUR;
         const snappedH = Math.round(rawH * 4) / 4 + START_HOUR;
-        const startTime = Math.max(START_HOUR, Math.min(snappedH, END_HOUR - 2));
-        const endTime   = startTime + 2;
+        const startTime = Math.max(START_HOUR, Math.min(snappedH, END_HOUR - 0.25));
+        const endTime   = Math.min(startTime + 2, END_HOUR);
         const staff     = _tapSelectedStaff;
         clearTapSelection();
         await createShift(staff, startTime, endTime);
@@ -1433,8 +1433,8 @@ function initDropZone() {
             const rect = rail.getBoundingClientRect();
             const rawH     = (e.clientX - rect.left) / PX_PER_HOUR;
             const snappedH = Math.round(rawH * 4) / 4 + START_HOUR; // snap 15 min
-            startTime = Math.max(START_HOUR, Math.min(snappedH, END_HOUR - 2));
-            endTime   = startTime + 2;
+            startTime = Math.max(START_HOUR, Math.min(snappedH, END_HOUR - 0.25));
+            endTime   = Math.min(startTime + 2, END_HOUR);
         } else {
             startTime = 18; endTime = 20;
         }
@@ -1889,8 +1889,8 @@ function initTimelineBodyTap() {
             const rawH  = (touch.clientX - rect.left + scrollLeft) / PX_PER_HOUR;
             // snap 15 min
             const snapped = Math.round(rawH * 4) / 4 + START_HOUR;
-            startTime = Math.max(START_HOUR, Math.min(snapped, END_HOUR - 2));
-            endTime   = startTime + 2;
+            startTime = Math.max(START_HOUR, Math.min(snapped, END_HOUR - 0.25));
+            endTime   = Math.min(startTime + 2, END_HOUR);
         }
 
         const staff = _tapSelectedStaff;
