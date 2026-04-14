@@ -1,8 +1,10 @@
 // ── Constantes ───────────────────────────────────────────────────────────────
 
-let START_HOUR  = 10;
-let END_HOUR    = 26;
+let START_HOUR  = 10;  // borne visuelle (heure entière, début du rail)
+let END_HOUR    = 26;  // borne visuelle (heure entière, fin du rail)
 let TOTAL_HOURS = END_HOUR - START_HOUR;
+let OPEN_TIME   = 10;  // ouverture réelle (décimal, ex. 9.5 = 09:30) — clamp placement
+let CLOSE_TIME  = 26;  // fermeture réelle (décimal, ex. 26 = 02:00) — clamp placement
 
 // PX_PER_HOUR : 60px/h sur tous les écrans — SNAP = 15px (entier, élimine les pixels fractionnaires sur mobile)
 function getPxPerHour() {
@@ -17,15 +19,17 @@ function refreshPxPerHour() { PX_PER_HOUR = getPxPerHour(); }
 function applyVenueHours(venueId) {
     const venue = allEstablishments.find(e => e.id === venueId || String(e._id) === venueId);
     if (!venue || !venue.open_time || !venue.close_time) {
-        START_HOUR = 10;
-        END_HOUR   = 26;
+        START_HOUR = 10; END_HOUR = 26;
+        OPEN_TIME  = 10; CLOSE_TIME = 26;
     } else {
         const parseHM = s => { const [h, m] = s.split(':').map(Number); return h + m / 60; };
         let open  = parseHM(venue.open_time);
         let close = parseHM(venue.close_time);
         if (close <= open) close += 24; // fermeture après minuit
-        START_HOUR = Math.floor(open);
-        END_HOUR   = Math.ceil(close);
+        START_HOUR = Math.floor(open);   // borne visuelle arrondie à l'heure basse
+        END_HOUR   = Math.ceil(close);   // borne visuelle arrondie à l'heure haute
+        OPEN_TIME  = open;               // heure exacte d'ouverture (clamp placement)
+        CLOSE_TIME = close;              // heure exacte de fermeture (clamp placement)
     }
     TOTAL_HOURS = END_HOUR - START_HOUR;
 }
@@ -1042,8 +1046,8 @@ function createStaffRow(staff) {
         const rect     = rail.getBoundingClientRect();
         const rawH     = (touch.clientX - rect.left + scrollLeft) / PX_PER_HOUR;
         const snappedH = Math.round(rawH * 4) / 4 + START_HOUR;
-        const startTime = Math.max(START_HOUR, Math.min(snappedH, END_HOUR - 0.25));
-        const endTime   = Math.min(startTime + 2, END_HOUR);
+        const startTime = Math.max(OPEN_TIME, Math.min(snappedH, CLOSE_TIME - 0.25));
+        const endTime   = Math.min(startTime + 2, CLOSE_TIME);
         const staff     = _tapSelectedStaff;
         clearTapSelection();
         await createShift(staff, startTime, endTime);
@@ -1433,8 +1437,8 @@ function initDropZone() {
             const rect = rail.getBoundingClientRect();
             const rawH     = (e.clientX - rect.left) / PX_PER_HOUR;
             const snappedH = Math.round(rawH * 4) / 4 + START_HOUR; // snap 15 min
-            startTime = Math.max(START_HOUR, Math.min(snappedH, END_HOUR - 0.25));
-            endTime   = Math.min(startTime + 2, END_HOUR);
+            startTime = Math.max(OPEN_TIME, Math.min(snappedH, CLOSE_TIME - 0.25));
+            endTime   = Math.min(startTime + 2, CLOSE_TIME);
         } else {
             startTime = 18; endTime = 20;
         }
@@ -1677,15 +1681,17 @@ function onMove(e) {
     const snapX  = Math.round(deltaX / SNAP) * SNAP;
     const maxW   = TOTAL_HOURS * PX_PER_HOUR;
 
+    const minL = (OPEN_TIME - START_HOUR) * PX_PER_HOUR; // borne gauche = heure d'ouverture
+
     if (activeAction === 'res-right') {
         const newW = startWidth + snapX;
         if (newW >= PX_PER_HOUR / 4 && startLeft + newW <= maxW) activeEl.style.width = newW + 'px';
     } else if (activeAction === 'res-left') {
         const newL = startLeft + snapX, newW = startWidth - snapX;
-        if (newW >= PX_PER_HOUR / 4 && newL >= 0) { activeEl.style.left = newL + 'px'; activeEl.style.width = newW + 'px'; }
+        if (newW >= PX_PER_HOUR / 4 && newL >= minL) { activeEl.style.left = newL + 'px'; activeEl.style.width = newW + 'px'; }
     } else {
         const newL = startLeft + snapX;
-        if (newL >= 0 && newL + activeEl.offsetWidth <= maxW) activeEl.style.left = newL + 'px';
+        if (newL >= minL && newL + activeEl.offsetWidth <= maxW) activeEl.style.left = newL + 'px';
     }
     updateShiftText(activeEl);
 }
@@ -1889,8 +1895,8 @@ function initTimelineBodyTap() {
             const rawH  = (touch.clientX - rect.left + scrollLeft) / PX_PER_HOUR;
             // snap 15 min
             const snapped = Math.round(rawH * 4) / 4 + START_HOUR;
-            startTime = Math.max(START_HOUR, Math.min(snapped, END_HOUR - 0.25));
-            endTime   = Math.min(startTime + 2, END_HOUR);
+            startTime = Math.max(OPEN_TIME, Math.min(snapped, CLOSE_TIME - 0.25));
+            endTime   = Math.min(startTime + 2, CLOSE_TIME);
         }
 
         const staff = _tapSelectedStaff;
