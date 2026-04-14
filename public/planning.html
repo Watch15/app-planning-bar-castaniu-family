@@ -421,8 +421,9 @@ async function checkAuth() {
             if (res.status === 401) { window.location.href = '/login.html'; return null; }
             if (!res.ok) { if (attempt === 0) { await new Promise(r => setTimeout(r, 800)); continue; } break; }
             const data = await res.json();
-            // Patron → index.html, établissement → pointage.html
+            // Patron + directeur → index.html, établissement → pointage.html
             if (data.user?.role === 'patron')       { window.location.href = '/index.html';   return null; }
+            if (data.user?.role === 'directeur')    { window.location.href = '/index.html';   return null; }
             if (data.user?.role === 'etablissement') { window.location.href = '/pointage.html'; return null; }
             return data.user;
         } catch {
@@ -460,16 +461,6 @@ async function init() {
     document.getElementById('greeting-name').textContent = 'Bonjour ' + (user.name || '') + ' !';
     const av = document.getElementById('staff-avatar');
     if (av) av.textContent = (user.name || user.email || '?').charAt(0).toUpperCase();
-
-    // Onglet Pointage pour les directeurs (lien vers pointage.html)
-    if (user.role === 'directeur') {
-        const tabBar = document.querySelector('.tabs-bar');
-        const link   = document.createElement('a');
-        link.href      = '/pointage.html';
-        link.className = 'btn-pointage-tab';
-        link.textContent = '⏱ Pointage';
-        tabBar.appendChild(link);
-    }
 
     initTabs();
 
@@ -510,6 +501,23 @@ async function init() {
 
     await loadPlanning(from, to, user);
     startStaffAutoRefresh(from, to, user);
+
+    // Vérifier si le staff est responsable de soirée ce soir → onglet Pointage
+    try {
+        const todayStr = toDateStr(new Date());
+        const respRes  = await fetch('/api/me/responsable-tonight?date=' + todayStr, { credentials: 'include' });
+        if (respRes.ok) {
+            const resp = await respRes.json();
+            if (resp.isResponsable && resp.establishment_id) {
+                const tabBar  = document.querySelector('.tabs-bar');
+                const link    = document.createElement('a');
+                link.href      = '/pointage.html?estab=' + encodeURIComponent(resp.establishment_id);
+                link.className = 'btn-pointage-tab';
+                link.textContent = '⏱ Pointage';
+                tabBar.appendChild(link);
+            }
+        }
+    } catch { /* silencieux */ }
 
     // Vérifier si la semaine suivante est publiée
     const nextMonday = getMondayOf(addDays(new Date(), 7));

@@ -312,6 +312,21 @@ function canAccessEstablishment(user, establishmentId) {
     return assigned.includes(establishmentId);
 }
 
+// Vérifie si un staff est responsable de soirée pour un établissement à une date donnée
+async function isResponsablePourSoiree(staffId, establishmentId, date) {
+    if (!staffId || !establishmentId || !date) return false;
+    const responsableRoles = await db.collection('roles').find({ type: 'responsable' }).toArray();
+    const responsableIds   = responsableRoles.map(r => String(r._id));
+    if (responsableIds.length === 0) return false;
+    const shift = await db.collection('shifts').findOne({
+        staff_id:         staffId,
+        establishment_id: establishmentId,
+        date,
+        roles:            { $in: responsableIds },
+    });
+    return !!shift;
+}
+
 // Compte établissement uniquement
 function requireEtablissement(req, res, next) {
     if (!req.session?.user) return res.status(401).json({ error: 'Non authentifié' });
@@ -1629,6 +1644,28 @@ app.get('/api/recap-mensuel', checkDB, requirePatron, async (req, res) => {
 
 // ── Pointage (compte établissement) ──────────────────────────────────────────
 
+// GET responsable de soirée — vérifie si le staff connecté est responsable ce soir
+app.get('/api/me/responsable-tonight', checkDB, requireAuth, async (req, res) => {
+    const user = req.session.user;
+    if (!user.staff_id) return res.json({ isResponsable: false });
+    const { date } = req.query;
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.json({ isResponsable: false });
+    try {
+        const responsableRoles = await db.collection('roles').find({ type: 'responsable' }).toArray();
+        const responsableIds   = responsableRoles.map(r => String(r._id));
+        if (responsableIds.length === 0) return res.json({ isResponsable: false });
+        const shift = await db.collection('shifts').findOne({
+            staff_id: user.staff_id,
+            date,
+            roles: { $in: responsableIds },
+        });
+        res.json(shift
+            ? { isResponsable: true, establishment_id: shift.establishment_id }
+            : { isResponsable: false }
+        );
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET/PATCH paramètres pointage (heure de bascule jour)
 app.get('/api/pointage-settings', checkDB, requireAuth, async (req, res) => {
     try {
@@ -1681,8 +1718,11 @@ app.patch('/api/shifts/:id/pointage', checkDB, requireAuth, async (req, res) => 
         const user = req.session.user;
         if (user.role === 'etablissement' && user.establishment_id !== existing.establishment_id)
             return res.status(403).json({ error: 'Accès refusé' });
-        if (user.role !== 'etablissement' && !canAccessEstablishment(user, existing.establishment_id))
-            return res.status(403).json({ error: 'Accès refusé' });
+        if (user.role !== 'etablissement' && !canAccessEstablishment(user, existing.establishment_id)) {
+            // Autoriser le staff responsable de soirée sur cet établissement
+            const ok = await isResponsablePourSoiree(user.staff_id, existing.establishment_id, existing.date);
+            if (!ok) return res.status(403).json({ error: 'Accès refusé' });
+        }
         const update = {};
         if (hasStart) update.real_start = real_start != null ? parseFloat(real_start) : null;
         if (hasEnd)   update.real_end   = real_end   != null ? parseFloat(real_end)   : null;
@@ -1700,8 +1740,10 @@ app.post('/api/shifts/extra', checkDB, requireAuth, async (req, res) => {
     // Déterminer l'établissement selon le rôle
     const estabId = user.role === 'etablissement' ? user.establishment_id : establishment_id;
     if (!estabId) return res.status(400).json({ error: 'establishment_id requis' });
-    if (user.role !== 'etablissement' && !canAccessEstablishment(user, estabId))
-        return res.status(403).json({ error: 'Accès refusé' });
+    if (user.role !== 'etablissement' && !canAccessEstablishment(user, estabId)) {
+        const ok = await isResponsablePourSoiree(user.staff_id, estabId, date);
+        if (!ok) return res.status(403).json({ error: 'Accès refusé' });
+    }
     try {
         // Chercher le profil staff : par staff_id si fourni, sinon par nom exact
         let color = '#95a5a6';

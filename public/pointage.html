@@ -422,7 +422,7 @@ async function checkAuth() {
         const res  = await fetch('/auth/me', { credentials: 'include' });
         if (!res.ok) { window.location.href = '/login.html'; return null; }
         const data = await res.json();
-        if (!['etablissement', 'patron', 'directeur'].includes(data.user?.role)) {
+        if (!['etablissement', 'patron', 'directeur', 'staff'].includes(data.user?.role)) {
             window.location.href = '/login.html'; return null;
         }
         return data.user;
@@ -463,6 +463,20 @@ async function init() {
             if (r.ok) {
                 const estabs = await r.json();
                 const e = estabs.find(x => x.id === currentEstabId || String(x._id) === currentEstabId);
+                if (e) document.getElementById('header-title').textContent = 'Pointage — ' + e.name;
+            }
+        } catch {}
+    } else if (currentUser.role === 'staff') {
+        // Staff responsable de soirée — établissement passé via ?estab=
+        document.getElementById('btn-back').style.display = '';
+        const estabParam = new URLSearchParams(location.search).get('estab');
+        if (!estabParam) { window.location.href = '/planning.html'; return; }
+        currentEstabId = estabParam;
+        try {
+            const r = await fetch('/api/establishments', { credentials: 'include' });
+            if (r.ok) {
+                const all = await r.json();
+                const e   = all.find(x => (x.id || String(x._id)) === estabParam);
                 if (e) document.getElementById('header-title').textContent = 'Pointage — ' + e.name;
             }
         } catch {}
