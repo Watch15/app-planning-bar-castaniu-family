@@ -1,8 +1,8 @@
 // ── Constantes ───────────────────────────────────────────────────────────────
 
-const START_HOUR  = 10;
-const END_HOUR    = 26;
-const TOTAL_HOURS = END_HOUR - START_HOUR;
+let START_HOUR  = 10;
+let END_HOUR    = 26;
+let TOTAL_HOURS = END_HOUR - START_HOUR;
 
 // PX_PER_HOUR dynamique selon la largeur d'écran (50px sur mobile, 60px desktop)
 function getPxPerHour() {
@@ -11,6 +11,24 @@ function getPxPerHour() {
 // Alias constant pour la compatibilité — recalculé à chaque action drag/resize
 let PX_PER_HOUR = 60;
 function refreshPxPerHour() { PX_PER_HOUR = getPxPerHour(); }
+
+// ── Heures dynamiques selon l'établissement ───────────────────────────────────
+
+function applyVenueHours(venueId) {
+    const venue = allEstablishments.find(e => e.id === venueId || String(e._id) === venueId);
+    if (!venue || !venue.open_time || !venue.close_time) {
+        START_HOUR = 10;
+        END_HOUR   = 26;
+    } else {
+        const parseHM = s => { const [h, m] = s.split(':').map(Number); return h + m / 60; };
+        let open  = parseHM(venue.open_time);
+        let close = parseHM(venue.close_time);
+        if (close <= open) close += 24; // fermeture après minuit
+        START_HOUR = Math.floor(open);
+        END_HOUR   = Math.ceil(close);
+    }
+    TOTAL_HOURS = END_HOUR - START_HOUR;
+}
 
 const DAY_NAMES_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 const DAY_NAMES_LONG  = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
@@ -829,6 +847,7 @@ function renderGroupFilter() {
             renderTabs(filtered);
                 if (filtered.length > 0) {
                     currentVenueId = filtered[0].id;
+                    applyVenueHours(filtered[0].id);
             }
             await refreshWeek();
             if (selectedDate) await loadDayDetail(selectedDate);
@@ -879,6 +898,7 @@ async function loadEstablishments() {
         renderTabs(normalized);
         if (normalized.length > 0) {
             currentVenueId = normalized[0].id;
+            applyVenueHours(normalized[0].id);
             renderWeekLabel();
             await refreshWeek();
             // Ouvrir automatiquement le jour courant
@@ -894,6 +914,7 @@ async function loadEstablishments() {
         allEstablishments = fallback;
         renderTabs(fallback);
         currentVenueId = fallback[0].id;
+        applyVenueHours(fallback[0].id);
         renderWeekLabel();
         await refreshWeek();
         await loadDayDetail(toDateStr(new Date()));
@@ -912,6 +933,7 @@ function renderTabs(list) {
             document.querySelectorAll('.venue-tab').forEach(t => t.classList.remove('active'));
             btn.classList.add('active');
             currentVenueId = v.id;
+            applyVenueHours(v.id);
             renderSidebar(); // Mettre à jour immédiatement l'ordre staff
             await refreshWeek();
             if (selectedDate) await loadDayDetail(selectedDate);
@@ -1629,6 +1651,7 @@ async function removeStaffFromDay(rowId) {
 // ── Drag & resize shifts ──────────────────────────────────────────────────────
 
 document.addEventListener('mousedown', e => {
+    if (_touchActive) return; // ignore les mousedown synthétiques émis après touchstart sur Android
     const shiftEl = e.target.closest('.shift');
     if (!shiftEl || e.target.closest('.shift-delete')) return;
     refreshPxPerHour();
@@ -1725,6 +1748,7 @@ async function onUp() {
 // ── Touch events — resize & drag shifts ──────────────────────────────────────
 
 let _touchScrollLeft = 0; // scrollLeft du conteneur au moment du touchstart
+let _touchActive     = false; // bloque mousedown pendant un drag touch (évite double-déclenchement Android)
 
 document.addEventListener('touchstart', onTouchStart, { passive: false });
 document.addEventListener('touchmove',  onTouchMove,  { passive: false });
@@ -1737,6 +1761,7 @@ function onTouchStart(e) {
     // Bloquer le scroll uniquement sur resizer ou shift
     e.preventDefault();
 
+    _touchActive = true;
     refreshPxPerHour();
     const touch = e.touches[0];
 
@@ -1765,6 +1790,7 @@ function onTouchMove(e) {
 }
 
 function onTouchEnd() {
+    _touchActive = false;
     if (!activeEl) return;
     // Snap final : forcer left et width à des multiples de PX_PER_HOUR/4
     const SNAP = PX_PER_HOUR / 4;
