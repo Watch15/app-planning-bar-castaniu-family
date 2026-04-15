@@ -313,18 +313,31 @@ function canAccessEstablishment(user, establishmentId) {
 }
 
 // Vérifie si un staff est responsable de soirée pour un établissement à une date donnée
+// Vérifie si un staff est le responsable de pointage pour un établissement à une date donnée.
+// Règle : shift avec rôle 'responsable' ET pointage_resp:true
+//         (si aucun shift n'a pointage_resp, fallback : premier shift avec rôle responsable)
 async function isResponsablePourSoiree(staffId, establishmentId, date) {
     if (!staffId || !establishmentId || !date) return false;
     const responsableRoles = await db.collection('roles').find({ type: 'responsable' }).toArray();
     const responsableIds   = responsableRoles.map(r => String(r._id));
     if (responsableIds.length === 0) return false;
-    const shift = await db.collection('shifts').findOne({
-        staff_id:         staffId,
+
+    // Chercher un shift pointage_resp explicitement désigné pour cet établissement
+    const allResponsableShifts = await db.collection('shifts').find({
         establishment_id: establishmentId,
         date,
-        roles:            { $in: responsableIds },
-    });
-    return !!shift;
+        roles: { $in: responsableIds },
+    }).toArray();
+
+    if (allResponsableShifts.length === 0) return false;
+
+    const designated = allResponsableShifts.find(s => s.pointage_resp === true);
+    if (designated) {
+        return String(designated.staff_id) === String(staffId);
+    }
+    // Aucun désigné → le premier responsable (ordre alphabétique stable) peut faire le pointage
+    allResponsableShifts.sort((a, b) => a.staff_name.localeCompare(b.staff_name, 'fr'));
+    return String(allResponsableShifts[0].staff_id) === String(staffId);
 }
 
 // Compte établissement uniquement
@@ -1644,25 +1657,45 @@ app.get('/api/recap-mensuel', checkDB, requirePatron, async (req, res) => {
 
 // ── Pointage (compte établissement) ──────────────────────────────────────────
 
-// GET responsable de soirée — vérifie si le staff connecté est responsable ce soir
+// GET responsable de soirée — vérifie si le staff/directeur connecté peut faire le pointage ce soir
+// Pour un directeur : retourne tous ses établissements (il a toujours accès)
+// Pour un staff : vérifie isResponsablePourSoiree sur chacun de ses shifts du jour
 app.get('/api/me/responsable-tonight', checkDB, requireAuth, async (req, res) => {
     const user = req.session.user;
-    if (!user.staff_id) return res.json({ isResponsable: false });
     const { date } = req.query;
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.json({ isResponsable: false });
     try {
+        // Directeur : accès pointage sur ses établissements assignés
+        if (user.role === 'directeur') {
+            const assigned = user.assigned_establishments || [];
+            if (assigned.length === 0) return res.json({ isResponsable: false });
+            return res.json({ isResponsable: true, establishments: assigned });
+        }
+
+        if (!user.staff_id) return res.json({ isResponsable: false });
+
+        // Staff : chercher ses shifts du jour avec rôle responsable
         const responsableRoles = await db.collection('roles').find({ type: 'responsable' }).toArray();
         const responsableIds   = responsableRoles.map(r => String(r._id));
         if (responsableIds.length === 0) return res.json({ isResponsable: false });
-        const shift = await db.collection('shifts').findOne({
+
+        const myShifts = await db.collection('shifts').find({
             staff_id: user.staff_id,
             date,
             roles: { $in: responsableIds },
-        });
-        res.json(shift
-            ? { isResponsable: true, establishment_id: shift.establishment_id }
-            : { isResponsable: false }
-        );
+        }).toArray();
+
+        if (myShifts.length === 0) return res.json({ isResponsable: false });
+
+        // Vérifier pour chaque établissement si ce staff est LE responsable de pointage
+        const accessibleEstabs = [];
+        for (const shift of myShifts) {
+            const ok = await isResponsablePourSoiree(user.staff_id, shift.establishment_id, date);
+            if (ok) accessibleEstabs.push(shift.establishment_id);
+        }
+
+        if (accessibleEstabs.length === 0) return res.json({ isResponsable: false });
+        res.json({ isResponsable: true, establishments: accessibleEstabs });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1701,6 +1734,32 @@ app.get('/api/pointage/:date', checkDB, requireAuth, async (req, res) => {
             .find({ establishment_id: estabId, date: req.params.date })
             .sort({ start_time: 1 }).toArray();
         res.json(shifts);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH désigner le responsable de pointage pour un établissement/date
+// Dé-désigne tous les autres responsables du même établissement ce jour
+app.patch('/api/shifts/:id/pointage-resp', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    const { value } = req.body; // true | false
+    try {
+        const shift = await db.collection('shifts').findOne({ _id: new ObjectId(req.params.id) });
+        if (!shift) return res.status(404).json({ error: 'Shift introuvable' });
+        if (!canAccessEstablishment(req.session.user, shift.establishment_id))
+            return res.status(403).json({ error: 'Accès refusé' });
+
+        if (value === true) {
+            // Retirer pointage_resp de tous les autres responsables du même établissement/date
+            await db.collection('shifts').updateMany(
+                { establishment_id: shift.establishment_id, date: shift.date, _id: { $ne: new ObjectId(req.params.id) } },
+                { $unset: { pointage_resp: '' } }
+            );
+        }
+        await db.collection('shifts').updateOne(
+            { _id: new ObjectId(req.params.id) },
+            value === true ? { $set: { pointage_resp: true } } : { $unset: { pointage_resp: '' } }
+        );
+        res.json({ message: 'Responsable pointage mis à jour' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

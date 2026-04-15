@@ -1259,6 +1259,20 @@ function openRealHoursModal(shift, shiftEl) {
                 '</div>' +
             '</div>' +
             '<div id="_rh-ecart" style="text-align:center;font-size:12px;color:#aaa;min-height:18px;margin-bottom:14px"></div>' +
+            ((() => {
+                const shiftRoleIds   = shift.roles || [];
+                const hasResponsable = allRoles.some(r => r.type === 'responsable' && shiftRoleIds.includes(String(r._id)));
+                if (!hasResponsable) return '';
+                const active = shift.pointage_resp === true;
+                return '<div id="_rh-resp-row" style="display:flex;align-items:center;gap:10px;background:#f8f8f8;border:1.5px solid ' + (active ? '#534AB7' : '#e0e0e0') + ';border-radius:8px;padding:10px 12px;margin-bottom:14px;cursor:pointer" title="Désigner ce staff comme responsable du pointage ce soir">' +
+                    '<span style="font-size:18px">' + (active ? '🔑' : '🔒') + '</span>' +
+                    '<div style="flex:1">' +
+                        '<div style="font-size:13px;font-weight:600;color:' + (active ? '#534AB7' : '#555') + '">Responsable pointage</div>' +
+                        '<div style="font-size:11px;color:#aaa">' + (active ? 'Désigné — peut valider les heures ce soir' : 'Cliquer pour désigner') + '</div>' +
+                    '</div>' +
+                    '<div id="_rh-resp-dot" style="width:16px;height:16px;border-radius:50%;background:' + (active ? '#534AB7' : '#e0e0e0') + ';flex-shrink:0"></div>' +
+                '</div>';
+            })()) +
             '<div style="display:flex;gap:8px;justify-content:flex-end">' +
                 '<button id="_rh-cancel" style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555">Annuler</button>' +
                 '<button id="_rh-clear"  style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#e74c3c">Effacer</button>' +
@@ -1338,6 +1352,48 @@ function openRealHoursModal(shift, shiftEl) {
     startInput.addEventListener('input', updateEcart);
     endInput.addEventListener('input',   updateEcart);
     updateEcart();
+
+    // Toggle responsable pointage
+    const respRow = overlay.querySelector('#_rh-resp-row');
+    if (respRow) {
+        respRow.addEventListener('click', async () => {
+            const newVal = !(shift.pointage_resp === true);
+            try {
+                const r = await fetch('/api/shifts/' + shift._id + '/pointage-resp', {
+                    credentials: 'include', method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value: newVal }),
+                });
+                const d = await r.json();
+                if (!r.ok) throw new Error(d.error);
+                shift.pointage_resp = newVal;
+                // Mettre à jour l'UI du toggle
+                const dot  = respRow.querySelector('#_rh-resp-dot');
+                const icon = respRow.querySelector('span');
+                const lbl  = respRow.querySelectorAll('div div')[0];
+                const sub  = respRow.querySelectorAll('div div')[1];
+                if (newVal) {
+                    respRow.style.borderColor = '#534AB7';
+                    dot.style.background      = '#534AB7';
+                    icon.textContent          = '🔑';
+                    lbl.style.color           = '#534AB7';
+                    lbl.textContent           = 'Responsable pointage';
+                    sub.textContent           = 'Désigné — peut valider les heures ce soir';
+                } else {
+                    respRow.style.borderColor = '#e0e0e0';
+                    dot.style.background      = '#e0e0e0';
+                    icon.textContent          = '🔒';
+                    lbl.style.color           = '#555';
+                    sub.textContent           = 'Cliquer pour désigner';
+                }
+                // Mettre à jour en mémoire
+                if (newVal) {
+                    currentShifts.forEach(s => { if (s._id !== shift._id) delete s.pointage_resp; });
+                }
+                showToast(newVal ? shift.staff_name + ' — responsable pointage désigné' : 'Désignation retirée');
+            } catch (e) { showToast(e.message, true); }
+        });
+    }
 
     overlay.querySelector('#_rh-cancel').addEventListener('click', close);
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });

@@ -508,13 +508,16 @@ async function init() {
         const respRes  = await fetch('/api/me/responsable-tonight?date=' + todayStr, { credentials: 'include' });
         if (respRes.ok) {
             const resp = await respRes.json();
-            if (resp.isResponsable && resp.establishment_id) {
-                const tabBar  = document.querySelector('.tabs-bar');
-                const link    = document.createElement('a');
-                link.href      = '/pointage.html?estab=' + encodeURIComponent(resp.establishment_id);
-                link.className = 'btn-pointage-tab';
-                link.textContent = '⏱ Pointage';
-                tabBar.appendChild(link);
+            if (resp.isResponsable && resp.establishments && resp.establishments.length > 0) {
+                const tabBar = document.querySelector('.tabs-bar');
+                // Un onglet par établissement (en général 1, mais directeur peut en avoir plusieurs)
+                resp.establishments.forEach(estabId => {
+                    const link    = document.createElement('a');
+                    link.href      = '/pointage.html?estab=' + encodeURIComponent(estabId);
+                    link.className = 'btn-pointage-tab';
+                    link.textContent = '⏱ Pointage';
+                    tabBar.appendChild(link);
+                });
             }
         }
     } catch { /* silencieux */ }

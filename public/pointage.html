@@ -454,69 +454,72 @@ async function init() {
         if (r.ok) allStaff = await r.json();
     } catch { allStaff = []; }
 
-    // Établissement actif + sélecteur pour directeur/patron
+    // Établissement actif selon le rôle
     if (currentUser.role === 'etablissement') {
+        // Compte établissement — établissement fixé
         currentEstabId = currentUser.establishment_id;
-        // Afficher le nom
-        try {
-            const r = await fetch('/api/establishments', { credentials: 'include' });
-            if (r.ok) {
-                const estabs = await r.json();
-                const e = estabs.find(x => x.id === currentEstabId || String(x._id) === currentEstabId);
-                if (e) document.getElementById('header-title').textContent = 'Pointage — ' + e.name;
-            }
-        } catch {}
     } else if (currentUser.role === 'staff') {
         // Staff responsable de soirée — établissement passé via ?estab=
         document.getElementById('btn-back').style.display = '';
         const estabParam = new URLSearchParams(location.search).get('estab');
         if (!estabParam) { window.location.href = '/planning.html'; return; }
         currentEstabId = estabParam;
-        try {
-            const r = await fetch('/api/establishments', { credentials: 'include' });
-            if (r.ok) {
-                const all = await r.json();
-                const e   = all.find(x => (x.id || String(x._id)) === estabParam);
-                if (e) document.getElementById('header-title').textContent = 'Pointage — ' + e.name;
-            }
-        } catch {}
     } else {
-        // directeur ou patron — lien retour + sélecteur d'établissement
-        if (currentUser.role === 'directeur') {
-            document.getElementById('btn-back').style.display = '';
-        }
-        try {
-            const r = await fetch('/api/establishments', { credentials: 'include' });
-            if (r.ok) {
-                const allEstabs = await r.json();
-                // Filtrer selon les établissements assignés (directeur) ou tous (patron)
+        // Directeur ou patron — lien retour + sélecteur d'établissement
+        document.getElementById('btn-back').style.display = '';
+        // Si ?estab= fourni (lien direct depuis planning.html), pré-sélectionner
+        const estabParam = new URLSearchParams(location.search).get('estab');
+        if (estabParam) currentEstabId = estabParam;
+    }
+
+    // Charger les établissements pour le header + sélecteur
+    try {
+        const r = await fetch('/api/establishments', { credentials: 'include' });
+        if (r.ok) {
+            const allEstabs = await r.json();
+
+            // Établir la liste visible selon le rôle
+            let myEstabs = allEstabs;
+            if (currentUser.role === 'directeur') {
                 const assigned = currentUser.assigned_establishments || [];
-                const myEstabs = currentUser.role === 'directeur'
-                    ? allEstabs.filter(e => assigned.includes(e.id || String(e._id)))
-                    : allEstabs;
-
-                if (myEstabs.length > 0) {
-                    const sel  = document.getElementById('estab-select');
-                    const bar  = document.getElementById('estab-select-bar');
-                    myEstabs.forEach(e => {
-                        const opt = document.createElement('option');
-                        opt.value       = e.id || String(e._id);
-                        opt.textContent = e.name;
-                        sel.appendChild(opt);
-                    });
-                    currentEstabId = myEstabs[0].id || String(myEstabs[0]._id);
-                    document.getElementById('header-title').textContent = 'Pointage — ' + myEstabs[0].name;
-                    bar.classList.add('visible');
-
-                    sel.addEventListener('change', () => {
-                        const chosen = myEstabs.find(e => (e.id || String(e._id)) === sel.value);
-                        currentEstabId = sel.value;
-                        document.getElementById('header-title').textContent = 'Pointage — ' + (chosen ? chosen.name : sel.value);
-                        loadShifts();
-                    });
-                }
+                myEstabs = allEstabs.filter(e => assigned.includes(e.id || String(e._id)));
+            } else if (currentUser.role === 'staff' || currentUser.role === 'etablissement') {
+                myEstabs = allEstabs.filter(e => (e.id || String(e._id)) === currentEstabId);
             }
-        } catch {}
+
+            if (myEstabs.length === 0 && currentUser.role !== 'patron') {
+                window.location.href = '/planning.html'; return;
+            }
+
+            // Nom de l'établissement courant dans le header
+            const active = myEstabs.find(e => (e.id || String(e._id)) === currentEstabId) || myEstabs[0];
+            if (active) {
+                currentEstabId = currentEstabId || (active.id || String(active._id));
+                document.getElementById('header-title').textContent = 'Pointage — ' + active.name;
+            }
+
+            // Sélecteur uniquement si plusieurs établissements (directeur/patron sans ?estab)
+            if (myEstabs.length > 1 && !new URLSearchParams(location.search).get('estab')) {
+                const sel = document.getElementById('estab-select');
+                const bar = document.getElementById('estab-select-bar');
+                myEstabs.forEach(e => {
+                    const opt       = document.createElement('option');
+                    opt.value       = e.id || String(e._id);
+                    opt.textContent = e.name;
+                    if (opt.value === currentEstabId) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+                if (!currentEstabId) currentEstabId = myEstabs[0].id || String(myEstabs[0]._id);
+                bar.classList.add('visible');
+                sel.addEventListener('change', () => {
+                    const chosen = myEstabs.find(e => (e.id || String(e._id)) === sel.value);
+                    currentEstabId = sel.value;
+                    document.getElementById('header-title').textContent = 'Pointage — ' + (chosen ? chosen.name : sel.value);
+                    loadShifts();
+                });
+            }
+        }
+    } catch {}
     }
 
     await loadShifts();
