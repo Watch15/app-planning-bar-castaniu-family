@@ -59,15 +59,7 @@
         .header-left  { display: flex; align-items: center; gap: 10px; }
         .header-logo  { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.2px; }
         .header-week  { font-size: 11px; color: rgba(255,255,255,0.40); margin-top: 1px; }
-        .btn-logout {
-            background: transparent;
-            border: 1px solid rgba(239,68,68,0.5);
-            color: rgba(239,68,68,0.85);
-            font-size: 11px; padding: 5px 10px;
-            border-radius: 8px; cursor: pointer;
-            font-family: var(--font); transition: all 0.15s;
-        }
-        .btn-logout:hover { background: rgba(239,68,68,0.1); border-color: var(--danger); color: var(--danger); }
+        /* btn-logout hérite du style global (style.css) */
         .user-avatar-sm {
             width: 28px; height: 28px; border-radius: 50%;
             background: var(--accent-soft);
@@ -157,7 +149,7 @@
             border: 1px solid var(--light-border);
         }
 
-        /* Collègues dans shift */
+        /* ── Collègues dans shift ── */
         .shift-block { padding: 0 16px 12px; }
         .colleagues-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
         .colleagues-lbl { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
@@ -168,6 +160,28 @@
             border: 1px solid var(--light-border);
         }
         .colleague-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+        /* ── Shift supplémentaire (2e, 3e…) dans la même journée ── */
+        .extra-shift-row {
+            border-top: 1px solid var(--light-border);
+            padding: 10px 16px 10px;
+            background: var(--light-bg);
+        }
+        .extra-shift-header {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .extra-shift-bar {
+            width: 3px; height: 34px; border-radius: 2px; flex-shrink: 0;
+        }
+        .extra-shift-info { flex: 1; }
+        .extra-shift-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+        .extra-shift-duration { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+        .extra-shift-badge {
+            font-size: 11px; font-weight: 600; color: var(--text-secondary);
+            background: var(--light-card); border: 1px solid var(--light-border);
+            padding: 4px 8px; border-radius: 7px; white-space: nowrap; flex-shrink: 0;
+        }
+        .extra-shift-colleagues { padding-top: 8px; }
 
         /* ── Jours repos — grille compacte ── */
         .rest-grid {
@@ -850,32 +864,55 @@ function renderDaysInto(from, shifts, colleagues, list, jokers) {
             '<span class="shift-hours-badge">' + fmtHour(dispStart) + ' → ' + fmtHour(dispEnd) + realBadge + '</span>';
         card.appendChild(header);
 
-        // Collègues + shifts supplémentaires
+        // Collègues du 1er shift + shifts supplémentaires
         dayShifts.forEach((shift, idx) => {
             const dayColleagues = (colleagues[date] || []).filter(c => c.establishment_id === shift.establishment_id);
             const dayJokers     = jokers.filter(j => j.date === date && j.establishment_id === shift.establishment_id);
-            if (idx > 0 || dayColleagues.length > 0 || dayJokers.length > 0) {
-                const block = document.createElement('div');
-                block.className = 'shift-block';
-                let html = '';
-                if (idx > 0) {
-                    const sDispStart = (isPast && shift.real_start != null) ? shift.real_start : shift.start_time;
-                    const sDispEnd   = (isPast && shift.real_end   != null) ? shift.real_end   : shift.end_time;
-                    const sRealTag   = (isPast && shift.real_start != null) ? ' ✓' : '';
-                    html += '<div class="day-establishment" style="font-size:12px;color:#888;margin-bottom:4px">' + formatEstablishment(shift.establishment_id) + ' · ' + fmtHour(sDispStart) + '→' + fmtHour(sDispEnd) + sRealTag + '</div>';
+            const allColleagues = [...dayColleagues, ...dayJokers];
+
+            const colleaguesHtml = allColleagues.length > 0
+                ? '<div class="colleagues-row"><span class="colleagues-lbl">Collègues</span>' +
+                    allColleagues.map(c => {
+                        const sm2 = allStaff.find(s => String(s._id) === c.staff_id);
+                        const nc  = sm2 && sm2.name_color ? sm2.name_color : '';
+                        const ns  = nc ? ' style="color:' + nc + '"' : '';
+                        return '<span class="colleague-pill"><span class="colleague-dot" style="background:' + (c.is_joker ? '#95a5a6' : (c.color || '#888')) + '"></span><span' + ns + '>' + (c.is_joker ? 'Joker' : c.staff_name) + '</span></span>';
+                    }).join('') + '</div>'
+                : '';
+
+            if (idx === 0) {
+                // Collègues du shift principal sous le header
+                if (colleaguesHtml) {
+                    const block = document.createElement('div');
+                    block.className = 'shift-block';
+                    block.innerHTML = colleaguesHtml;
+                    card.appendChild(block);
                 }
-                const allColleagues = [...dayColleagues, ...dayJokers];
-                if (allColleagues.length > 0) {
-                    const pills = allColleagues.map(c => {
-                        const sm = allStaff.find(s => String(s._id) === c.staff_id);
-                        const nameColor = sm && sm.name_color ? sm.name_color : '';
-                        const nameStyle = nameColor ? ' style="color:' + nameColor + '"' : '';
-                        return '<span class="colleague-pill"><span class="colleague-dot" style="background:' + (c.is_joker ? '#95a5a6' : (c.color || '#888')) + '"></span><span' + nameStyle + '>' + (c.is_joker ? 'Joker' : c.staff_name) + '</span></span>';
-                    }).join('');
-                    html += '<div class="colleagues-row"><span class="colleagues-lbl">Collègues</span>' + pills + '</div>';
-                }
-                block.innerHTML = html;
-                card.appendChild(block);
+            } else {
+                // Shift supplémentaire — ligne visuelle dédiée
+                const sDispStart  = (isPast && shift.real_start != null) ? shift.real_start : shift.start_time;
+                const sDispEnd    = (isPast && shift.real_end   != null) ? shift.real_end   : shift.end_time;
+                const sDurLabel   = (isPast && shift.real_start != null && shift.real_end != null)
+                    ? fmtDuration(shift.real_end - shift.real_start) + ' réel'
+                    : fmtDuration(shift.end_time - shift.start_time) + ' de service';
+                const sRealBadge  = (isPast && shift.real_start != null)
+                    ? ' <span style="font-size:10px;font-weight:700;color:#27ae60;background:#eafaf1;border:1px solid #2ecc71;border-radius:4px;padding:1px 5px">réel</span>'
+                    : (isPast && shift.real_start == null ? ' <span style="font-size:10px;color:#f39c12;background:#fff3cd;border:1px solid #f39c12;border-radius:4px;padding:1px 5px">non pointé</span>' : '');
+                const sColor      = shift.color || '#888';
+
+                const row = document.createElement('div');
+                row.className = 'extra-shift-row';
+                row.innerHTML =
+                    '<div class="extra-shift-header">' +
+                        '<div class="extra-shift-bar" style="background:' + sColor + '"></div>' +
+                        '<div class="extra-shift-info">' +
+                            '<div class="extra-shift-name">' + formatEstablishment(shift.establishment_id) + '</div>' +
+                            '<div class="extra-shift-duration">' + sDurLabel + '</div>' +
+                        '</div>' +
+                        '<span class="extra-shift-badge">' + fmtHour(sDispStart) + ' → ' + fmtHour(sDispEnd) + sRealBadge + '</span>' +
+                    '</div>' +
+                    (colleaguesHtml ? '<div class="extra-shift-colleagues">' + colleaguesHtml + '</div>' : '');
+                card.appendChild(row);
             }
         });
 
