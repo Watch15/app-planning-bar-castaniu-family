@@ -435,6 +435,18 @@ async function init() {
     currentUser = await checkAuth();
     if (!currentUser) return;
 
+    // ── Bouton retour immédiatement après auth (avant tout fetch) ────────────
+    const btnBack = document.getElementById('btn-back');
+    if (currentUser.role === 'directeur' || currentUser.role === 'patron') {
+        btnBack.href        = '/index.html';
+        btnBack.textContent = '← Dashboard';
+        btnBack.style.display = '';
+    } else if (currentUser.role === 'staff') {
+        btnBack.href        = '/planning.html';
+        btnBack.textContent = '← Planning';
+        btnBack.style.display = '';
+    }
+
     // Charger l'heure de bascule
     try {
         const r = await fetch('/api/pointage-settings', { credentials: 'include' });
@@ -454,18 +466,6 @@ async function init() {
         fetch('/api/establishments', { credentials: 'include' }).catch(() => null),
     ]);
     if (staffRes && staffRes.ok) allStaff = await staffRes.json();
-
-    // ── Bouton retour selon le rôle ──────────────────────────────────────────
-    const btnBack = document.getElementById('btn-back');
-    if (currentUser.role === 'directeur' || currentUser.role === 'patron') {
-        btnBack.href        = '/index.html';
-        btnBack.textContent = '← Dashboard';
-        btnBack.style.display = '';
-    } else if (currentUser.role === 'staff') {
-        btnBack.href        = '/planning.html';
-        btnBack.textContent = '← Planning';
-        btnBack.style.display = '';
-    }
 
     // ── Établissement actif selon le rôle ───────────────────────────────────
     const estabParam = new URLSearchParams(location.search).get('estab');
@@ -706,13 +706,25 @@ function initExtraForm() {
         hiddenId.value = '';
         freeName.style.display = 'none';
 
-        const matches = val
-            ? allStaff.filter(s => s.name.toLowerCase().includes(val)).slice(0, 8)
-            : allStaff.slice(0, 8);
-
         suggestions.innerHTML = '';
 
-        if (allStaff.length === 0) { suggestions.style.display = 'none'; return; }
+        if (allStaff.length === 0) {
+            // Aucun staff chargé — proposer saisie libre directement
+            freeName.style.display = '';
+            suggestions.style.display = 'none';
+            return;
+        }
+
+        // Sans saisie : afficher en priorité le staff de l'établissement courant
+        let pool = allStaff;
+        if (!val && currentEstabId) {
+            const estabStaff = allStaff.filter(s => s.venues && s.venues.includes(currentEstabId));
+            if (estabStaff.length > 0) pool = estabStaff;
+        }
+
+        const matches = val
+            ? allStaff.filter(s => s.name.toLowerCase().includes(val)).slice(0, 8)
+            : pool.slice(0, 8);
 
         if (matches.length === 0) {
             // Aucun staff trouvé — proposer le nom libre

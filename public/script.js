@@ -202,6 +202,19 @@ async function init() {
     currentUser = me;
     renderUserBadge(me);
     renderDateDisplay();
+
+    // Lien ⏱ Pointage dans le header pour patron et directeur
+    const headerRight = document.querySelector('.header-right');
+    if (headerRight) {
+        const lnk = document.createElement('a');
+        lnk.href            = '/pointage.html';
+        lnk.className       = 'btn-manage-staff';
+        lnk.textContent     = '⏱ Pointage';
+        lnk.style.textDecoration = 'none';
+        const btnNotif = document.getElementById('btn-notif-patron');
+        headerRight.insertBefore(lnk, btnNotif || headerRight.firstChild);
+    }
+
     initDropZone();
     initTimelineBodyTap();
     setupWeekNav();
