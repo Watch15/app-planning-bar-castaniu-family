@@ -1323,31 +1323,44 @@ app.post('/api/copy-day', checkDB, requirePatron, async (req, res) => {
 // ── Disponibilités ────────────────────────────────────────────────────────────
 
 /**
- * Calcule la deadline effective de la semaine courante.
- * Si un custom_deadline (ISO string) est fourni, on extrait son jour-de-semaine
- * et son heure pour recalculer la prochaine occurrence — même logique que le
- * vendredi 13h par défaut, ce qui évite le gel de la date d'une semaine à l'autre.
+ * Calcule la deadline effective de la semaine Lun–Dim en cours.
+ *
+ * Règle : la semaine tourne le LUNDI. Sam et Dim appartiennent encore à la
+ * semaine qui vient de se terminer → si la deadline du cycle (ex vendredi 13h)
+ * est déjà passée, on retourne cette date dans le passé (deadlinePassed = true)
+ * et on ne roule PAS sur la semaine suivante avant le lundi.
+ *
+ * @param {string|null} customDeadlineIso  ISO date stockée (patron) — sert de
+ *        patron récurrent (jour-de-semaine + heure) ; jamais utilisée en absolu.
+ * @param {Date}        now
+ * @returns {Date}  date effective de la deadline du cycle courant
  */
 function computeEffectiveDeadline(customDeadlineIso, now) {
-    const day = now.getDay(); // 0=dim … 6=sam
+    // Jour JS (0=dim … 6=sam) → jour semaine lundi-based (lun=1 … dim=7)
+    const jsDay  = now.getDay();
+    const weekDay = jsDay === 0 ? 7 : jsDay; // dim devient 7 (fin de semaine)
+
+    // Extraire jour-cible et heure depuis le patron (custom ou défaut vendredi 13h)
+    let targetJsDay = 5, targetH = 13, targetM = 0;
     if (customDeadlineIso) {
-        const stored    = new Date(customDeadlineIso);
-        const targetDay = stored.getDay();
-        const targetH   = stored.getHours();
-        const targetM   = stored.getMinutes();
-        // Nombre de jours jusqu'au prochain targetDay (0 si c'est aujourd'hui)
-        const diff = day <= targetDay ? targetDay - day : targetDay - day + 7;
-        const result = new Date(now);
-        result.setDate(now.getDate() + diff);
-        result.setHours(targetH, targetM, 0, 0);
-        return result;
+        const stored  = new Date(customDeadlineIso);
+        targetJsDay   = stored.getDay();
+        targetH       = stored.getHours();
+        targetM       = stored.getMinutes();
     }
-    // Défaut : vendredi 13h de la semaine courante
-    const diff = day <= 5 ? 5 - day : 5 - day + 7;
-    const friday = new Date(now);
-    friday.setDate(now.getDate() + diff);
-    friday.setHours(13, 0, 0, 0);
-    return friday;
+    const wTarget = targetJsDay === 0 ? 7 : targetJsDay; // même normalisation
+
+    const result = new Date(now);
+    if (weekDay <= wTarget) {
+        // On est avant ou au jour cible → deadline de CETTE semaine (dans le futur ou aujourd'hui)
+        result.setDate(now.getDate() + (wTarget - weekDay));
+    } else {
+        // On est après le jour cible (sam/dim ou jours suivants) → deadline déjà passée cette semaine
+        // On retourne la date passée pour que deadlinePassed = true
+        result.setDate(now.getDate() - (weekDay - wTarget));
+    }
+    result.setHours(targetH, targetM, 0, 0);
+    return result;
 }
 
 app.get('/api/dispo-settings', checkDB, requireAuth, async (req, res) => {
