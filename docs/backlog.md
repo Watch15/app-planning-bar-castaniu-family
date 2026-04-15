@@ -5,49 +5,74 @@ Add new items with a short description, context, and priority. Remove or move to
 
 ---
 
-## Bugs
+## P1 — Bugs bloquants (à faire en premier)
 
-| ID | Description | Area | Priority |
+| ID | Description | Area | Status |
 |---|---|---|---|
-| B-01 | ~~Mobile rounding errors~~ — **Fixed**: `_touchActive` flag blocks synthetic `mousedown` fired by Android after `touchstart`, which was overwriting `startX` and causing double `onUp()` saves with wrong deltas | Timeline / Touch | ~~Medium~~ Done |
-| B-02 | UI responsiveness issues on very small screens — some modals or panels overflow or lose padding | CSS / Mobile | Medium |
-| B-03 | Mobile validation button click audit needed — `pointerdown` vs `click` event handling on iOS/Android may miss taps on some modal confirm buttons | Mobile / Events | Low |
+| B-04 | **Barre staff verticale mobile** — sur téléphone vertical la barre est difficilement utilisable : scroll horizontal, cartes trop petites, recherche/filtres peu accessibles | Mobile / Staff bar | ✅ Done |
+| B-05 | **Touch OPEN_TIME bypass** — `onTouchEnd` vérifie `snappedLeft >= 0` mais pas `>= minL`, permet de poser un shift avant l'heure d'ouverture via drag touch | Timeline / Touch | À faire |
+| B-06 | **Validation / erreurs inaccessibles mobile** — modales de confirmation et toasts d'erreur passent sous le clavier ou hors écran en mode portrait | Mobile / UX | ✅ Done |
 
 ---
 
-## Pending Enhancements
+## P2 — Améliorations (après les P1)
 
-| ID | Description | Area | Priority |
+| ID | Description | Area | Status |
 |---|---|---|---|
-| E-01 | Group filtering in the staff bar — filter by multiple roles simultaneously or by establishment group | Staff bar | Medium |
-| E-02 | Copy week to next week — already partially implemented (modal with two sections); verify edge cases (jokers, cross-establishment) | Timeline | Low |
+| E-03 | **Pointage : onglet responsable** — remplacer le compte `etablissement` par un onglet dédié dans la vue staff pour le `responsable` de soirée, qui peut valider les horaires sans compte séparé | Pointage / Auth | ✅ Done |
+| E-04 | **Heures côté staff** — affichage amélioré sur `planning.html` : total semaine, heures par établissement, comparaison semaines | Staff view | ✅ Done |
+| B-02 | Responsivité petits écrans — certaines modales ou panneaux débordent ou perdent leur padding | CSS / Mobile | ✅ Done |
+| B-03 | Audit `pointerdown` vs `click` sur boutons mobiles — certains boutons de validation modale peuvent manquer les taps sur iOS/Android | Mobile / Events | ✅ Done |
 
 ---
 
-## Feature Requests
+## P3 — Nouvelles fonctionnalités (roadmap)
 
 | ID | Description | Area | Notes |
 |---|---|---|---|
-| F-01 | Export weekly schedule as PDF / print view | Planning | Print styles already partially present in index.html |
-| F-02 | Push notification opt-in flow — in-app prompt to subscribe (currently relies on manual trigger) | PWA / Push | VAPID infra already in place |
+| F-03 | **Note sur Joker** — ajouter un champ `note` sur les shifts Joker uniquement, pour laisser des instructions au staff qui sera affecté (ex. "s'occuper de la caisse", "arrivée 30 min avant") | Joker / UX | Côté patron : saisie dans la modale Joker. Côté staff : affiché si le Joker leur est attribué |
+| F-04 | **Récap mensuel heures (export CSV)** — vue patron : tableau par staff avec total heures/semaine sur un mois, exportable en CSV pour la paie | Dashboard / Export | Calculé depuis la collection `shifts`. Colonnes : staff, semaine, établissement, heures. |
+| F-05 | **Échange de shifts avec validation patron** — un staff peut proposer d'échanger son shift avec un collègue ; le patron reçoit une notification et valide ou refuse l'échange | Shifts / Notifications | Nouveau statut `pending_swap` sur le shift. Notification in-app + push au patron. |
+
+---
+
+## Déjà livré / non prioritaire
+
+| ID | Description | Décision |
+|---|---|---|
+| — | Push notifications | Déjà en place (VAPID + SW) |
+| — | Template semaine | Déjà couvert par "copier un jour" (feature existante) |
+| — | Alerte heures sup | Reporté — pas de demande terrain |
 
 ---
 
 ## Done
 
-| ID | Description | Resolved in |
+| ID | Description | Commit |
 |---|---|---|
-| D-01 | Week view colour contrast on tabs Jour/Semaine against light background | bb6cab3 |
-| D-02 | Total hours per row in timeline had contrast issues | 3a310d0 |
-| D-03 | Copy-week modal missing styles (section, label, grid) | 2ba4fe5 |
-| D-04 | Copy week to next week — two-section modal implementation | 9396d05 |
-| D-05 | Story #1: Mobile snap precision — `_touchActive` flag prevents synthetic `mousedown` during touch from corrupting drag state | (current) |
-| D-06 | Story #2: Dynamic timeline hours — `applyVenueHours()` reads `open_time`/`close_time` from establishment data and updates `START_HOUR`/`END_HOUR`/`TOTAL_HOURS` before each timeline render | (current) |
+| D-01 | Contraste tabs Jour/Semaine fond clair | bb6cab3 |
+| D-02 | Contraste total heures par ligne timeline | 3a310d0 |
+| D-03 | Styles copy-week-section/label/grid manquants | 2ba4fe5 |
+| D-04 | Copie vers semaine suivante — modale deux sections | 9396d05 |
+| D-05 | Snap mobile — flag `_touchActive` bloque mousedown Android | 5f44ae8 |
+| D-06 | Heures timeline dynamiques — `applyVenueHours()` | 5f44ae8 |
+| D-07 | `PX_PER_HOUR` 60 universel — SNAP entier, fin des minutes irrégulières | 1c40ffe |
+| D-08 | Placement jusqu'à heure fermeture — clamp `END_HOUR-0.25` | 1c40ffe |
+| D-09 | `OPEN_TIME`/`CLOSE_TIME` — borne visuelle ≠ borne métier (mouse/drag) | e4b032e |
+| D-10 | Lien SMS cliquable — restaure `https://` dans les 3 envois Twilio | 66a7869 |
+| D-11 | Barre staff mobile — bottom sheet 2 colonnes 60vh scroll vertical | — |
+| D-12 | Modales bottom sheet mobile — `align-items:flex-end`, `border-radius:20px 20px 0 0`, `font-size:16px` | — |
+| D-13 | Toast mobile — repositionné en haut de l'écran (ne passe plus sous la barre staff) | — |
+| D-14 | E-04 — stats staff : delta heures vs sem. prec. + répartition par établissement | — |
+| D-15 | E-03 — onglet Pointage pour directeur dans planning.html + sélecteur établissement dans pointage.html | — |
+| D-16 | B-03 — `touch-action: manipulation` global sur boutons/liens | — |
 
 ---
 
-## Notes for agents
+## Notes pour les agents
 
-- When fixing B-01 (mobile rounding): use `Math.round()` or integer pixel values for timeline block `left` and `width` calculations. Do not use `toISOString()` anywhere near date calculations (see `docs/architecture.md` §3.1).
-- When working on any timeline feature: test drag, resize, and snap behaviour on both desktop and a 390px-wide mobile viewport.
-- `script.js` is monolithic — add fixes there, do not split into modules (see `docs/architecture.md` §3.3).
+- **Timezone** : ne jamais utiliser `toISOString()` — toujours `getFullYear()/getMonth()/getDate()`. Voir `docs/architecture.md` §3.1.
+- **script.js** : fichier monolithique (~4200 lignes) — modifications additives et ciblées uniquement, pas de refactoring.
+- **Joker** : `staff_id === '__joker__'` et `is_joker: true`. F-03 ajoute un champ `note` uniquement sur ces shifts.
+- **Timeline** : tester drag, resize et snap sur desktop ET mobile 390px portrait après chaque modification.
+- **OPEN_TIME / CLOSE_TIME** : bornes métier décimales (ex. 9.5 = 09:30). `START_HOUR`/`END_HOUR` sont des entiers pour l'affichage uniquement.

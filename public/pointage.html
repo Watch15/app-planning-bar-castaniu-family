@@ -448,78 +448,82 @@ async function init() {
     const dateStr = d.toLocaleDateString('fr-FR', opts);
     document.getElementById('header-date').textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
 
-    // Charger staff pour l'autocomplete
-    try {
-        const r = await fetch('/api/staff', { credentials: 'include' });
-        if (r.ok) allStaff = await r.json();
-    } catch { allStaff = []; }
+    // Charger staff pour l'autocomplete (en parallèle avec les établissements)
+    const [staffRes, estabRes] = await Promise.all([
+        fetch('/api/staff',          { credentials: 'include' }).catch(() => null),
+        fetch('/api/establishments', { credentials: 'include' }).catch(() => null),
+    ]);
+    if (staffRes && staffRes.ok) allStaff = await staffRes.json();
 
-    // Établissement actif selon le rôle
+    // ── Bouton retour selon le rôle ──────────────────────────────────────────
+    const btnBack = document.getElementById('btn-back');
+    if (currentUser.role === 'directeur' || currentUser.role === 'patron') {
+        btnBack.href        = '/index.html';
+        btnBack.textContent = '← Dashboard';
+        btnBack.style.display = '';
+    } else if (currentUser.role === 'staff') {
+        btnBack.href        = '/planning.html';
+        btnBack.textContent = '← Planning';
+        btnBack.style.display = '';
+    }
+
+    // ── Établissement actif selon le rôle ───────────────────────────────────
+    const estabParam = new URLSearchParams(location.search).get('estab');
+
     if (currentUser.role === 'etablissement') {
-        // Compte établissement — établissement fixé
         currentEstabId = currentUser.establishment_id;
     } else if (currentUser.role === 'staff') {
-        // Staff responsable de soirée — établissement passé via ?estab=
-        document.getElementById('btn-back').style.display = '';
-        const estabParam = new URLSearchParams(location.search).get('estab');
+        // Staff responsable de soirée — ?estab= obligatoire
         if (!estabParam) { window.location.href = '/planning.html'; return; }
         currentEstabId = estabParam;
     } else {
-        // Directeur ou patron — lien retour + sélecteur d'établissement
-        document.getElementById('btn-back').style.display = '';
-        // Si ?estab= fourni (lien direct depuis planning.html), pré-sélectionner
-        const estabParam = new URLSearchParams(location.search).get('estab');
+        // Directeur ou patron — ?estab optionnel
         if (estabParam) currentEstabId = estabParam;
     }
 
-    // Charger les établissements pour le header + sélecteur
-    try {
-        const r = await fetch('/api/establishments', { credentials: 'include' });
-        if (r.ok) {
-            const allEstabs = await r.json();
+    // ── Résolution nom d'établissement + sélecteur multi-établissements ─────
+    if (estabRes && estabRes.ok) {
+        const allEstabs = await estabRes.json();
 
-            // Établir la liste visible selon le rôle
-            let myEstabs = allEstabs;
-            if (currentUser.role === 'directeur') {
-                const assigned = currentUser.assigned_establishments || [];
-                myEstabs = allEstabs.filter(e => assigned.includes(e.id || String(e._id)));
-            } else if (currentUser.role === 'staff' || currentUser.role === 'etablissement') {
-                myEstabs = allEstabs.filter(e => (e.id || String(e._id)) === currentEstabId);
-            }
-
-            if (myEstabs.length === 0 && currentUser.role !== 'patron') {
-                window.location.href = '/planning.html'; return;
-            }
-
-            // Nom de l'établissement courant dans le header
-            const active = myEstabs.find(e => (e.id || String(e._id)) === currentEstabId) || myEstabs[0];
-            if (active) {
-                currentEstabId = currentEstabId || (active.id || String(active._id));
-                document.getElementById('header-title').textContent = 'Pointage — ' + active.name;
-            }
-
-            // Sélecteur uniquement si plusieurs établissements (directeur/patron sans ?estab)
-            if (myEstabs.length > 1 && !new URLSearchParams(location.search).get('estab')) {
-                const sel = document.getElementById('estab-select');
-                const bar = document.getElementById('estab-select-bar');
-                myEstabs.forEach(e => {
-                    const opt       = document.createElement('option');
-                    opt.value       = e.id || String(e._id);
-                    opt.textContent = e.name;
-                    if (opt.value === currentEstabId) opt.selected = true;
-                    sel.appendChild(opt);
-                });
-                if (!currentEstabId) currentEstabId = myEstabs[0].id || String(myEstabs[0]._id);
-                bar.classList.add('visible');
-                sel.addEventListener('change', () => {
-                    const chosen = myEstabs.find(e => (e.id || String(e._id)) === sel.value);
-                    currentEstabId = sel.value;
-                    document.getElementById('header-title').textContent = 'Pointage — ' + (chosen ? chosen.name : sel.value);
-                    loadShifts();
-                });
-            }
+        let myEstabs = allEstabs;
+        if (currentUser.role === 'directeur') {
+            const assigned = currentUser.assigned_establishments || [];
+            myEstabs = allEstabs.filter(e => assigned.includes(e.id || String(e._id)));
+        } else if (currentUser.role === 'staff' || currentUser.role === 'etablissement') {
+            myEstabs = allEstabs.filter(e => (e.id || String(e._id)) === currentEstabId);
         }
-    } catch {}
+
+        if (myEstabs.length === 0 && currentUser.role !== 'patron') {
+            // Directeur sans établissement assigné → retour dashboard
+            window.location.href = '/index.html'; return;
+        }
+
+        // Établissement courant dans le header
+        const active = myEstabs.find(e => (e.id || String(e._id)) === currentEstabId) || myEstabs[0];
+        if (active) {
+            if (!currentEstabId) currentEstabId = active.id || String(active._id);
+            document.getElementById('header-title').textContent = 'Pointage — ' + active.name;
+        }
+
+        // Sélecteur multi-établissements (directeur/patron sans ?estab fixé)
+        if (myEstabs.length > 1 && !estabParam) {
+            const sel = document.getElementById('estab-select');
+            const bar = document.getElementById('estab-select-bar');
+            myEstabs.forEach(e => {
+                const opt       = document.createElement('option');
+                opt.value       = e.id || String(e._id);
+                opt.textContent = e.name;
+                if (opt.value === currentEstabId) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            bar.classList.add('visible');
+            sel.addEventListener('change', () => {
+                const chosen = myEstabs.find(e => (e.id || String(e._id)) === sel.value);
+                currentEstabId  = sel.value;
+                document.getElementById('header-title').textContent = 'Pointage — ' + (chosen ? chosen.name : sel.value);
+                loadShifts();
+            });
+        }
     }
 
     await loadShifts();
