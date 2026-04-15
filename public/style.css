@@ -534,9 +534,9 @@ label[for], select, .tab-btn, .staff-card, .shift-card {
 
 /* ── Bouton logout (header) ──────────────────────────────────────────────────*/
 .btn-logout {
-  padding: 5px 10px; border-radius: var(--radius-sm);
+  height: 30px; padding: 0 10px; border-radius: var(--radius);
   border: 1px solid rgba(255,255,255,0.12); background: none;
-  font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.45);
+  font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.45);
   cursor: pointer; transition: all var(--transition);
   font-family: var(--font); white-space: nowrap;
   display: inline-flex; align-items: center; gap: 5px;

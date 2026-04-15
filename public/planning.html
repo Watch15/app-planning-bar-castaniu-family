@@ -870,7 +870,10 @@ function renderDaysInto(from, shifts, colleagues, list, jokers) {
             const dayJokers     = jokers.filter(j => j.date === date && j.establishment_id === shift.establishment_id);
             const allColleagues = [...dayColleagues, ...dayJokers];
 
-            const colleaguesHtml = allColleagues.length > 0
+            // Si même établissement que le shift principal (idx=0), ne pas ré-afficher les collègues
+            const sameEstabAsFirst = idx > 0 && shift.establishment_id === firstShift.establishment_id;
+
+            const colleaguesHtml = (!sameEstabAsFirst && allColleagues.length > 0)
                 ? '<div class="colleagues-row"><span class="colleagues-lbl">Collègues</span>' +
                     allColleagues.map(c => {
                         const sm2 = allStaff.find(s => String(s._id) === c.staff_id);
