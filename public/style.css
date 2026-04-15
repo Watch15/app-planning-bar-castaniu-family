@@ -290,6 +290,15 @@ a:hover { color: var(--accent-soft); }
   display: none; align-items: center; justify-content: center; z-index: 20; line-height: 1;
 }
 .shift:hover .shift-delete { display: flex; }
+.shift-resp-btn {
+  position: absolute; top: -6px; left: -6px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--dark-surface); color: #f0c040; border: none; font-size: 9px; cursor: pointer;
+  display: none; align-items: center; justify-content: center; z-index: 20; line-height: 1;
+  padding: 0;
+}
+.shift:hover .shift-resp-btn { display: flex; }
+.shift-resp-btn.active { display: flex; background: #f0c040; color: var(--dark-bg); }
 .resizer {
   position: absolute; top: 0; width: 16px; height: 100%;
   cursor: ew-resize; z-index: 11;
