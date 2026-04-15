@@ -59,7 +59,10 @@
         .header-left  { display: flex; align-items: center; gap: 10px; }
         .header-logo  { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.2px; }
         .header-week  { font-size: 11px; color: rgba(255,255,255,0.40); margin-top: 1px; }
-        /* btn-logout hérite du style global (style.css) */
+        /* ── Header right + séparateur ── */
+        .header-right { display: flex; align-items: center; gap: 8px; }
+        .header-sep   { width: 1px; height: 18px; background: var(--dark-border); flex-shrink: 0; margin: 0 2px; }
+
         .user-avatar-sm {
             width: 28px; height: 28px; border-radius: 50%;
             background: var(--accent-soft);
@@ -67,7 +70,21 @@
             font-size: 11px; font-weight: 600; color: #fff; flex-shrink: 0;
             border: 1.5px solid rgba(255,255,255,0.15);
         }
-        /* .header-right hérite de style.css */
+
+        /* ── Bouton logout ── */
+        .btn-logout {
+            height: 30px; padding: 0 10px; border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.12); background: none;
+            font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.45);
+            cursor: pointer; transition: all 0.15s;
+            font-family: var(--font); white-space: nowrap;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+        .btn-logout:hover {
+            color: rgba(255,255,255,0.80);
+            border-color: rgba(255,255,255,0.28);
+            background: rgba(255,255,255,0.06);
+        }
 
         /* ── Onglets ── */
         .tabs-bar {
