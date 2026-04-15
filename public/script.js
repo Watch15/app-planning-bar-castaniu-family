@@ -1260,8 +1260,10 @@ function openRealHoursModal(shift, shiftEl) {
             '</div>' +
             '<div id="_rh-ecart" style="text-align:center;font-size:12px;color:#aaa;min-height:18px;margin-bottom:14px"></div>' +
             ((() => {
-                const shiftRoleIds   = shift.roles || [];
-                const hasResponsable = allRoles.some(r => r.type === 'responsable' && shiftRoleIds.includes(String(r._id)));
+                // Vérifier si le staff associé a un rôle "responsable"
+                const staffMember    = allStaff.find(s => String(s._id) === String(shift.staff_id));
+                const staffRoleIds   = (staffMember && staffMember.roles) || [];
+                const hasResponsable = allRoles.some(r => r.type === 'responsable' && staffRoleIds.includes(String(r._id)));
                 if (!hasResponsable) return '';
                 const active = shift.pointage_resp === true;
                 return '<div id="_rh-resp-row" style="display:flex;align-items:center;gap:10px;background:#f8f8f8;border:1.5px solid ' + (active ? '#534AB7' : '#e0e0e0') + ';border-radius:8px;padding:10px 12px;margin-bottom:14px;cursor:pointer" title="Désigner ce staff comme responsable du pointage ce soir">' +

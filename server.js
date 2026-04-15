@@ -314,30 +314,51 @@ function canAccessEstablishment(user, establishmentId) {
 
 // Vérifie si un staff est responsable de soirée pour un établissement à une date donnée
 // Vérifie si un staff est le responsable de pointage pour un établissement à une date donnée.
-// Règle : shift avec rôle 'responsable' ET pointage_resp:true
-//         (si aucun shift n'a pointage_resp, fallback : premier shift avec rôle responsable)
+// Les rôles sont portés par le profil staff, pas par le shift.
+// Règle : parmi les shifts de cet établissement/date dont le staff a un rôle 'responsable',
+//         seul celui avec pointage_resp:true peut faire le pointage
+//         (fallback si aucun désigné : premier staff_name alphabétique)
 async function isResponsablePourSoiree(staffId, establishmentId, date) {
     if (!staffId || !establishmentId || !date) return false;
+
+    // Trouver les IDs de rôles de type 'responsable'
     const responsableRoles = await db.collection('roles').find({ type: 'responsable' }).toArray();
     const responsableIds   = responsableRoles.map(r => String(r._id));
     if (responsableIds.length === 0) return false;
 
-    // Chercher un shift pointage_resp explicitement désigné pour cet établissement
-    const allResponsableShifts = await db.collection('shifts').find({
+    // Tous les shifts de cet établissement ce jour-là
+    const allShifts = await db.collection('shifts').find({
         establishment_id: establishmentId,
         date,
-        roles: { $in: responsableIds },
+        staff_id: { $ne: '__joker__' },
     }).toArray();
+    if (allShifts.length === 0) return false;
 
-    if (allResponsableShifts.length === 0) return false;
+    // Trouver les profils staff pour ces shifts
+    const staffIds  = [...new Set(allShifts.map(s => s.staff_id))];
+    const staffDocs = await db.collection('staff').find({
+        $or: staffIds.filter(id => id && id.length === 24).map(id => ({ _id: new ObjectId(id) }))
+    }).toArray();
+    const staffMap  = {};
+    staffDocs.forEach(s => { staffMap[String(s._id)] = s; });
 
-    const designated = allResponsableShifts.find(s => s.pointage_resp === true);
+    // Filtrer les shifts dont le staff a un rôle responsable
+    const responsableShifts = allShifts.filter(shift => {
+        const staffDoc  = staffMap[String(shift.staff_id)];
+        const staffRoles = (staffDoc && staffDoc.roles) || [];
+        return staffRoles.some(r => responsableIds.includes(r));
+    });
+
+    if (responsableShifts.length === 0) return false;
+
+    // Quelqu'un est-il explicitement désigné pointage_resp ?
+    const designated = responsableShifts.find(s => s.pointage_resp === true);
     if (designated) {
         return String(designated.staff_id) === String(staffId);
     }
-    // Aucun désigné → le premier responsable (ordre alphabétique stable) peut faire le pointage
-    allResponsableShifts.sort((a, b) => a.staff_name.localeCompare(b.staff_name, 'fr'));
-    return String(allResponsableShifts[0].staff_id) === String(staffId);
+    // Fallback : premier shift responsable par ordre alphabétique staff_name
+    responsableShifts.sort((a, b) => a.staff_name.localeCompare(b.staff_name, 'fr'));
+    return String(responsableShifts[0].staff_id) === String(staffId);
 }
 
 // Compte établissement uniquement
@@ -1674,18 +1695,23 @@ app.get('/api/me/responsable-tonight', checkDB, requireAuth, async (req, res) =>
 
         if (!user.staff_id) return res.json({ isResponsable: false });
 
-        // Staff : chercher ses shifts du jour avec rôle responsable
-        const responsableRoles = await db.collection('roles').find({ type: 'responsable' }).toArray();
-        const responsableIds   = responsableRoles.map(r => String(r._id));
-        if (responsableIds.length === 0) return res.json({ isResponsable: false });
-
+        // Staff : chercher ses shifts du jour (les rôles sont sur le profil staff, pas le shift)
         const myShifts = await db.collection('shifts').find({
             staff_id: user.staff_id,
             date,
-            roles: { $in: responsableIds },
         }).toArray();
 
         if (myShifts.length === 0) return res.json({ isResponsable: false });
+
+        // Vérifier que ce staff a bien un rôle 'responsable' dans son profil
+        const staffDoc = isValidObjectId(user.staff_id)
+            ? await db.collection('staff').findOne({ _id: new ObjectId(user.staff_id) })
+            : null;
+        const responsableRoles = await db.collection('roles').find({ type: 'responsable' }).toArray();
+        const responsableIds   = responsableRoles.map(r => String(r._id));
+        const staffRoles       = (staffDoc && staffDoc.roles) || [];
+        const isResp = staffRoles.some(r => responsableIds.includes(r));
+        if (!isResp) return res.json({ isResponsable: false });
 
         // Vérifier pour chaque établissement si ce staff est LE responsable de pointage
         const accessibleEstabs = [];
