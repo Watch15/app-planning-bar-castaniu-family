@@ -954,10 +954,10 @@ async function loadDisposTab() {
 
     if (!dispoSettings.canSubmit) {
         statusEl.textContent   = dispoSettings.deadlinePassed
-            ? 'Deadline dépassée (' + fmtDate + '). Réouverture la semaine prochaine.'
+            ? 'Deadline dépassée le ' + fmtDate + '.'
             : 'Saisie fermée par le responsable.';
         statusEl.style.color   = '#e74c3c';
-        formEl.innerHTML       = '<div style="padding:20px 0;text-align:center;color:#ccc;font-size:14px">La saisie des disponibilités n\'est pas disponible.</div>';
+        formEl.innerHTML       = '<div style="padding:20px 0;text-align:center;color:#ccc;font-size:14px">La saisie des disponibilités n\'est pas disponible pour le moment.</div>';
         btnSubmit.disabled     = true;
         btnSubmit.style.background = '#ccc';
         return;

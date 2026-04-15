@@ -1322,18 +1322,41 @@ app.post('/api/copy-day', checkDB, requirePatron, async (req, res) => {
 
 // ── Disponibilités ────────────────────────────────────────────────────────────
 
+/**
+ * Calcule la deadline effective de la semaine courante.
+ * Si un custom_deadline (ISO string) est fourni, on extrait son jour-de-semaine
+ * et son heure pour recalculer la prochaine occurrence — même logique que le
+ * vendredi 13h par défaut, ce qui évite le gel de la date d'une semaine à l'autre.
+ */
+function computeEffectiveDeadline(customDeadlineIso, now) {
+    const day = now.getDay(); // 0=dim … 6=sam
+    if (customDeadlineIso) {
+        const stored    = new Date(customDeadlineIso);
+        const targetDay = stored.getDay();
+        const targetH   = stored.getHours();
+        const targetM   = stored.getMinutes();
+        // Nombre de jours jusqu'au prochain targetDay (0 si c'est aujourd'hui)
+        const diff = day <= targetDay ? targetDay - day : targetDay - day + 7;
+        const result = new Date(now);
+        result.setDate(now.getDate() + diff);
+        result.setHours(targetH, targetM, 0, 0);
+        return result;
+    }
+    // Défaut : vendredi 13h de la semaine courante
+    const diff = day <= 5 ? 5 - day : 5 - day + 7;
+    const friday = new Date(now);
+    friday.setDate(now.getDate() + diff);
+    friday.setHours(13, 0, 0, 0);
+    return friday;
+}
+
 app.get('/api/dispo-settings', checkDB, requireAuth, async (req, res) => {
     try {
         const settings = await db.collection('settings').findOne({ key: 'dispo' }) || { open: true, message: null };
         const now    = new Date();
-        const day    = now.getDay();
-        const diff   = day <= 5 ? 5 - day : 5 - day + 7;
-        const friday = new Date(now);
-        friday.setDate(now.getDate() + diff);
-        friday.setHours(13, 0, 0, 0);
         const forceOpen = !!settings.force_open;
         const customDeadline = settings.custom_deadline || null;
-        const effectiveDeadline = customDeadline ? new Date(customDeadline) : friday;
+        const effectiveDeadline = computeEffectiveDeadline(customDeadline, now);
         const effectiveDeadlinePassed = now > effectiveDeadline;
 
         // Vérifier si ce staff a le droit d'envoyer des dispos
@@ -1391,14 +1414,9 @@ app.post('/api/dispos', checkDB, requireAuth, async (req, res) => {
         return res.status(403).json({ error: 'Tu n\'es pas autorisé à envoyer des disponibilités.' });
     const settings = await db.collection('settings').findOne({ key: 'dispo' }) || { open: true };
     const now = new Date();
-    const day = now.getDay();
-    const diff = day <= 5 ? 5 - day : 5 - day + 7;
-    const friday = new Date(now);
-    friday.setDate(now.getDate() + diff);
-    friday.setHours(13, 0, 0, 0);
     if (!settings.open) return res.status(403).json({ error: 'La saisie des disponibilités est fermée.' });
-    const effectiveFriday = settings.custom_deadline ? new Date(settings.custom_deadline) : friday;
-    if (!settings.force_open && now > effectiveFriday)
+    const effectiveDeadline = computeEffectiveDeadline(settings.custom_deadline || null, now);
+    if (!settings.force_open && now > effectiveDeadline)
         return res.status(403).json({ error: 'La deadline est passée.' });
     const { dispos } = req.body;
     if (!Array.isArray(dispos) || dispos.length === 0) return res.status(400).json({ error: 'Aucune disponibilité fournie' });
