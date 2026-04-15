@@ -151,6 +151,31 @@ function showTextPrompt(message, placeholder, onConfirm) {
     input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') close(); });
 }
 
+function showNotePrompt(title, defaultVal, onConfirm) {
+    const mob = window.innerWidth < 768;
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:' + (mob ? 'flex-end' : 'center') + ';justify-content:center;padding:' + (mob ? '0' : '20px');
+    overlay.innerHTML =
+        '<div style="background:white;border-radius:' + (mob ? '20px 20px 0 0' : '14px') + ';padding:' + (mob ? '24px 24px max(20px,env(safe-area-inset-bottom))' : '24px') + ';max-width:' + (mob ? '100%' : '420px') + ';width:100%;box-shadow:0 -4px 32px rgba(0,0,0,0.18)">' +
+            '<p style="font-size:14px;font-weight:600;color:#1a1a2e;margin-bottom:12px">' + title + '</p>' +
+            '<textarea id="_np" placeholder="Ex: S\'occuper de la caisse, arriver 30 min avant…" rows="3" style="width:100%;padding:11px 14px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:16px;font-family:inherit;outline:none;resize:none;margin-bottom:16px;box-sizing:border-box;line-height:1.5">' + (defaultVal || '') + '</textarea>' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+                (defaultVal ? '<button id="_nd" style="padding:10px 14px;border-radius:8px;border:1px solid #fca5a5;background:white;font-size:13px;cursor:pointer;color:#ef4444;margin-right:auto">Effacer</button>' : '') +
+                '<button id="_nc" style="padding:10px 18px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:14px;cursor:pointer;color:#555">Annuler</button>' +
+                '<button id="_no" style="padding:10px 18px;border-radius:8px;border:none;background:#1a1a2e;color:white;font-size:14px;font-weight:600;cursor:pointer">Enregistrer</button>' +
+            '</div>' +
+        '</div>';
+    document.body.appendChild(overlay);
+    const textarea = overlay.querySelector('#_np');
+    const close    = () => document.body.removeChild(overlay);
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    overlay.querySelector('#_no').addEventListener('click', () => { close(); onConfirm(textarea.value.trim()); });
+    overlay.querySelector('#_nc').addEventListener('click', close);
+    if (defaultVal) overlay.querySelector('#_nd').addEventListener('click', () => { close(); onConfirm(''); });
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+}
+
 // ── Utilitaires date ──────────────────────────────────────────────────────────
 
 // Parseur de date YYYY-MM-DD sans décalage timezone
@@ -1155,14 +1180,30 @@ function createShiftEl(shift) {
         ? `<button class="shift-resp-btn${shift.pointage_resp ? ' active' : ''}" title="Responsable pointage">👑</button>`
         : '';
 
+    const isJoker  = shift.is_joker || shift.staff_id === '__joker__';
+    const noteIcon = isJoker && shift.note
+        ? `<span class="shift-note-icon" title="${shift.note.replace(/"/g,'&quot;')}">📝</span>`
+        : '';
+
     el.innerHTML = `
         <div class="resizer left"></div>
         <span class="shift-name">${shift.staff_name}</span>
         <span class="shift-hours">${fmt(displayStart)} – ${fmt(displayEnd)}</span>
         ${realBadge}
+        ${noteIcon}
         ${respBtn}
         <button class="shift-delete" onclick="deleteShift(event, '${shift._id}', '${shift.staff_id}')">×</button>
         <div class="resizer right"></div>`;
+
+    // Clic sur un Joker → modale note
+    if (isJoker) {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', e => {
+            if (e.target.closest('.resizer') || e.target.closest('.shift-delete')) return;
+            if (_shiftWasDragged) { _shiftWasDragged = false; return; }
+            openJokerNoteModal(shift, el);
+        });
+    }
 
     // Clic → modale horaires (mobile : édition planifié | desktop : heures réelles)
     if (!shift.is_joker && shift.staff_id !== '__joker__') {
@@ -1615,6 +1656,41 @@ async function assignStaffToJoker(staff, jokerEl) {
         renderStats();
         showToast(staff.name + ' assigné au shift Joker');
     } catch { showToast('Erreur réseau', true); }
+}
+
+// ── Note sur un shift Joker ───────────────────────────────────────────────────
+
+async function openJokerNoteModal(shift, el) {
+    showNotePrompt(
+        '📝 Note sur ce créneau Joker',
+        shift.note || '',
+        async (note) => {
+            try {
+                const res = await fetch('/api/shifts/' + shift._id, {
+                    method: 'PATCH', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ note }),
+                });
+                if (!res.ok) { showToast('Erreur lors de la sauvegarde', true); return; }
+                shift.note = note;
+                // Mettre à jour l'icône note dans le DOM sans re-rendre tout le shift
+                const existing = el.querySelector('.shift-note-icon');
+                if (note) {
+                    if (existing) { existing.title = note; }
+                    else {
+                        const icon = document.createElement('span');
+                        icon.className = 'shift-note-icon';
+                        icon.title     = note;
+                        icon.textContent = '📝';
+                        el.querySelector('.shift-hours').after(icon);
+                    }
+                } else {
+                    if (existing) existing.remove();
+                }
+                showToast(note ? 'Note enregistrée' : 'Note effacée');
+            } catch { showToast('Erreur réseau', true); }
+        }
+    );
 }
 
 async function createShift(staff, startTime, endTime) {

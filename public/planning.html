@@ -863,9 +863,16 @@ function renderDaysInto(from, shifts, colleagues, list, jokers) {
                         const sm = allStaff.find(s => String(s._id) === c.staff_id);
                         const nameColor = sm && sm.name_color ? sm.name_color : '';
                         const nameStyle = nameColor ? ' style="color:' + nameColor + '"' : '';
-                        return '<span class="colleague-pill"><span class="colleague-dot" style="background:' + (c.is_joker ? '#95a5a6' : (c.color || '#888')) + '"></span><span' + nameStyle + '>' + (c.is_joker ? 'Joker' : c.staff_name) + '</span></span>';
+                        const noteIcon  = c.is_joker && c.note ? ' 📝' : '';
+                        return '<span class="colleague-pill"><span class="colleague-dot" style="background:' + (c.is_joker ? '#95a5a6' : (c.color || '#888')) + '"></span><span' + nameStyle + '>' + (c.is_joker ? 'Joker' + noteIcon : c.staff_name) + '</span></span>';
                     }).join('');
                     html += '<div class="colleagues-row"><span class="colleagues-lbl">Collègues</span>' + pills + '</div>';
+                    // Notes des Jokers
+                    dayJokers.forEach(j => {
+                        if (j.note) {
+                            html += '<div style="font-size:11px;color:#6b7280;font-style:italic;margin-top:4px;padding:6px 10px;background:#f9fafb;border-radius:6px;border-left:3px solid #d1d5db">📝 ' + j.note.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+                        }
+                    });
                 }
                 block.innerHTML = html;
                 card.appendChild(block);

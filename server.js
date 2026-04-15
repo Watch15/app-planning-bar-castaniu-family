@@ -1081,7 +1081,7 @@ app.get('/api/week-full/:establishmentId', checkDB, requireAuth, async (req, res
 // ── Shifts — écriture ─────────────────────────────────────────────────────────
 
 app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
-    const { staff_id, staff_name, establishment_id, date, start_time, end_time, color, is_joker } = req.body;
+    const { staff_id, staff_name, establishment_id, date, start_time, end_time, color, is_joker, note } = req.body;
     if (!staff_id || !establishment_id || !date || start_time == null || end_time == null)
         return res.status(400).json({ error: 'staff_id, establishment_id, date, start_time, end_time requis' });
     if (end_time <= start_time) return res.status(400).json({ error: 'end_time > start_time requis' });
@@ -1108,6 +1108,7 @@ app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
             start_time: parseFloat(start_time), end_time: parseFloat(end_time),
             color: color || '#95a5a6',
             ...(is_joker || staff_id === '__joker__' ? { is_joker: true } : {}),
+            ...(note ? { note: String(note).slice(0, 280) } : {}),
         };
         const result = await db.collection('shifts').insertOne(shift);
 
@@ -1151,10 +1152,11 @@ app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
 
 app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
-    const { start_time, end_time, staff_id, staff_name, color, is_joker } = req.body;
+    const { start_time, end_time, staff_id, staff_name, color, is_joker, note } = req.body;
     const assigningStaff = staff_id !== undefined;
-    if (!assigningStaff && start_time == null && end_time == null)
-        return res.status(400).json({ error: 'start_time, end_time ou staff_id requis' });
+    const updatingNote   = note !== undefined;
+    if (!assigningStaff && !updatingNote && start_time == null && end_time == null)
+        return res.status(400).json({ error: 'start_time, end_time, staff_id ou note requis' });
     try {
         const existing = await db.collection('shifts').findOne({ _id: new ObjectId(req.params.id) });
         if (!existing) return res.status(404).json({ error: 'Shift introuvable' });
@@ -1166,6 +1168,9 @@ app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
         if (newEnd <= newStart) return res.status(400).json({ error: 'end_time > start_time requis' });
 
         const updateFields = { start_time: newStart, end_time: newEnd };
+
+        // Note sur un Joker
+        if (updatingNote) updateFields.note = String(note).slice(0, 280);
 
         // Affectation d'un vrai staff sur un Joker
         if (assigningStaff) {

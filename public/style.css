@@ -290,6 +290,10 @@ a:hover { color: var(--accent-soft); }
   display: none; align-items: center; justify-content: center; z-index: 20; line-height: 1;
 }
 .shift:hover .shift-delete { display: flex; }
+.shift-note-icon {
+  font-size: 10px; pointer-events: none; flex-shrink: 0; opacity: 0.85;
+}
+.shift-joker { cursor: pointer; }
 .shift-resp-btn {
   position: absolute; top: -6px; left: -6px;
   width: 16px; height: 16px; border-radius: 50%;
