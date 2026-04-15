@@ -75,7 +75,7 @@
             font-size: 11px; font-weight: 600; color: #fff; flex-shrink: 0;
             border: 1.5px solid rgba(255,255,255,0.15);
         }
-        .header-user { display: flex; align-items: center; gap: 8px; }
+        /* .header-right hérite de style.css */
 
         /* ── Onglets ── */
         .tabs-bar {
@@ -258,17 +258,20 @@
         .empty-week-text  { font-size: 15px; font-weight: 600; color: var(--text-muted); }
         .empty-week-sub   { font-size: 13px; color: var(--text-muted); margin-top: 4px; opacity: 0.7; }
 
-        /* ── Bouton notifications ── */
+        /* ── Bouton notifications push ── */
         .btn-notif {
             background: transparent;
             border: 1px solid var(--dark-border);
-            color: rgba(255,255,255,0.50); font-size: 16px;
-            width: 32px; height: 32px;
-            border-radius: 50%; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
+            color: rgba(255,255,255,0.50);
+            height: 30px; padding: 0 10px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            display: flex; align-items: center; gap: 5px;
             flex-shrink: 0; transition: all 0.15s;
+            font-family: var(--font); font-size: 13px; font-weight: 500;
         }
-        .btn-notif:hover  { border-color: var(--accent); color: var(--accent); }
+        .btn-notif span:first-child { font-size: 14px; }
+        .btn-notif:hover  { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
         .btn-notif.active { background: var(--accent); border-color: var(--accent); color: white; }
         .btn-notif.denied { opacity: 0.3; cursor: not-allowed; }
 
@@ -331,13 +334,14 @@
             <div class="header-week" id="header-week"></div>
         </div>
     </div>
-    <div class="header-user">
+    <div class="header-right">
         <div class="user-avatar-sm" id="staff-avatar">?</div>
-        <button class="btn-notif" id="btn-notif" title="Activer les notifications" onclick="togglePushSubscription()" style="display:flex;align-items:center;gap:5px;padding:0 10px;width:auto;font-size:13px">
-            <span style="font-size:15px">🔔</span>
-            <span id="btn-notif-label" style="font-size:11px;font-weight:600;letter-spacing:0.2px">Notifs</span>
+        <div class="header-sep"></div>
+        <button class="btn-notif" id="btn-notif" title="Activer les notifications" onclick="togglePushSubscription()">
+            <span>🔔</span>
+            <span id="btn-notif-label">Notifs</span>
         </button>
-        <button class="btn-logout" onclick="logout()">Déconnexion</button>
+        <button class="btn-logout" onclick="logout()">⎋ Sortir</button>
     </div>
 </div>
 
@@ -866,16 +870,9 @@ function renderDaysInto(from, shifts, colleagues, list, jokers) {
                         const sm = allStaff.find(s => String(s._id) === c.staff_id);
                         const nameColor = sm && sm.name_color ? sm.name_color : '';
                         const nameStyle = nameColor ? ' style="color:' + nameColor + '"' : '';
-                        const noteIcon  = c.is_joker && c.note ? ' 📝' : '';
-                        return '<span class="colleague-pill"><span class="colleague-dot" style="background:' + (c.is_joker ? '#95a5a6' : (c.color || '#888')) + '"></span><span' + nameStyle + '>' + (c.is_joker ? 'Joker' + noteIcon : c.staff_name) + '</span></span>';
+                        return '<span class="colleague-pill"><span class="colleague-dot" style="background:' + (c.is_joker ? '#95a5a6' : (c.color || '#888')) + '"></span><span' + nameStyle + '>' + (c.is_joker ? 'Joker' : c.staff_name) + '</span></span>';
                     }).join('');
                     html += '<div class="colleagues-row"><span class="colleagues-lbl">Collègues</span>' + pills + '</div>';
-                    // Notes des Jokers
-                    dayJokers.forEach(j => {
-                        if (j.note) {
-                            html += '<div style="font-size:11px;color:#6b7280;font-style:italic;margin-top:4px;padding:6px 10px;background:#f9fafb;border-radius:6px;border-left:3px solid #d1d5db">📝 ' + j.note.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
-                        }
-                    });
                 }
                 block.innerHTML = html;
                 card.appendChild(block);

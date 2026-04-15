@@ -3435,8 +3435,16 @@ async function loadDispoControl() {
         const toggle = document.getElementById('dispo-toggle');
         const label  = document.getElementById('dispo-toggle-label');
         if (!toggle || !label) return;
-        toggle.checked    = settings.open;
-        label.textContent = settings.open ? 'Dispos ouvertes' : 'Dispos fermées';
+        toggle.checked = settings.open;
+
+        function syncToggleUI(on) {
+            label.textContent = on ? 'Dispos ouvertes' : 'Saisie dispos';
+            const track = document.getElementById('dispo-toggle-track');
+            const thumb = document.getElementById('dispo-toggle-thumb');
+            if (track) track.style.background = on ? 'var(--success)' : 'var(--dark-border)';
+            if (thumb) thumb.style.transform   = on ? 'translateX(14px)' : 'translateX(0)';
+        }
+        syncToggleUI(settings.open);
 
         const panel = document.getElementById('dispo-advanced-panel');
         if (!panel) return;
@@ -3550,7 +3558,7 @@ async function loadDispoControl() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ open: toggle.checked }),
             });
-            label.textContent = toggle.checked ? 'Dispos ouvertes' : 'Dispos fermées';
+            syncToggleUI(toggle.checked);
             showToast(toggle.checked ? 'Saisie des dispos ouverte' : 'Saisie des dispos fermée');
         };
     } catch { }

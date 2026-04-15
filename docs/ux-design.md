@@ -78,7 +78,7 @@ Inter uniquement. Échelle : 11px (labels caps) → 13px (corps) → 14–15px (
 | Prio | ID | Action | Page |
 |---|---|---|---|
 | 🔴 Haut | PT-01 | État visuel "validé" sur les cartes pointage | pointage.html |
-| 🔴 Haut | PT-02 | Édition heure réelle depuis pointage.html | pointage.html |
+| 🔴 Haut | PT-02 | Édition heure réelle depuis pointage.html — patron/directeur uniquement (établissement = saisie unique verrouillée après enregistrement) | pointage.html |
 | 🔴 Haut | P-03 | Onglet pointage actif sur le shift du jour même si lendemain | planning.html |
 | 🟡 Moyen | I-01 | Header mobile allégé — tout dans le drawer | index.html |
 | 🟡 Moyen | PT-05 | Layout mobile inputs heures pointage | pointage.html |

@@ -534,11 +534,23 @@ label[for], select, .tab-btn, .staff-card, .shift-card {
 
 /* ── Bouton logout (header) ──────────────────────────────────────────────────*/
 .btn-logout {
-  padding: 4px 8px; border-radius: var(--radius-sm); border: none; background: none;
-  font-size: 11px; color: var(--dark-muted); cursor: pointer; transition: color var(--transition);
+  padding: 5px 10px; border-radius: var(--radius-sm);
+  border: 1px solid rgba(255,255,255,0.12); background: none;
+  font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.45);
+  cursor: pointer; transition: all var(--transition);
   font-family: var(--font); white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 5px;
 }
-.btn-logout:hover { color: rgba(255,255,255,0.80); }
+.btn-logout:hover {
+  color: rgba(255,255,255,0.80);
+  border-color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.06);
+}
+
+/* ── Séparateur header ───────────────────────────────────────────────────────*/
+.header-sep {
+  width: 1px; height: 18px; background: var(--dark-border); flex-shrink: 0; margin: 0 2px;
+}
 
 /* ── Badge utilisateur ───────────────────────────────────────────────────────*/
 .user-badge-wrap {

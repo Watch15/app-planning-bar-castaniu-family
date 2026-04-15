@@ -10,7 +10,7 @@ Add new items with a short description, context, and priority. Remove or move to
 | ID | Description | Area | Status |
 |---|---|---|---|
 | B-04 | **Barre staff verticale mobile** — sur téléphone vertical la barre est difficilement utilisable : scroll horizontal, cartes trop petites, recherche/filtres peu accessibles | Mobile / Staff bar | ✅ Done |
-| B-05 | **Touch OPEN_TIME bypass** — `onTouchEnd` vérifie `snappedLeft >= 0` mais pas `>= minL`, permet de poser un shift avant l'heure d'ouverture via drag touch | Timeline / Touch | À faire |
+| B-05 | **Touch OPEN_TIME bypass** — comportement voulu : le snap bloque avant l'ouverture pour la planification, les heures réelles peuvent dépasser librement | Timeline / Touch | ✅ By design |
 | B-06 | **Validation / erreurs inaccessibles mobile** — modales de confirmation et toasts d'erreur passent sous le clavier ou hors écran en mode portrait | Mobile / UX | ✅ Done |
 
 ---
