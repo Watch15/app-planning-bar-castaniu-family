@@ -1181,16 +1181,17 @@ function createShiftEl(shift) {
         : '';
 
     const isJoker  = shift.is_joker || shift.staff_id === '__joker__';
-    const noteIcon = isJoker && shift.note
-        ? `<span class="shift-note-icon" title="${shift.note.replace(/"/g,'&quot;')}">📝</span>`
+    const noteText = isJoker && shift.note
+        ? `<span class="shift-note-text">${shift.note.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`
         : '';
+    if (isJoker && shift.note) el.classList.add('has-note');
 
     el.innerHTML = `
         <div class="resizer left"></div>
         <span class="shift-name">${shift.staff_name}</span>
         <span class="shift-hours">${fmt(displayStart)} – ${fmt(displayEnd)}</span>
         ${realBadge}
-        ${noteIcon}
+        ${noteText}
         ${respBtn}
         <button class="shift-delete" onclick="deleteShift(event, '${shift._id}', '${shift.staff_id}')">×</button>
         <div class="resizer right"></div>`;
@@ -1673,19 +1674,21 @@ async function openJokerNoteModal(shift, el) {
                 });
                 if (!res.ok) { showToast('Erreur lors de la sauvegarde', true); return; }
                 shift.note = note;
-                // Mettre à jour l'icône note dans le DOM sans re-rendre tout le shift
-                const existing = el.querySelector('.shift-note-icon');
+                // Mettre à jour le texte note dans le DOM sans re-rendre tout le shift
+                const existing = el.querySelector('.shift-note-text');
                 if (note) {
-                    if (existing) { existing.title = note; }
+                    const safe = note.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                    if (existing) { existing.innerHTML = safe; }
                     else {
-                        const icon = document.createElement('span');
-                        icon.className = 'shift-note-icon';
-                        icon.title     = note;
-                        icon.textContent = '📝';
-                        el.querySelector('.shift-hours').after(icon);
+                        const span = document.createElement('span');
+                        span.className   = 'shift-note-text';
+                        span.innerHTML   = safe;
+                        el.querySelector('.shift-hours').after(span);
                     }
+                    el.classList.add('has-note');
                 } else {
                     if (existing) existing.remove();
+                    el.classList.remove('has-note');
                 }
                 showToast(note ? 'Note enregistrée' : 'Note effacée');
             } catch { showToast('Erreur réseau', true); }
