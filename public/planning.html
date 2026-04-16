@@ -406,6 +406,23 @@
     </button>
 </div>
 
+<!-- Modale échange de shift (F-05) -->
+<div id="swap-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:flex-end;justify-content:center">
+    <div style="background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;max-height:88vh;overflow-y:auto;padding:18px 16px 28px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-weight:700;font-size:16px;color:#1a1a2e">Proposer un échange</div>
+            <button id="swap-modal-close" style="background:none;border:none;font-size:22px;color:#888;cursor:pointer">&times;</button>
+        </div>
+        <div id="swap-source" style="background:#eef2ff;border:1.5px solid #534AB7;border-radius:10px;padding:10px 12px;margin-bottom:14px"></div>
+        <div style="font-size:12px;color:#666;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.4px">⇄ Contre un shift collègue</div>
+        <div id="swap-targets" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"><div style="padding:24px;text-align:center;color:#aaa;font-size:13px">Chargement…</div></div>
+        <textarea id="swap-note" placeholder="Note pour le patron (optionnel)" maxlength="280" style="width:100%;border:1.5px solid #e8eaed;border-radius:10px;padding:10px;font-size:14px;font-family:inherit;min-height:60px;resize:vertical;margin-bottom:14px"></textarea>
+        <button id="swap-submit" disabled style="width:100%;background:#534AB7;color:white;border:none;border-radius:12px;padding:12px;font-size:15px;font-weight:700;cursor:pointer;opacity:0.5">Envoyer la demande</button>
+    </div>
+</div>
+
+<div id="swap-toast" style="display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:white;padding:10px 16px;border-radius:10px;font-size:13px;z-index:2000;box-shadow:0 4px 16px rgba(0,0,0,0.2)"></div>
+
 <script>
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -537,6 +554,7 @@ async function init() {
         'Semaine du ' + monday.getDate() + ' ' + MONTH_NAMES[monday.getMonth()] +
         ' au ' + sunday.getDate() + ' ' + MONTH_NAMES[sunday.getMonth()];
 
+    window._currentPlan = { from, to, user };
     await loadPlanning(from, to, user);
     startStaffAutoRefresh(from, to, user);
 
@@ -681,6 +699,7 @@ async function loadPlanning(from, to, user) {
 
         const myShifts = data.shifts.filter(s => !s.is_joker && s.staff_id !== '__joker__');
         const jokers   = data.shifts.filter(s =>  s.is_joker || s.staff_id === '__joker__');
+        await loadMyPendingSwaps();
         renderStats(myShifts, prevTotalH);
         renderDays(from, myShifts, data.colleagues, jokers);
 
@@ -864,9 +883,19 @@ function renderDaysInto(from, shifts, colleagues, list, jokers) {
         card.className = 'day-card has-shift' + (isToday ? ' today' : '');
         if (!isToday) card.style.borderLeftColor = staffColor;
 
+        // Swap : état sur ce shift (si pending)
+        const pendingSwap = (window._myPendingSwaps || []).find(sw =>
+            sw.status === 'pending' && (sw.from_shift_id === firstShift._id || sw.to_shift_id === firstShift._id));
+        const isSwapMine  = pendingSwap && pendingSwap.from_staff_id === String(firstShift.staff_id);
+        const canSwap     = !isPast && !pendingSwap && firstShift.staff_id !== '__joker__';
+        const swapBadge   = pendingSwap
+            ? ' <span style="font-size:10px;font-weight:700;color:#b7791f;background:#fff3cd;border:1px solid #f39c12;border-radius:4px;padding:1px 5px">⇄ en attente</span>'
+            : '';
+
         // En-tête
         const header = document.createElement('div');
         header.className = 'day-header';
+        if (canSwap) header.style.cursor = 'pointer';
         header.innerHTML =
             '<div class="day-date-block">' +
                 '<div class="day-weekday">' + DAY_NAMES[d.getDay()] + '</div>' +
@@ -875,10 +904,16 @@ function renderDaysInto(from, shifts, colleagues, list, jokers) {
             '<div class="day-divider"></div>' +
             '<div class="day-header-info">' +
                 '<div class="day-establishment">' + formatEstablishment(firstShift.establishment_id) + '</div>' +
-                '<div class="day-duration">' + durLabel + '</div>' +
+                '<div class="day-duration">' + durLabel + swapBadge + '</div>' +
             '</div>' +
             (isToday ? '<span class="today-chip">Aujourd hui</span>' : '') +
             '<span class="shift-hours-badge">' + fmtHour(dispStart) + ' → ' + fmtHour(dispEnd) + realBadge + '</span>';
+        if (canSwap) {
+            header.addEventListener('click', () => openSwapModal(firstShift));
+        } else if (isSwapMine) {
+            header.style.cursor = 'pointer';
+            header.addEventListener('click', () => cancelMySwap(pendingSwap._id));
+        }
         card.appendChild(header);
 
         // Collègues du 1er shift + shifts supplémentaires
@@ -1352,6 +1387,156 @@ async function startStaffAutoRefresh(from, to, user) {
         } catch { /* silencieux */ }
     }, 30000);
 }
+
+// ── Échanges de shifts (F-05) ─────────────────────────────────────────────────
+
+window._myPendingSwaps = [];
+
+function showSwapToast(msg, isError) {
+    const el = document.getElementById('swap-toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.background = isError ? '#c0392b' : '#1a1a2e';
+    el.style.display = 'block';
+    clearTimeout(window._swapToastT);
+    window._swapToastT = setTimeout(() => { el.style.display = 'none'; }, 3200);
+}
+
+async function loadMyPendingSwaps() {
+    try {
+        const res = await fetch('/api/shift-swaps/mine', { credentials: 'include' });
+        if (!res.ok) { window._myPendingSwaps = []; return; }
+        window._myPendingSwaps = await res.json();
+    } catch { window._myPendingSwaps = []; }
+}
+
+let _swapSource = null;
+let _swapTarget = null;
+
+async function openSwapModal(shift) {
+    _swapSource = shift;
+    _swapTarget = null;
+    const modal = document.getElementById('swap-modal');
+    modal.style.display = 'flex';
+
+    const src = document.getElementById('swap-source');
+    src.innerHTML =
+        '<div style="font-size:10px;color:#534AB7;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:4px">Votre shift</div>' +
+        '<div style="font-weight:700;font-size:14px;color:#1a1a2e">' + _fmtSwapDate(shift.date) + ' · ' + fmtHour(shift.start_time) + ' → ' + fmtHour(shift.end_time) + '</div>' +
+        '<div style="font-size:12px;color:#555;margin-top:2px">' + formatEstablishment(shift.establishment_id) + '</div>';
+
+    document.getElementById('swap-note').value = '';
+    const btn = document.getElementById('swap-submit');
+    btn.disabled = true; btn.style.opacity = '0.5';
+
+    // Charger les shifts échangeables (4 semaines glissantes depuis aujourd'hui)
+    const targets = document.getElementById('swap-targets');
+    targets.innerHTML = '<div style="padding:24px;text-align:center;color:#aaa;font-size:13px">Chargement…</div>';
+    try {
+        const today = new Date();
+        const from = toDateStr(today);
+        const to   = toDateStr(addDays(today, 28));
+        const res  = await fetch('/api/shifts-for-swap?from=' + from + '&to=' + to, { credentials: 'include' });
+        const list = await res.json();
+        if (!res.ok) throw new Error(list.error || 'Erreur');
+        // Exclure le shift source
+        const eligible = list.filter(s => s._id !== shift._id);
+        if (eligible.length === 0) {
+            targets.innerHTML = '<div style="padding:24px;text-align:center;color:#aaa;font-size:13px">Aucun shift collègue échangeable dans les 4 prochaines semaines</div>';
+            return;
+        }
+        targets.innerHTML = '';
+        eligible.forEach(t => {
+            const item = document.createElement('div');
+            item.style.cssText = 'border:1.5px solid #e8eaed;border-radius:10px;padding:10px 12px;cursor:pointer;transition:all 0.15s;background:white';
+            item.innerHTML =
+                '<div style="display:flex;align-items:center;gap:8px">' +
+                    '<span style="width:10px;height:10px;border-radius:50%;background:' + (t.color || '#888') + ';flex-shrink:0"></span>' +
+                    '<div style="flex:1;min-width:0">' +
+                        '<div style="font-weight:700;font-size:13px;color:#1a1a2e">' + (t.staff_name || '—') + '</div>' +
+                        '<div style="font-size:12px;color:#555">' + _fmtSwapDate(t.date) + ' · ' + fmtHour(t.start_time) + ' → ' + fmtHour(t.end_time) + '</div>' +
+                        '<div style="font-size:11px;color:#888">' + formatEstablishment(t.establishment_id) + '</div>' +
+                    '</div>' +
+                '</div>';
+            item.addEventListener('click', () => {
+                _swapTarget = t;
+                [...targets.children].forEach(c => { c.style.borderColor = '#e8eaed'; c.style.background = 'white'; });
+                item.style.borderColor = '#534AB7';
+                item.style.background  = '#eef2ff';
+                const b = document.getElementById('swap-submit');
+                b.disabled = false; b.style.opacity = '1';
+            });
+            targets.appendChild(item);
+        });
+    } catch (e) {
+        targets.innerHTML = '<div style="padding:16px;text-align:center;color:#e74c3c;font-size:13px">' + (e.message || 'Erreur') + '</div>';
+    }
+}
+
+function closeSwapModal() {
+    const modal = document.getElementById('swap-modal');
+    if (modal) modal.style.display = 'none';
+    _swapSource = null;
+    _swapTarget = null;
+}
+
+async function submitSwap() {
+    if (!_swapSource || !_swapTarget) return;
+    const btn = document.getElementById('swap-submit');
+    btn.disabled = true; btn.textContent = 'Envoi…';
+    try {
+        const note = document.getElementById('swap-note').value.trim();
+        const res = await fetch('/api/shift-swaps', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from_shift_id: _swapSource._id, to_shift_id: _swapTarget._id, note }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erreur');
+        showSwapToast('Demande envoyée au patron');
+        closeSwapModal();
+        await loadMyPendingSwaps();
+        const p = window._currentPlan;
+        if (p) await loadPlanning(p.from, p.to, p.user);
+    } catch (e) {
+        showSwapToast(e.message || 'Erreur', true);
+        btn.disabled = false;
+    } finally {
+        btn.textContent = 'Envoyer la demande';
+    }
+}
+
+async function cancelMySwap(swapId) {
+    if (!confirm('Annuler votre demande d\'échange ?')) return;
+    try {
+        const res = await fetch('/api/shift-swaps/' + swapId, { method: 'DELETE', credentials: 'include' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erreur');
+        showSwapToast('Demande annulée');
+        await loadMyPendingSwaps();
+        const p = window._currentPlan;
+        if (p) await loadPlanning(p.from, p.to, p.user);
+    } catch (e) {
+        showSwapToast(e.message || 'Erreur', true);
+    }
+}
+
+function _fmtSwapDate(dateStr) {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    return DAY_NAMES[date.getDay()] + ' ' + d + ' ' + MONTH_NAMES[m - 1];
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const closeBtn = document.getElementById('swap-modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeSwapModal);
+    const submit = document.getElementById('swap-submit');
+    if (submit) submit.addEventListener('click', submitSwap);
+    const overlay = document.getElementById('swap-modal');
+    if (overlay) overlay.addEventListener('click', e => { if (e.target === overlay) closeSwapModal(); });
+});
 
 // ── Démarrage ─────────────────────────────────────────────────────────────────
 

@@ -247,8 +247,9 @@ async function init() {
     await Promise.all([loadEstablishments(), loadAllStaff(), loadRoles(), loadGroups()]);
 
     loadDisposBadge();
+    loadSwapsBadge();
     loadNotifBadge();
-    _notifPollTimer = setInterval(loadNotifBadge, 30000);
+    _notifPollTimer = setInterval(() => { loadNotifBadge(); loadSwapsBadge(); }, 30000);
     startAutoRefresh();
     initNotifListeners();
     loadDispoControl();
@@ -256,6 +257,13 @@ async function init() {
 
     const btnDispos = document.getElementById('btn-dispos');
     if (btnDispos) btnDispos.addEventListener('click', openDisposPanel);
+
+    const btnSwaps = document.getElementById('btn-swaps');
+    if (btnSwaps) btnSwaps.addEventListener('click', openSwapsPanel);
+    const swapsClose = document.getElementById('swaps-modal-close');
+    if (swapsClose) swapsClose.addEventListener('click', () => {
+        document.getElementById('swaps-modal').style.display = 'none';
+    });
 
     const btnRecap = document.getElementById('btn-recap');
     if (btnRecap) btnRecap.addEventListener('click', openRecapModal);
@@ -3288,6 +3296,159 @@ function exportRecapCsv() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+}
+
+// ── Échanges de shifts — côté patron (F-05) ──────────────────────────────────
+
+async function loadSwapsBadge() {
+    try {
+        const res = await fetch('/api/shift-swaps/count', { credentials: 'include' });
+        if (!res.ok) return;
+        const { count } = await res.json();
+        const badge        = document.getElementById('swaps-badge');
+        const drawerBadge  = document.getElementById('drawer-swaps-badge');
+        [badge, drawerBadge].forEach(el => {
+            if (!el) return;
+            el.textContent = count;
+            el.style.display = count > 0 ? 'flex' : 'none';
+        });
+    } catch {}
+}
+
+async function openSwapsPanel() {
+    const modal = document.getElementById('swaps-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    await loadSwapsList();
+}
+
+function _fmtSwapTime(h) {
+    if (h == null) return '';
+    const hrs = Math.floor(h);
+    const mins = Math.round((h - hrs) * 60);
+    return String(hrs).padStart(2, '0') + 'h' + String(mins).padStart(2, '0');
+}
+
+function _estabName(id) {
+    const e = allEstablishments.find(x => x.id === id || String(x._id) === id);
+    return e ? e.name : (id || '—');
+}
+
+function _fmtSwapDateFR(dateStr) {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    const jours = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+    const mois  = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+    return jours[date.getDay()] + ' ' + d + ' ' + mois[m - 1];
+}
+
+async function loadSwapsList() {
+    const list = document.getElementById('swaps-list');
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
+    try {
+        const res = await fetch('/api/shift-swaps/pending', { credentials: 'include' });
+        const swaps = await res.json();
+        if (!res.ok) throw new Error(swaps.error || 'Erreur');
+        if (swaps.length === 0) {
+            list.innerHTML = '<div style="padding:32px;text-align:center;color:#aaa;font-size:13px">Aucune demande d\'échange en attente</div>';
+            return;
+        }
+        list.innerHTML = '';
+        swaps.forEach(s => list.appendChild(_renderSwapCard(s)));
+    } catch (e) {
+        list.innerHTML = '<div style="padding:16px;text-align:center;color:#e74c3c;font-size:13px">' + (e.message || 'Erreur') + '</div>';
+    }
+}
+
+function _renderSwapCard(swap) {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--color-bg-secondary,#f8f8f8);border:1px solid var(--color-border-secondary,#eee);border-radius:12px;margin:10px 14px;padding:12px 14px';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'font-size:12px;color:#888;margin-bottom:8px';
+    const when = swap.created_at ? new Date(swap.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    header.textContent = 'Demandé le ' + when;
+    card.appendChild(header);
+
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:10px;align-items:stretch;flex-wrap:wrap';
+
+    const makeSide = (title, staffName, date, st, et, estabId) => {
+        const div = document.createElement('div');
+        div.style.cssText = 'flex:1;min-width:200px;background:white;border:1px solid #eee;border-radius:8px;padding:10px 12px';
+        div.innerHTML =
+            '<div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">' + title + '</div>' +
+            '<div style="font-weight:700;font-size:14px;color:#222">' + (staffName || '—') + '</div>' +
+            '<div style="font-size:12px;color:#555;margin-top:4px">' + _fmtSwapDateFR(date) + ' · ' + _fmtSwapTime(st) + ' → ' + _fmtSwapTime(et) + '</div>' +
+            '<div style="font-size:11px;color:#888;margin-top:2px">' + _estabName(estabId) + '</div>';
+        return div;
+    };
+
+    row.appendChild(makeSide('Proposé par', swap.from_staff_name, swap.from_date, swap.from_start_time, swap.from_end_time, swap.from_establishment_id));
+
+    const arrow = document.createElement('div');
+    arrow.style.cssText = 'display:flex;align-items:center;justify-content:center;font-size:20px;color:#534AB7;padding:0 4px';
+    arrow.textContent = '⇄';
+    row.appendChild(arrow);
+
+    row.appendChild(makeSide('Contre', swap.to_staff_name, swap.to_date, swap.to_start_time, swap.to_end_time, swap.to_establishment_id));
+    card.appendChild(row);
+
+    if (swap.note) {
+        const note = document.createElement('div');
+        note.style.cssText = 'margin-top:10px;padding:8px 10px;background:#fff8e1;border-left:3px solid #f39c12;border-radius:4px;font-size:12px;color:#555';
+        note.textContent = '« ' + swap.note + ' »';
+        card.appendChild(note);
+    }
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:8px;margin-top:12px;justify-content:flex-end';
+    const btnReject = document.createElement('button');
+    btnReject.textContent = '✗ Refuser';
+    btnReject.style.cssText = 'padding:7px 14px;border-radius:8px;border:1.5px solid #e74c3c;background:#fdecec;color:#c0392b;font-size:12px;font-weight:600;cursor:pointer';
+    btnReject.addEventListener('click', () => _decideSwap(swap._id, 'reject', card));
+    const btnApprove = document.createElement('button');
+    btnApprove.textContent = '✓ Approuver';
+    btnApprove.style.cssText = 'padding:7px 14px;border-radius:8px;border:none;background:#27ae60;color:white;font-size:12px;font-weight:600;cursor:pointer';
+    btnApprove.addEventListener('click', () => _decideSwap(swap._id, 'approve', card));
+    actions.appendChild(btnReject);
+    actions.appendChild(btnApprove);
+    card.appendChild(actions);
+
+    return card;
+}
+
+async function _decideSwap(swapId, action, card) {
+    let reason = '';
+    if (action === 'reject') {
+        reason = prompt('Raison du refus (optionnel) :') || '';
+        if (reason === null) return;
+    } else {
+        if (!confirm('Valider cet échange ? Les deux shifts seront inversés.')) return;
+    }
+    try {
+        const res = await fetch('/api/shift-swaps/' + swapId + '/' + action, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(action === 'reject' ? { reason } : {}),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erreur');
+        showToast(data.message || (action === 'approve' ? 'Échange approuvé' : 'Échange refusé'));
+        card.remove();
+        loadSwapsBadge();
+        // Rafraîchir la vue planning si on est sur la journée concernée
+        try { if (selectedDate) await loadDayDetail(selectedDate); } catch {}
+        // Si plus aucune carte, remettre le message vide
+        const list = document.getElementById('swaps-list');
+        if (list && list.children.length === 0) {
+            list.innerHTML = '<div style="padding:32px;text-align:center;color:#aaa;font-size:13px">Aucune demande d\'échange en attente</div>';
+        }
+    } catch (e) {
+        showToast(e.message || 'Erreur', true);
+    }
 }
 
 // ── Disponibilités — côté patron ──────────────────────────────────────────────

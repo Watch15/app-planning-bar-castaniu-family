@@ -473,6 +473,10 @@
                 <button class="btn-manage-staff" id="btn-dispos">📋 Dispos</button>
                 <span id="dispos-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--danger);color:white;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;align-items:center;justify-content:center;pointer-events:none;z-index:1;border:1.5px solid var(--dark-bg)">0</span>
             </div>
+            <div style="position:relative;display:inline-block">
+                <button class="btn-manage-staff" id="btn-swaps" title="Échanges de shifts à valider">⇄ Échanges</button>
+                <span id="swaps-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--danger);color:white;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;align-items:center;justify-content:center;pointer-events:none;z-index:1;border:1.5px solid var(--dark-bg)">0</span>
+            </div>
             <button class="btn-manage-staff" id="btn-recap" style="background:rgba(16,185,129,0.12);border-color:#10b981;color:#10b981">📊 Récap</button>
             <div class="header-sep"></div>
             <!-- Groupe 3 : toggle dispos + paramètres -->
@@ -686,6 +690,17 @@
     </div>
 </div>
 
+<!-- Modale échanges de shifts (F-05) -->
+<div class="modal-overlay" id="swaps-modal" style="display:none">
+    <div class="modal" style="width:640px;max-width:95vw">
+        <div class="modal-header">
+            <span class="modal-title">Échanges de shifts à valider</span>
+            <button class="modal-close" id="swaps-modal-close">&times;</button>
+        </div>
+        <div id="swaps-list" style="max-height:65vh;overflow-y:auto"></div>
+    </div>
+</div>
+
 <!-- Modale confirmation dispo -->
 <div class="modal-overlay" id="confirm-dispo-modal" style="display:none">
     <div class="modal" style="width:400px;max-width:95vw">
@@ -778,6 +793,10 @@
     <button class="drawer-btn" id="drawer-btn-dispos" onclick="closeMobileDrawer();document.getElementById('btn-dispos').click()">
         📋 Disponibilités
         <span id="drawer-dispos-badge" style="display:none;background:#e74c3c;color:white;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px">0</span>
+    </button>
+    <button class="drawer-btn" id="drawer-btn-swaps" onclick="closeMobileDrawer();document.getElementById('btn-swaps').click()">
+        ⇄ Échanges
+        <span id="drawer-swaps-badge" style="display:none;background:#e74c3c;color:white;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px">0</span>
     </button>
     <button class="drawer-btn" onclick="closeMobileDrawer();document.getElementById('btn-recap').click()">📊 Récap mensuel</button>
     <button class="drawer-btn" onclick="closeMobileDrawer();logout()" style="color:#e74c3c;border-color:#f5c6c6">🚪 Déconnexion</button>
