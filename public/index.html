@@ -452,6 +452,7 @@
             #recap-modal .modal-header button,
             #recap-modal #recap-load,
             #recap-modal #recap-print,
+            #recap-modal #recap-export-csv,
             #recap-modal select { display: none !important; }
             #recap-content { max-height: none !important; overflow: visible !important; }
         }
@@ -744,7 +745,8 @@
                 <option value="">Tous les établissements</option>
             </select>
             <button id="recap-load" class="btn-add-staff" style="padding:6px 14px;font-size:12px">Charger</button>
-            <button id="recap-print" class="btn-manage-staff" style="margin-left:auto;font-size:11px;padding:4px 10px" title="Imprimer ce récap">🖨 Imprimer</button>
+            <button id="recap-export-csv" class="btn-manage-staff" style="margin-left:auto;font-size:11px;padding:4px 10px" title="Exporter en CSV (Excel)">⬇ Export CSV</button>
+            <button id="recap-print" class="btn-manage-staff" style="font-size:11px;padding:4px 10px" title="Imprimer ce récap">🖨 Imprimer</button>
         </div>
         <div id="recap-content" style="max-height:60vh;overflow-y:auto"></div>
     </div>

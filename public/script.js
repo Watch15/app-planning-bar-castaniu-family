@@ -3115,6 +3115,13 @@ function openRecapModal() {
         btnPrint.addEventListener('click', () => window.print());
     }
 
+    // Listener export CSV
+    const btnCsv = document.getElementById('recap-export-csv');
+    if (btnCsv && !btnCsv._bound) {
+        btnCsv._bound = true;
+        btnCsv.addEventListener('click', exportRecapCsv);
+    }
+
     // Listener fermer
     const btnClose = document.getElementById('recap-modal-close');
     if (!btnClose._bound) {
@@ -3126,11 +3133,16 @@ function openRecapModal() {
     loadRecapData();
 }
 
+let _recapLastData = null;
+let _recapLastMeta = null;
+
 async function loadRecapData() {
     const month = document.getElementById('recap-month').value;
     const estabId = document.getElementById('recap-estab').value;
     const content = document.getElementById('recap-content');
     content.innerHTML = '<div style="padding:24px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
+    _recapLastData = null;
+    _recapLastMeta = null;
 
     try {
         let url = '/api/recap-mensuel?month=' + month;
@@ -3138,6 +3150,11 @@ async function loadRecapData() {
         const res = await fetch(url, { credentials: 'include' });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
+
+        _recapLastData = data;
+        const estabSel = document.getElementById('recap-estab');
+        const estabLabel = estabId ? (estabSel.options[estabSel.selectedIndex]?.textContent || '') : 'Tous';
+        _recapLastMeta = { month, estabLabel };
 
         if (data.length === 0) {
             content.innerHTML = '<div style="padding:24px;text-align:center;color:#ccc;font-size:13px">Aucun shift ce mois-ci</div>';
@@ -3210,6 +3227,67 @@ async function loadRecapData() {
     } catch (e) {
         content.innerHTML = '<div style="padding:16px;text-align:center;color:#e74c3c;font-size:13px">' + e.message + '</div>';
     }
+}
+
+function exportRecapCsv() {
+    if (!_recapLastData || _recapLastData.length === 0) {
+        showToast('Aucune donnée à exporter', true);
+        return;
+    }
+    const fmtH = h => {
+        if (h == null) return '';
+        const sign = h < 0 ? '-' : '';
+        const abs = Math.abs(h);
+        const hrs = Math.floor(abs);
+        const mins = Math.round((abs - hrs) * 60);
+        return sign + hrs + 'h' + String(mins).padStart(2, '0');
+    };
+    const esc = v => {
+        const s = (v == null ? '' : String(v));
+        return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const sep = ';';
+    const lines = [];
+    const { month, estabLabel } = _recapLastMeta || {};
+    lines.push(esc('Récapitulatif mensuel ' + (month || '')) + sep + esc('Établissement: ' + (estabLabel || 'Tous')));
+    lines.push('');
+    lines.push(['Nom', 'Jours', 'Heures planifiées', 'Heures réelles', 'Écart', 'Partiel'].map(esc).join(sep));
+
+    let totalPlanned = 0, totalReal = 0, totalDays = 0, hasAnyReal = false;
+    _recapLastData.forEach(s => {
+        totalPlanned += s.planned_hours;
+        totalDays += s.days;
+        if (s.real_hours != null) { totalReal += s.real_hours; hasAnyReal = true; }
+        lines.push([
+            s.staff_name,
+            s.days,
+            fmtH(s.planned_hours),
+            s.real_hours != null ? fmtH(s.real_hours) : '',
+            s.ecart != null ? fmtH(s.ecart) : '',
+            s.partial ? 'oui' : ''
+        ].map(esc).join(sep));
+    });
+    const totalEcart = hasAnyReal ? totalReal - totalPlanned : null;
+    lines.push([
+        'Total (' + _recapLastData.length + ' staff)',
+        totalDays,
+        fmtH(totalPlanned),
+        hasAnyReal ? fmtH(totalReal) : '',
+        totalEcart != null ? fmtH(totalEcart) : '',
+        ''
+    ].map(esc).join(sep));
+
+    const csv = '\uFEFF' + lines.join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safeEstab = (estabLabel || 'tous').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    a.href = url;
+    a.download = 'recap-' + (month || 'mois') + '-' + safeEstab + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 // ── Disponibilités — côté patron ──────────────────────────────────────────────

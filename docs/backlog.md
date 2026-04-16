@@ -31,7 +31,7 @@ Add new items with a short description, context, and priority. Remove or move to
 | ID | Description | Area | Notes |
 |---|---|---|---|
 | F-03 | **Note sur Joker** — ajouter un champ `note` sur les shifts Joker uniquement, pour laisser des instructions au staff qui sera affecté (ex. "s'occuper de la caisse", "arrivée 30 min avant") | Joker / UX | Côté patron : saisie dans la modale Joker. Côté staff : affiché si le Joker leur est attribué |
-| F-04 | **Récap mensuel heures (export CSV)** — vue patron : tableau par staff avec total heures/semaine sur un mois, exportable en CSV pour la paie | Dashboard / Export | Calculé depuis la collection `shifts`. Colonnes : staff, semaine, établissement, heures. |
+| ~~F-04~~ | ~~**Récap mensuel heures (export CSV)**~~ | Dashboard / Export | ✅ Done — bouton `⬇ Export CSV` ajouté à la modale Récap (UTF-8 BOM, séparateur `;`) |
 | F-05 | **Échange de shifts avec validation patron** — un staff peut proposer d'échanger son shift avec un collègue ; le patron reçoit une notification et valide ou refuse l'échange | Shifts / Notifications | Nouveau statut `pending_swap` sur le shift. Notification in-app + push au patron. |
 
 ---
@@ -66,6 +66,7 @@ Add new items with a short description, context, and priority. Remove or move to
 | D-14 | E-04 — stats staff : delta heures vs sem. prec. + répartition par établissement | — |
 | D-15 | E-03 — onglet Pointage pour directeur dans planning.html + sélecteur établissement dans pointage.html | — |
 | D-16 | B-03 — `touch-action: manipulation` global sur boutons/liens | — |
+| D-17 | F-04 — Export CSV du récap mensuel (UTF-8 BOM, séparateur `;`, compatible Excel FR) | — |
 
 ---
 
