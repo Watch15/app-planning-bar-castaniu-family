@@ -8,12 +8,24 @@ const crypto  = require('crypto');
 const webpush = require('web-push');
 
 const app = express();
+
+// Derrière le reverse proxy Railway : nécessaire pour que cookies `secure:true`
+// soient émis et que req.ip reflète l'IP client (pas celle du proxy).
+if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1);
+
 app.use(express.json());
 
 const allowedOrigin = process.env.NODE_ENV === 'production'
     ? process.env.APP_URL
     : true;
 app.use(cors({ origin: allowedOrigin, credentials: true }));
+
+// Sécurité : en prod, un SESSION_SECRET explicite est obligatoire.
+// Sans ça, le fallback est connu et les sessions deviennent forgeables.
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+    console.error('❌ SESSION_SECRET manquant en production — refus de démarrer.');
+    process.exit(1);
+}
 
 // ── VAPID — Web Push ──────────────────────────────────────────────────────────
 
@@ -264,13 +276,14 @@ function setupSession() {
     }
 
     app.use(session({
-        secret:            process.env.SESSION_SECRET || 'planning-bar-secret-change-me',
+        secret:            process.env.SESSION_SECRET || 'dev-only-insecure-secret',
         resave:            false,
         saveUninitialized: false,
         store:             new CustomMongoStore(),
         cookie: {
             httpOnly: true,
             secure:   process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
             maxAge:   7 * 24 * 60 * 60 * 1000,
         },
     }));

@@ -3776,7 +3776,14 @@ async function loadDispoControl() {
                 const diff   = (parseInt(dayVal) - now.getDay() + 7) % 7;
                 target.setDate(now.getDate() + diff);
                 target.setHours(hh, mm, 0, 0);
-                customDeadline = target.toISOString();
+                // Format local "YYYY-MM-DDTHH:MM:00" — voir architecture.md §3.1
+                // (toISOString() interdit : en UTC+2, 00h local = 22h UTC → shift de jour)
+                const pad = n => String(n).padStart(2, '0');
+                customDeadline = target.getFullYear() + '-' +
+                    pad(target.getMonth() + 1) + '-' +
+                    pad(target.getDate()) + 'T' +
+                    pad(target.getHours()) + ':' +
+                    pad(target.getMinutes()) + ':00';
             }
             await Promise.all([
                 fetch('/api/dispo-settings', {
