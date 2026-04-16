@@ -3199,7 +3199,7 @@ async function loadRecapData() {
                 : '—';
 
             const realStr = s.real_hours != null
-                ? fmtH(s.real_hours) + (s.partial ? ' <span style="font-size:10px;color:#f39c12" title="Certains shifts non pointés">partiel</span>' : '')
+                ? fmtH(s.real_hours) + (s.partial ? ' <span class="badge badge--warning" title="Certains shifts non pointés">partiel</span>' : '')
                 : '—';
 
 

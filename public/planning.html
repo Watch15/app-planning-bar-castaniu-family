@@ -166,6 +166,20 @@
             border: 1px solid var(--light-border);
         }
 
+        /* ── Système de badges unifié ── */
+        .badge {
+            display: inline-flex; align-items: center; gap: 3px;
+            font-size: 10px; font-weight: 700;
+            padding: 2px 6px; border-radius: 4px;
+            white-space: nowrap; line-height: 1.4;
+            border: 1px solid transparent;
+        }
+        .badge--success { color: #065f46; background: #d1fae5; border-color: #10b981; }
+        .badge--warning { color: #92400e; background: #fef3c7; border-color: #f59e0b; }
+        .badge--danger  { color: #991b1b; background: #fee2e2; border-color: #ef4444; }
+        .badge--info    { color: #1e40af; background: #dbeafe; border-color: #3b82f6; }
+        .badge--neutral { color: #475569; background: #f1f5f9; border-color: #cbd5e1; }
+
         /* ── Collègues dans shift ── */
         .shift-block { padding: 0 16px 12px; }
         .colleagues-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -876,8 +890,8 @@ function renderDaysInto(from, shifts, colleagues, list, jokers) {
             ? fmtDuration(firstShift.real_end - firstShift.real_start) + ' réel'
             : fmtDuration(firstShift.end_time - firstShift.start_time) + ' de service';
         const realBadge   = showReal
-            ? ' <span style="font-size:10px;font-weight:700;color:#27ae60;background:#eafaf1;border:1px solid #2ecc71;border-radius:4px;padding:1px 5px">réel</span>'
-            : (isPast && !hasReal ? ' <span style="font-size:10px;color:#f39c12;background:#fff3cd;border:1px solid #f39c12;border-radius:4px;padding:1px 5px">non pointé</span>' : '');
+            ? ' <span class="badge badge--success">réel</span>'
+            : (isPast && !hasReal ? ' <span class="badge badge--warning">non pointé</span>' : '');
 
         const card = document.createElement('div');
         card.className = 'day-card has-shift' + (isToday ? ' today' : '');
@@ -889,7 +903,7 @@ function renderDaysInto(from, shifts, colleagues, list, jokers) {
         const isSwapMine  = pendingSwap && pendingSwap.from_staff_id === String(firstShift.staff_id);
         const canSwap     = !isPast && !pendingSwap && firstShift.staff_id !== '__joker__';
         const swapBadge   = pendingSwap
-            ? ' <span style="font-size:10px;font-weight:700;color:#b7791f;background:#fff3cd;border:1px solid #f39c12;border-radius:4px;padding:1px 5px">⇄ en attente</span>'
+            ? ' <span class="badge badge--warning">⇄ en attente</span>'
             : '';
 
         // En-tête
@@ -951,8 +965,8 @@ function renderDaysInto(from, shifts, colleagues, list, jokers) {
                     ? fmtDuration(shift.real_end - shift.real_start) + ' réel'
                     : fmtDuration(shift.end_time - shift.start_time) + ' de service';
                 const sRealBadge  = (isPast && shift.real_start != null)
-                    ? ' <span style="font-size:10px;font-weight:700;color:#27ae60;background:#eafaf1;border:1px solid #2ecc71;border-radius:4px;padding:1px 5px">réel</span>'
-                    : (isPast && shift.real_start == null ? ' <span style="font-size:10px;color:#f39c12;background:#fff3cd;border:1px solid #f39c12;border-radius:4px;padding:1px 5px">non pointé</span>' : '');
+                    ? ' <span class="badge badge--success">réel</span>'
+                    : (isPast && shift.real_start == null ? ' <span class="badge badge--warning">non pointé</span>' : '');
                 const sColor      = shift.color || '#888';
 
                 const row = document.createElement('div');
