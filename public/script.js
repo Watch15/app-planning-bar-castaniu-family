@@ -332,6 +332,9 @@ function renderUserBadge(user) {
     const roleLabel = user.role === 'patron' ? ' · Patron' : ' · Directeur';
     if (badge)  badge.textContent  = name + roleLabel;
     if (avatar) avatar.textContent = name.charAt(0).toUpperCase();
+    // Brand mobile (header-left) — affiche le rôle en sous-texte
+    const mobSub = document.getElementById('mobile-brand-sub');
+    if (mobSub) mobSub.textContent = user.role === 'patron' ? 'Patron · ' + name : 'Directeur · ' + name;
 }
 
 function renderDateDisplay() {
