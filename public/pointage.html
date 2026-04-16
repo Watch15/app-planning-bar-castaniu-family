@@ -253,6 +253,32 @@
             font-size: 14px; padding: 48px 0;
         }
 
+        /* ── Bandeau soirée (PT-06) ── */
+        .session-banner {
+            background: #FFF8EC; border: 1px solid #F5A623;
+            color: #7C4E00; font-size: 12px; font-weight: 600;
+            padding: 8px 14px; border-radius: 10px;
+            margin: 0 0 14px; display: flex; align-items: center; gap: 8px;
+        }
+        .session-banner-icon { font-size: 14px; }
+
+        /* ── Footer total heures (PT-03) ── */
+        .total-footer {
+            background: var(--light-card);
+            border: 1px solid var(--light-border); border-radius: 14px;
+            padding: 14px 16px; margin: 16px 0 0;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .total-footer-label {
+            font-size: 11px; font-weight: 700; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: .5px;
+        }
+        .total-footer-value {
+            font-size: 18px; font-weight: 700; color: var(--text-primary);
+        }
+        .total-footer-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
         /* ── Toast ── */
         .toast {
             position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
@@ -480,6 +506,20 @@ async function init() {
     const dateStr = d.toLocaleDateString('fr-FR', opts);
     document.getElementById('header-date').textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
 
+    // PT-06 : bandeau explicite si la date active est "hier" (avant l'heure de bascule)
+    const nowDate = new Date();
+    if (today !== toDateStr(nowDate)) {
+        const banner = document.createElement('div');
+        banner.className = 'session-banner';
+        const cutoffLabel = String(cutoffHour).padStart(2,'0') + 'h';
+        banner.innerHTML =
+            '<span class="session-banner-icon">🌙</span>' +
+            '<span>Soirée du <b>' + dateStr + '</b> — les saisies avant ' + cutoffLabel +
+            ' restent rattachées à la veille.</span>';
+        const container = document.querySelector('.container');
+        container.insertBefore(banner, container.firstChild);
+    }
+
     // Charger staff pour l'autocomplete (en parallèle avec les établissements)
     const [staffRes, estabRes] = await Promise.all([
         fetch('/api/staff',          { credentials: 'include' }).catch(() => null),
@@ -573,9 +613,50 @@ async function loadShifts() {
         list.innerHTML = '';
         visible.forEach(s => list.appendChild(buildShiftCard(s)));
 
+        window._visibleShifts = visible;
+        renderTotalFooter(visible);
+
     } catch (e) {
         list.innerHTML = '<div class="empty-msg" style="color:var(--danger)">' + e.message + '</div>';
     }
+}
+
+// PT-03 : total heures réelles/planifiées du soir
+function renderTotalFooter(shifts) {
+    const prev = document.getElementById('total-footer');
+    if (prev) prev.remove();
+    if (!shifts || shifts.length === 0) return;
+
+    let plannedTotal = 0, realTotal = 0, realCount = 0;
+    shifts.forEach(s => {
+        if (s.end_time != null && s.start_time != null) plannedTotal += (s.end_time - s.start_time);
+        if (s.real_start != null && s.real_end != null) {
+            realTotal += (s.real_end - s.real_start);
+            realCount++;
+        }
+    });
+
+    const fmt = h => {
+        const hh = Math.floor(h);
+        const mm = Math.round((h - hh) * 60);
+        return hh + 'h' + (mm > 0 ? String(mm).padStart(2,'0') : '');
+    };
+
+    const footer = document.createElement('div');
+    footer.id = 'total-footer';
+    footer.className = 'total-footer';
+    footer.innerHTML =
+        '<div>' +
+            '<div class="total-footer-label">Total de la soirée</div>' +
+            '<div class="total-footer-sub">' + realCount + ' / ' + shifts.length + ' shift' + (shifts.length > 1 ? 's' : '') + ' pointé' + (realCount > 1 ? 's' : '') + '</div>' +
+        '</div>' +
+        '<div style="text-align:right">' +
+            '<div class="total-footer-value">' + fmt(realTotal) + '</div>' +
+            '<div class="total-footer-sub">Planifié ' + fmt(plannedTotal) + '</div>' +
+        '</div>';
+
+    const list = document.getElementById('shifts-list');
+    list.parentNode.insertBefore(footer, list.nextSibling);
 }
 
 // ── Construction d'une carte shift ───────────────────────────────────────────
@@ -727,6 +808,9 @@ function buildShiftCard(shift) {
                 hdr.appendChild(vBadge);
             }
 
+            shift.real_start = rs;
+            shift.real_end   = re;
+
             if (canEdit) {
                 // Patron/directeur : feedback visuel puis on reste éditable
                 btnSave.textContent = '✓ Mis à jour';
@@ -736,8 +820,6 @@ function buildShiftCard(shift) {
                     btnSave.className   = 'btn-save';
                     btnSave.disabled    = false;
                 }, 1500);
-                shift.real_start = rs;
-                shift.real_end   = re;
             } else {
                 // Établissement/staff : saisie unique verrouillée
                 btnSave.textContent = '✓ Enregistré';
@@ -745,6 +827,7 @@ function buildShiftCard(shift) {
                 startInput.disabled = true;
                 endInput.disabled   = true;
             }
+            if (window._visibleShifts) renderTotalFooter(window._visibleShifts);
             showToast(shift.staff_name + ' — heures enregistrées');
         } catch (e) {
             showToast(e.message, true);
@@ -883,6 +966,10 @@ function initExtraForm() {
 
             // Ajouter la carte du nouveau shift
             document.getElementById('shifts-list').appendChild(buildShiftCard(data));
+            if (window._visibleShifts) {
+                window._visibleShifts.push(data);
+                renderTotalFooter(window._visibleShifts);
+            }
 
             // Reset form
             searchInput.value = '';

@@ -26,19 +26,19 @@ Inter uniquement. Échelle : 11px (labels caps) → 13px (corps) → 14–15px (
 ## 2. Audit page par page
 
 ### 2.1 login.html
-| # | Problème | Sévérité |
-|---|---|---|
-| L-01 | Logo dupliqué : brand logo + logo dans la card | Faible |
-| L-02 | "Mot de passe oublié ?" expand inline — pousse la card hors écran mobile | Moyen |
-| L-03 | Pas de retour visuel focus sur input type="tel" | Faible |
-| L-04 | Copyright "2025" daté | Cosmétique |
+| # | Problème | Sévérité | Statut |
+|---|---|---|---|
+| L-01 | Logo dupliqué : brand logo + logo dans la card | Faible | |
+| ~~L-02~~ | ~~"Mot de passe oublié ?" expand inline — pousse la card hors écran mobile~~ | Moyen | ✅ Done — `overflow-y:auto` + `margin:auto 0` |
+| L-03 | Pas de retour visuel focus sur input type="tel" | Faible | |
+| ~~L-04~~ | ~~Copyright "2025" daté~~ | Cosmétique | ✅ Done — année dynamique |
 
 ### 2.2 set-password.html
-| # | Problème | Sévérité |
-|---|---|---|
-| S-01 | Pas de toggle 👁 "voir le mot de passe" (présent sur login, absent ici) | Moyen |
-| S-02 | Pas d'indicateur de force du mot de passe | Faible |
-| S-03 | Token absent → message d'erreur sans bouton retour clair | Moyen |
+| # | Problème | Sévérité | Statut |
+|---|---|---|---|
+| ~~S-01~~ | ~~Pas de toggle 👁 "voir le mot de passe"~~ | Moyen | ✅ Done — déjà en place (`btn-eye`) |
+| S-02 | Pas d'indicateur de force du mot de passe | Faible | |
+| ~~S-03~~ | ~~Token absent → message d'erreur sans bouton retour clair~~ | Moyen | ✅ Done — bouton "← Retour à la connexion" + champs masqués |
 
 ### 2.3 index.html (Patron / Directeur)
 | # | Problème | Sévérité |
@@ -57,7 +57,7 @@ Inter uniquement. Échelle : 11px (labels caps) → 13px (corps) → 14–15px (
 | P-01 | Collègues en pastilles sans nom au tap mobile | Moyen | |
 | P-02 | Delta heures uniquement textuel, pas de couleur sur mobile portrait | Faible | |
 | ~~P-03~~ | ~~Onglet ⏱ Pointage actif seulement le jour J — disparu le lendemain~~ | Haut | ✅ Done — date de référence = date active (cutoff_hour) |
-| P-04 | Bouton fixe "Envoyer" dispos couvre le dernier jour sur petits écrans | Moyen | |
+| ~~P-04~~ | ~~Bouton fixe "Envoyer" dispos couvre le dernier jour sur petits écrans~~ | Moyen | ✅ Done — spacer 96px + safe-area-inset-bottom |
 | P-05 | Pas de confirmation visuelle post-envoi dispos au-delà du toast | Faible | |
 | P-06 | Aucun moyen pour le staff de voir les shifts des semaines passées | Moyen | |
 
@@ -66,10 +66,10 @@ Inter uniquement. Échelle : 11px (labels caps) → 13px (corps) → 14–15px (
 |---|---|---|---|
 | ~~PT-01~~ | ~~Shifts déjà validés sans état visuel "terminé"~~ | Haut | ✅ Done — `validated-card` + badge `✓ Validé` |
 | ~~PT-02~~ | ~~Impossible de modifier une heure réelle déjà saisie depuis pointage.html~~ | Haut | ✅ Done — patron/directeur peuvent ré-éditer, établissement verrouillé |
-| PT-03 | Pas de total des heures du soir affiché en bas de page | Moyen | |
-| PT-04 | Écart badge sans couleur différenciée (positif / négatif) | Moyen | |
-| PT-05 | Inputs heures + bouton Valider débordent sur mobile portrait | Moyen | |
-| PT-06 | Heure de bascule (9h) non indiquée — date "hier" inexpliquée | Moyen | |
+| ~~PT-03~~ | ~~Pas de total des heures du soir affiché en bas de page~~ | Moyen | ✅ Done — `total-footer` (réel / planifié + nb shifts pointés) |
+| ~~PT-04~~ | ~~Écart badge sans couleur différenciée (positif / négatif)~~ | Moyen | ✅ Done — déjà en place (`.pos` vert, `.neg` orange, `.zero` gris) |
+| ~~PT-05~~ | ~~Inputs heures + bouton Valider débordent sur mobile portrait~~ | Moyen | ✅ Done — déjà en place (media query 600px : 52px + flex-wrap) |
+| ~~PT-06~~ | ~~Heure de bascule (9h) non indiquée — date "hier" inexpliquée~~ | Moyen | ✅ Done — bandeau `session-banner` quand date active = veille |
 
 ---
 
@@ -81,11 +81,11 @@ Inter uniquement. Échelle : 11px (labels caps) → 13px (corps) → 14–15px (
 | ~~🔴 Haut~~ | ~~PT-02~~ | ~~Édition heure réelle depuis pointage.html — patron/directeur uniquement (établissement = saisie unique verrouillée après enregistrement)~~ | pointage.html | ✅ Done |
 | ~~🔴 Haut~~ | ~~P-03~~ | ~~Onglet pointage actif sur le shift du jour même si lendemain~~ | planning.html | ✅ Done |
 | 🟡 Moyen | I-01 | Header mobile allégé — tout dans le drawer | index.html | |
-| 🟡 Moyen | PT-05 | Layout mobile inputs heures pointage | pointage.html |
-| 🟡 Moyen | PT-03 | Footer récap heures totales | pointage.html |
-| 🟡 Moyen | S-01 | Toggle voir mot de passe sur set-password | set-password.html |
-| 🟢 Faible | L-01 | Dédoublonnage logo login | login.html |
-| 🟢 Faible | PT-04 | Couleur différenciée sur l'écart badge | pointage.html |
+| ~~🟡 Moyen~~ | ~~PT-05~~ | ~~Layout mobile inputs heures pointage~~ | pointage.html | ✅ Done |
+| ~~🟡 Moyen~~ | ~~PT-03~~ | ~~Footer récap heures totales~~ | pointage.html | ✅ Done |
+| ~~🟡 Moyen~~ | ~~S-01~~ | ~~Toggle voir mot de passe sur set-password~~ | set-password.html | ✅ Done |
+| 🟢 Faible | L-01 | Dédoublonnage logo login | login.html | |
+| ~~🟢 Faible~~ | ~~PT-04~~ | ~~Couleur différenciée sur l'écart badge~~ | pointage.html | ✅ Done |
 
 ---
 

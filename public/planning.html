@@ -288,7 +288,8 @@
         /* ── Bouton envoi dispos ── */
         .btn-submit-dispos {
             position: fixed; bottom: 0; left: 0; right: 0;
-            padding: 16px 20px; background: var(--dark-surface); color: white;
+            padding: 16px 20px calc(16px + env(safe-area-inset-bottom,0px));
+            background: var(--dark-surface); color: white;
             border: none; font-size: 14px; font-weight: 700;
             cursor: pointer; z-index: 20; font-family: var(--font);
             transition: background 0.15s;
@@ -414,7 +415,7 @@
         <div class="greeting-sub" id="dispos-status"></div>
     </div>
     <div id="dispos-form" style="padding:0 20px 24px;display:flex;flex-direction:column;gap:10px"></div>
-    <div style="height:64px"></div>
+    <div style="height:calc(96px + env(safe-area-inset-bottom,0px))"></div>
     <button id="btn-submit-dispos" class="btn-submit-dispos">
         Envoyer mes dispos
     </button>

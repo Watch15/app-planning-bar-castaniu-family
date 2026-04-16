@@ -39,6 +39,7 @@
             align-items: center;
             justify-content: center;
             padding: 20px;
+            overflow-y: auto;
             /* subtle noise texture */
             background-image:
                 radial-gradient(ellipse at 20% 80%, rgba(108,99,255,0.08) 0%, transparent 50%),
@@ -52,6 +53,7 @@
             flex-direction: column;
             align-items: center;
             gap: 24px;
+            margin: auto 0;
         }
 
         /* ── Logo au-dessus ── */
@@ -263,8 +265,10 @@
         </div>
     </div>
 
-    <div class="login-footer">Planning Bar &copy; 2025</div>
+    <div class="login-footer">Planning Bar &copy; <span id="copyright-year">2026</span></div>
 </div>
+
+<script>document.getElementById('copyright-year').textContent = new Date().getFullYear();</script>
 
 <script>
     // Vérifier si déjà connecté
