@@ -8,7 +8,8 @@
     "dev": "node --watch server.js",
     "init": "node scripts/init-db.js",
     "seed": "node scripts/seed.js",
-    "create-patron": "node scripts/create-patron.js"
+    "create-patron": "node scripts/create-patron.js",
+    "test": "node --test \"tests/**/*.test.js\""
   },
   "license": "ISC",
   "type": "commonjs",

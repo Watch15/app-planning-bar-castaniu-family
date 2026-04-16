@@ -8,6 +8,7 @@ const crypto  = require('crypto');
 const webpush = require('web-push');
 const helmet  = require('helmet');
 const morgan  = require('morgan');
+const { isValidObjectId, hashToken, normalizePhone } = require('./lib/utils');
 
 // Sentry — initialisation conditionnelle (ne se charge que si SENTRY_DSN fourni).
 // Doit être importé AVANT de créer l'app Express pour que l'auto-instrumentation
@@ -80,14 +81,7 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
 }
 
 // ── Utilitaires sécurité ──────────────────────────────────────────────────────
-
-function isValidObjectId(id) {
-    return typeof id === 'string' && /^[a-f\d]{24}$/i.test(id);
-}
-
-function hashToken(token) {
-    return crypto.createHash('sha256').update(token).digest('hex');
-}
+// isValidObjectId / hashToken / normalizePhone sont importés de ./lib/utils
 
 // Rate limiting simple en mémoire (pas de dépendance externe)
 const rateLimitMap = new Map();
@@ -150,16 +144,6 @@ async function sendEmail(to, subject, html) {
 }
 
 // ── SMS via Twilio ────────────────────────────────────────────────────────────
-
-function normalizePhone(raw) {
-    // Supprime espaces, tirets, points — conserve + et chiffres
-    let p = String(raw).replace(/[\s\-\.]/g, '');
-    // France : 06... ou 07... → +336... / +337...
-    if (/^0[67]/.test(p)) p = '+33' + p.slice(1);
-    // Déjà au format international
-    if (!/^\+/.test(p)) p = '+' + p;
-    return p;
-}
 
 async function sendSMS(to, body) {
     const sid   = process.env.TWILIO_ACCOUNT_SID;
