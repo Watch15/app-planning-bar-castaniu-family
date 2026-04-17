@@ -915,9 +915,16 @@ function renderGroupFilter() {
                 ? allEstablishments.filter(e => (e.groups || []).includes(currentGroup))
                 : allEstablishments;
             renderTabs(filtered);
-                if (filtered.length > 0) {
+            if (filtered.length > 0) {
+                const keepCurrent = filtered.some(e => e.id === currentVenueId);
+                if (!keepCurrent) {
                     currentVenueId = filtered[0].id;
-                    applyVenueHours(filtered[0].id);
+                }
+                applyVenueHours(currentVenueId);
+                // Mettre à jour le tab actif visuellement
+                document.querySelectorAll('.venue-tab').forEach(t => {
+                    t.classList.toggle('active', t.dataset.id === currentVenueId);
+                });
             }
             await refreshWeek();
             if (selectedDate) await loadDayDetail(selectedDate);
@@ -1944,14 +1951,13 @@ function onTouchStart(e) {
     const shiftEl = e.target.closest('.shift');
     if (!shiftEl || e.target.closest('.shift-delete')) return;
 
-    // Bloquer le scroll uniquement sur resizer ou shift
     e.preventDefault();
 
-    _touchActive = true;
+    _touchActive     = true;
+    _shiftWasDragged = false;
     refreshPxPerHour();
     const touch = e.touches[0];
 
-    // Capturer le scrollLeft courant pour corriger le delta
     const scroller = document.getElementById('timeline-scroll');
     _touchScrollLeft = scroller ? scroller.scrollLeft : 0;
 
@@ -1978,6 +1984,16 @@ function onTouchMove(e) {
 function onTouchEnd() {
     _touchActive = false;
     if (!activeEl) return;
+
+    if (!_shiftWasDragged) {
+        // Simple tap sans mouvement → ouvrir la modale d'édition (le click natif est bloqué par preventDefault)
+        const el = activeEl;
+        activeEl = null;
+        activeAction = null;
+        el.click();
+        return;
+    }
+
     // Snap final : forcer left et width à des multiples de PX_PER_HOUR/4
     const SNAP = PX_PER_HOUR / 4;
     const snappedLeft  = Math.round(activeEl.offsetLeft  / SNAP) * SNAP;
