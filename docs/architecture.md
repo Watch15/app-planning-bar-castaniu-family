@@ -1,4 +1,4 @@
-# Architecture technique — Planning Bar
+# Architecture technique — Templyo
 
 ## 1. Stack
 
@@ -217,7 +217,7 @@ Les abonnements périmés (410/404 du service push) sont supprimés automatiquem
 
 ## 8. E-mail (Resend)
 
-POST HTTP direct vers `https://api.resend.com/emails`. Pas de SDK. Expéditeur : `Planning Bar <onboarding@resend.dev>`. Lève une erreur sur réponse non-OK avec le message d'erreur de Resend.
+POST HTTP direct vers `https://api.resend.com/emails`. Pas de SDK. Expéditeur : `Templyo <onboarding@resend.dev>`. Lève une erreur sur réponse non-OK avec le message d'erreur de Resend.
 
 ---
 

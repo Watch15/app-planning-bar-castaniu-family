@@ -132,7 +132,7 @@ async function sendEmail(to, subject, html) {
             'Content-Type':  'application/json',
         },
         body: JSON.stringify({
-            from:    'Planning Bar <onboarding@resend.dev>',
+            from:    'Templyo <onboarding@resend.dev>',
             to,
             subject,
             html,
@@ -550,7 +550,7 @@ app.post('/auth/forgot-password', checkDB, async (req, res) => {
             let manual = false;
             try {
                 // Message court : 1 segment SMS = 1 seul tarif Twilio (< 160 chars)
-                await sendSMS(normalizePhone(phone), 'Planning Bar\nRéinitialisation de ton mot de passe :\n' + link + '\n(valable 1h)');
+                await sendSMS(normalizePhone(phone), 'Templyo\nRéinitialisation de ton mot de passe :\n' + link + '\n(valable 1h)');
             } catch (smsErr) {
                 console.error('❌ Reset SMS failed:', smsErr.message);
                 manual = true;
@@ -649,7 +649,7 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
             const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token;
             let smsSent = true;
             try {
-                await sendSMS(normalizedPhone, 'Planning Bar\nBienvenue' + (name ? ' ' + name : '') + ' 👋\nCrée ton mot de passe :\n' + link);
+                await sendSMS(normalizedPhone, 'Templyo\nBienvenue' + (name ? ' ' + name : '') + ' 👋\nCrée ton mot de passe :\n' + link);
             } catch (smsErr) {
                 console.error('❌ SMS bienvenue non envoyé:', smsErr.message);
                 smsSent = false;
@@ -689,13 +689,13 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
         const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token;
         const html =
             '<p>Bonjour ' + (name || '') + ',</p>' +
-            '<p>Tu as été invité(e) à rejoindre <strong>Planning Bar</strong>.</p>' +
+            '<p>Tu as été invité(e) à rejoindre <strong>Templyo</strong>.</p>' +
             '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
             '<p style="color:#999;font-size:12px">Ce lien expire dans 24h.</p>';
 
         let manual = false;
         try {
-            await sendEmail(email, 'Ton accès Planning Bar', html);
+            await sendEmail(email, 'Ton accès Templyo', html);
             console.log('✅ Email envoyé à', email);
         } catch (mailErr) {
             console.error('❌ Erreur envoi email:', mailErr.message);
@@ -832,15 +832,15 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
 
             if (normalizedPhone) {
                 try {
-                    await sendSMS(normalizedPhone, 'Planning Bar\nBienvenue' + (name ? ' ' + name : '') + ' 👋\nCrée ton mot de passe :\n' + link);
+                    await sendSMS(normalizedPhone, 'Templyo\nBienvenue' + (name ? ' ' + name : '') + ' 👋\nCrée ton mot de passe :\n' + link);
                     sent = true;
                 } catch (e) { console.error('Bulk SMS erreur ' + name + ':', e.message); }
             }
             if (email && !sent) {
-                const html = '<p>Bonjour ' + name + ',</p><p>Tu as été invité(e) à rejoindre <strong>Planning Bar</strong>.</p>' +
+                const html = '<p>Bonjour ' + name + ',</p><p>Tu as été invité(e) à rejoindre <strong>Templyo</strong>.</p>' +
                     '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
                     '<p style="color:#999;font-size:12px">Ce lien expire dans 7 jours.</p>';
-                try { await sendEmail(email, 'Ton accès Planning Bar', html); sent = true; }
+                try { await sendEmail(email, 'Ton accès Templyo', html); sent = true; }
                 catch (e) { console.error('Bulk email erreur ' + name + ':', e.message); }
             }
 

@@ -1,6 +1,6 @@
 {
-  "name": "Planning Bar",
-  "short_name": "Planning",
+  "name": "Templyo",
+  "short_name": "Templyo",
   "description": "Gestion des plannings multi-établissements",
   "start_url": "/",
   "display": "standalone",

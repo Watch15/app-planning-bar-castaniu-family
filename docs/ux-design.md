@@ -1,4 +1,4 @@
-# UX Design — Planning Bar
+# UX Design — Templyo
 **Statut : En cours — la plupart des items Haut/Moyen sont livrés ; voir `backlog.md` D-20→D-23 pour la trace commit.**
 **Date : Avril 2026**
 

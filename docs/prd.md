@@ -1,8 +1,8 @@
-# Document d'Exigences Produit — Planning Bar
+# Document d'Exigences Produit — Templyo
 
 ## 1. Objet
 
-Planning Bar est une application web SaaS de planification du personnel multi-établissements, conçue pour un patron de bar/restaurant gérant plusieurs lieux et une équipe d'employés. Elle fournit une interface de planification complète pour le patron et une vue planning personnelle en lecture seule pour chaque membre du staff, accessible sur mobile sous forme de PWA.
+Templyo est une application web SaaS de planification du personnel multi-établissements, conçue pour un patron de bar/restaurant gérant plusieurs lieux et une équipe d'employés. Elle fournit une interface de planification complète pour le patron et une vue planning personnelle en lecture seule pour chaque membre du staff, accessible sur mobile sous forme de PWA.
 
 ---
 

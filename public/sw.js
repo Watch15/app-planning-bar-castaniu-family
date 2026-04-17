@@ -1,4 +1,4 @@
-const CACHE = 'planning-bar-' + '%%BUILD_TIME%%';
+const CACHE = 'templyo-' + '%%BUILD_TIME%%';
 const STATIC = [
     '/login.html',
     '/set-password.html',
@@ -63,7 +63,7 @@ self.addEventListener('message', e => {
 // ── Web Push — réception et affichage ────────────────────────────────────────
 
 self.addEventListener('push', e => {
-    let data = { title: 'Planning Bar', body: 'Nouveau message', url: '/planning.html' };
+    let data = { title: 'Templyo', body: 'Nouveau message', url: '/planning.html' };
     try {
         if (e.data) data = { ...data, ...e.data.json() };
     } catch { /* payload non-JSON ignoré */ }

@@ -1,4 +1,4 @@
-# Backlog — Planning Bar
+# Backlog — Templyo
 
 Registre des bugs identifiés, améliorations en attente et fonctionnalités futures.
 Ajouter les nouveaux éléments avec une description courte, un contexte et une priorité. Retirer ou déplacer vers `done` une fois résolus.
