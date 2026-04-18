@@ -1220,16 +1220,35 @@ async function submitDispos() {
         let start = sel.start_time;
         let end   = sel.end_time;
         if (sel.type === 'custom') {
+            const parseDispoTime = v => {
+                if (!v) return null;
+                v = v.trim().toLowerCase();
+                let h = 0, m = 0;
+                if (v.includes('h')) {
+                    const parts = v.split('h');
+                    h = parseInt(parts[0], 10) || 0;
+                    m = parseInt(parts[1], 10) || 0;
+                } else if (v.includes(':')) {
+                    const parts = v.split(':');
+                    h = parseInt(parts[0], 10) || 0;
+                    m = parseInt(parts[1], 10) || 0;
+                } else {
+                    h = parseInt(v, 10) || 0;
+                }
+                return h + m / 60;
+            };
             const startVal = document.getElementById('start-' + date)?.value;
             const endVal   = document.getElementById('end-'   + date)?.value;
-            start = parseFloat(startVal?.split(':')[0]) || null;
-            end   = parseFloat(endVal?.split(':')[0])   || null;
-            if (!start || !end || end <= start) {
+            start = parseDispoTime(startVal);
+            end   = parseDispoTime(endVal);
+            if (start == null || end == null) {
                 showMsg('Horaires invalides pour le ' + date, 'error');
                 btn.disabled    = false;
                 btn.textContent = 'Envoyer mes dispos';
                 return;
             }
+            // Fin après minuit (ex: début 16h, fin 02h → 26h)
+            if (end <= start) end += 24;
         }
 
         const note = document.getElementById('note-' + date)?.value || '';
