@@ -93,6 +93,8 @@ Ajouter les nouveaux éléments avec une description courte, un contexte et une 
 | D-37 | Double bouton ⏱ Pointage dans header patron — retrait insertion JS dupliquée dans `script.js:init()` | — |
 | D-38 | Modale approbation échange patron — heures ≥ 24h wrap sur 00-23 (`_fmtSwapTime` aligné sur `fmtHour`) | — |
 | D-39 | Stats « Moy. par personne » (vue jour + vue semaine) — jokers exclus du numérateur ET dénominateur | — |
+| D-40 | Rebranding Planning Bar → Templyo | — |      
+| D-41 | La normalisation des numero de telephone, pour que +33612345678 et 0612345678 matchent en base | — |
 
 ---
 
