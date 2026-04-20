@@ -4650,9 +4650,28 @@ function openCsvImportModal() {
                 html += '</div>';
             }
 
+            if (data.updated && data.updated.length) {
+                const nbSent = data.updated.filter(u => u.sent).length;
+                html += '<div style="background:#eff6ff;border:1.5px solid #3b82f6;border-radius:10px;padding:12px;margin-bottom:10px">' +
+                    '<div style="font-weight:700;color:#1d4ed8;margin-bottom:8px">✏️ ' + data.updated.length + ' compte(s) mis à jour' +
+                    (nbSent ? ' — ' + nbSent + ' invitation(s) renvoyée(s)' : '') + '</div>';
+                data.updated.forEach(u => {
+                    html += '<div style="font-size:11px;color:#1e3a8a;margin-bottom:4px">' +
+                        '<strong>' + u.name + '</strong> — ajouté : ' + (u.added || []).join(', ') + '</div>';
+                    if (u.link && !u.sent) {
+                        html += '<div style="margin-bottom:6px;padding:6px 8px;background:white;border-radius:6px;font-size:11px">' +
+                            '<span style="word-break:break-all;color:#555">' + u.link + '</span>' +
+                            '<button onclick="navigator.clipboard.writeText(\'' + u.link + '\');showToast(\'Lien copié !\')" ' +
+                            'style="margin-left:6px;background:#f39c12;color:white;border:none;border-radius:5px;padding:2px 8px;font-size:10px;cursor:pointer">Copier</button>' +
+                            '</div>';
+                    }
+                });
+                html += '</div>';
+            }
+
             if (data.skipped.length) {
                 html += '<div style="background:#fff9e6;border:1px solid #f0c040;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:11px;color:#7d6000">' +
-                    '<strong>' + data.skipped.length + ' ignoré(s) (déjà existants) :</strong><br>' +
+                    '<strong>' + data.skipped.length + ' ignoré(s) :</strong><br>' +
                     data.skipped.map(s => s.name + ' — ' + s.reason).join('<br>') + '</div>';
             }
 

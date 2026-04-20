@@ -778,7 +778,7 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
     if (entries.length > 200)
         return res.status(400).json({ error: 'Maximum 200 entrées par import' });
 
-    const results = { created: [], skipped: [], failed: [] };
+    const results = { created: [], updated: [], skipped: [], failed: [] };
 
     for (const entry of entries) {
         const name  = (entry.name  || '').trim();
@@ -789,21 +789,118 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
         if (!email && !phone) { results.failed.push({ entry, reason: 'Email ou téléphone requis' }); continue; }
 
         try {
-            if (email) {
-                const ex = await db.collection('users').findOne({ email });
-                if (ex) { results.skipped.push({ name, reason: 'Email déjà utilisé : ' + email }); continue; }
-            }
-            let normalizedPhone = null;
-            if (phone) {
-                normalizedPhone = normalizePhone(phone);
-                const ex = await db.collection('users').findOne({ phone: normalizedPhone });
-                if (ex) { results.skipped.push({ name, reason: 'Numéro déjà utilisé : ' + normalizedPhone }); continue; }
+            const normalizedPhone = phone ? normalizePhone(phone) : null;
+
+            // Chercher un user existant : par email, puis par téléphone
+            let existingUser = null;
+            if (email)           existingUser = await db.collection('users').findOne({ email });
+            if (!existingUser && normalizedPhone) existingUser = await db.collection('users').findOne({ phone: normalizedPhone });
+
+            // Sinon chercher un staff existant par nom (insensible à la casse)
+            let existingStaff = null;
+            if (existingUser && existingUser.staff_id) {
+                existingStaff = await db.collection('staff').findOne({ _id: new ObjectId(existingUser.staff_id) });
+            } else if (!existingUser) {
+                existingStaff = await db.collection('staff').findOne({ name: { $regex: '^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', $options: 'i' } });
+                if (existingStaff) {
+                    const uByStaff = await db.collection('users').findOne({ staff_id: String(existingStaff._id) });
+                    if (uByStaff) existingUser = uByStaff;
+                }
             }
 
+            // Vérifier conflits : le nouveau email/phone appartient à quelqu'un d'autre ?
+            if (email) {
+                const conflict = await db.collection('users').findOne({ email, ...(existingUser ? { _id: { $ne: existingUser._id } } : {}) });
+                if (conflict) { results.skipped.push({ name, reason: 'Email déjà utilisé par un autre compte : ' + email }); continue; }
+            }
+            if (normalizedPhone) {
+                const conflict = await db.collection('users').findOne({ phone: normalizedPhone, ...(existingUser ? { _id: { $ne: existingUser._id } } : {}) });
+                if (conflict) { results.skipped.push({ name, reason: 'Numéro déjà utilisé par un autre compte : ' + normalizedPhone }); continue; }
+            }
+
+            // ─── Cas 1 : staff trouvé mais pas de user lié → créer le user + envoyer invite ───
+            if (existingStaff && !existingUser) {
+                const token   = crypto.randomBytes(32).toString('hex');
+                const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                const staffId = String(existingStaff._id);
+
+                const staffUpdate = {};
+                if (email           && !existingStaff.email) staffUpdate.email = email;
+                if (normalizedPhone && !existingStaff.phone) staffUpdate.phone = normalizedPhone;
+                if (Object.keys(staffUpdate).length)
+                    await db.collection('staff').updateOne({ _id: existingStaff._id }, { $set: staffUpdate });
+
+                await db.collection('users').insertOne({
+                    ...(email && { email }), ...(normalizedPhone && { phone: normalizedPhone }),
+                    password_hash: null, role: 'staff',
+                    staff_id: staffId, assigned_establishments: [],
+                    name: existingStaff.name, invite_token: hashToken(token), invite_expires: expires,
+                    active: false, created_at: new Date(),
+                });
+
+                const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token;
+                let sent = false;
+                if (normalizedPhone) {
+                    try { await sendSMS(normalizedPhone, 'Templyo\nBienvenue ' + existingStaff.name + ' 👋\nCrée ton mot de passe :\n' + link); sent = true; }
+                    catch (e) { console.error('Bulk SMS erreur ' + existingStaff.name + ':', e.message); }
+                }
+                if (email && !sent) {
+                    const html = '<p>Bonjour ' + existingStaff.name + ',</p><p>Tu as été invité(e) à rejoindre <strong>Templyo</strong>.</p>' +
+                        '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
+                        '<p style="color:#999;font-size:12px">Ce lien expire dans 7 jours.</p>';
+                    try { await sendEmail(email, 'Ton accès Templyo', html); sent = true; }
+                    catch (e) { console.error('Bulk email erreur ' + existingStaff.name + ':', e.message); }
+                }
+                results.created.push({ name: existingStaff.name, phone: normalizedPhone, email, link, sent });
+                continue;
+            }
+
+            // ─── Cas 2 : user existant → update des champs manquants ───
+            if (existingUser) {
+                const userUpdate  = {};
+                const staffUpdate = {};
+                const added = [];
+
+                if (email && !existingUser.email) { userUpdate.email = email; staffUpdate.email = email; added.push('email'); }
+                if (normalizedPhone && !existingUser.phone) { userUpdate.phone = normalizedPhone; staffUpdate.phone = normalizedPhone; added.push('téléphone'); }
+
+                if (!added.length) {
+                    results.skipped.push({ name, reason: 'Déjà à jour — rien à ajouter' });
+                    continue;
+                }
+
+                await db.collection('users').updateOne({ _id: existingUser._id }, { $set: userUpdate });
+                if (existingUser.staff_id)
+                    await db.collection('staff').updateOne({ _id: new ObjectId(existingUser.staff_id) }, { $set: staffUpdate });
+
+                // Si le compte n'a pas encore de mot de passe, renvoyer un lien d'invitation sur le NOUVEAU canal
+                let link = null, sent = false;
+                if (!existingUser.password_hash) {
+                    const token   = crypto.randomBytes(32).toString('hex');
+                    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                    await db.collection('users').updateOne({ _id: existingUser._id }, { $set: { invite_token: hashToken(token), invite_expires: expires } });
+                    link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token;
+                    if (added.includes('téléphone') && normalizedPhone) {
+                        try { await sendSMS(normalizedPhone, 'Templyo\nBienvenue ' + existingUser.name + ' 👋\nCrée ton mot de passe :\n' + link); sent = true; }
+                        catch (e) { console.error('Bulk SMS erreur ' + existingUser.name + ':', e.message); }
+                    }
+                    if (!sent && added.includes('email') && email) {
+                        const html = '<p>Bonjour ' + existingUser.name + ',</p><p>Tu as été invité(e) à rejoindre <strong>Templyo</strong>.</p>' +
+                            '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
+                            '<p style="color:#999;font-size:12px">Ce lien expire dans 7 jours.</p>';
+                        try { await sendEmail(email, 'Ton accès Templyo', html); sent = true; }
+                        catch (e) { console.error('Bulk email erreur ' + existingUser.name + ':', e.message); }
+                    }
+                }
+
+                results.updated.push({ name: existingUser.name, added, phone: existingUser.phone || normalizedPhone, email: existingUser.email || email, link, sent });
+                continue;
+            }
+
+            // ─── Cas 3 : rien d'existant → créer staff + user + invite ───
             const token   = crypto.randomBytes(32).toString('hex');
             const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-            // Créer le profil staff (couleur aléatoire parmi une palette)
             const COLORS = ['#3498db','#e74c3c','#2ecc71','#9b59b6','#f39c12','#1abc9c','#e67e22','#e91e63','#00bcd4','#8bc34a'];
             const color  = COLORS[Math.floor(Math.random() * COLORS.length)];
             const staffDoc = {
