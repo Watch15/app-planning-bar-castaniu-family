@@ -287,6 +287,9 @@ async function init() {
 
     const btnImportCsv = document.getElementById('btn-import-csv');
     if (btnImportCsv) btnImportCsv.addEventListener('click', openCsvImportModal);
+
+    const btnBulkNames = document.getElementById('btn-bulk-staff-names');
+    if (btnBulkNames) btnBulkNames.addEventListener('click', openBulkStaffNamesModal);
 }
 
 async function checkAuth() {
@@ -4381,6 +4384,89 @@ async function logout() {
 // ── Démarrage ─────────────────────────────────────────────────────────────────
 
 init();
+// ── Création en masse de profils staff depuis une liste de noms ───────────────
+
+function openBulkStaffNamesModal() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+    overlay.innerHTML = `
+        <div style="background:white;border-radius:14px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 0">
+                <span style="font-size:16px;font-weight:700;color:#1a1a2e">Créer des profils staff</span>
+                <button id="_bs-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa;line-height:1">&times;</button>
+            </div>
+            <div style="padding:16px 20px">
+                <div style="background:#f8f8f8;border-radius:8px;padding:12px 14px;font-size:12px;color:#555;margin-bottom:14px;line-height:1.6">
+                    Un nom par ligne. Crée uniquement le profil (couleur auto) — aucun compte, aucun email, aucun SMS.<br>
+                    Pour envoyer une invitation plus tard, utilise <strong>🔑 Comptes → ⬆ Import CSV</strong>.
+                </div>
+                <textarea id="_bs-input" placeholder="Marie Dupont&#10;Jean Martin&#10;Sophie Leroy"
+                    style="width:100%;height:180px;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 12px;font-size:13px;font-family:monospace;resize:vertical;outline:none;box-sizing:border-box"></textarea>
+                <div id="_bs-preview" style="margin-top:14px"></div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+                    <button id="_bs-confirm" style="background:#27ae60;color:white;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer">Créer les profils</button>
+                </div>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#_bs-close').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+    overlay.querySelector('#_bs-confirm').addEventListener('click', async () => {
+        const raw   = overlay.querySelector('#_bs-input').value;
+        const names = raw.split('\n').map(l => l.trim()).filter(Boolean);
+        if (!names.length) { showToast('Saisis au moins un nom', true); return; }
+
+        const btn = overlay.querySelector('#_bs-confirm');
+        btn.disabled = true;
+        btn.textContent = 'Création…';
+
+        try {
+            const res  = await fetch('/api/staff/bulk', {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ names }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            if (Array.isArray(data.created) && data.created.length) {
+                allStaff.push(...data.created);
+                renderSidebar();
+                renderStaffManageList();
+            }
+
+            const preview = overlay.querySelector('#_bs-preview');
+            let html = '';
+            if (data.created.length) {
+                html += '<div style="background:#f0fdf4;border:1.5px solid #27ae60;border-radius:10px;padding:12px;margin-bottom:8px;font-size:12px;color:#1a5e3c">' +
+                    '<strong>✅ ' + data.created.length + ' profil(s) créé(s)</strong><br>' +
+                    data.created.map(s => s.name).join(', ') + '</div>';
+            }
+            if (data.skipped.length) {
+                html += '<div style="background:#fff9e6;border:1px solid #f0c040;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:11px;color:#7d6000">' +
+                    '<strong>' + data.skipped.length + ' ignoré(s) :</strong><br>' +
+                    data.skipped.map(s => s.name + ' — ' + s.reason).join('<br>') + '</div>';
+            }
+            if (data.failed.length) {
+                html += '<div style="background:#fff5f5;border:1px solid #f5c6c6;border-radius:8px;padding:10px 12px;font-size:11px;color:#c0392b">' +
+                    '<strong>' + data.failed.length + ' erreur(s) :</strong><br>' +
+                    data.failed.map(f => (f.name || '?') + ' — ' + f.reason).join('<br>') + '</div>';
+            }
+            preview.innerHTML = html;
+            overlay.querySelector('#_bs-input').value = '';
+            btn.textContent = 'Fermer';
+            btn.disabled = false;
+            btn.onclick = () => overlay.remove();
+        } catch (e) {
+            showToast(e.message || 'Erreur création', true);
+            btn.disabled = false;
+            btn.textContent = 'Créer les profils';
+        }
+    });
+}
+
 // ── Import CSV comptes staff ──────────────────────────────────────────────────
 
 function openCsvImportModal() {

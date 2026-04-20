@@ -977,6 +977,47 @@ app.post('/api/staff', checkDB, requirePatron, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Création en masse de profils staff depuis une liste de noms — sans compte ni invitation
+app.post('/api/staff/bulk', checkDB, requirePatron, async (req, res) => {
+    const { names } = req.body;
+    if (!Array.isArray(names) || names.length === 0)
+        return res.status(400).json({ error: 'names (tableau) requis' });
+    if (names.length > 200)
+        return res.status(400).json({ error: 'Maximum 200 noms par import' });
+
+    const COLORS = ['#3498db','#9b59b6','#e67e22','#2ecc71','#e74c3c','#1abc9c','#e91e8c','#f39c12','#16a085','#8e44ad','#d35400','#27ae60','#2980b9','#c0392b','#7f8c8d'];
+    const existing  = await db.collection('staff').find({}, { projection: { name: 1, color: 1 } }).toArray();
+    const usedNames = new Set(existing.map(s => s.name.toLowerCase()));
+    const usedColors = new Set(existing.map(s => s.color));
+
+    const results = { created: [], skipped: [], failed: [] };
+
+    for (const raw of names) {
+        const name = String(raw || '').trim();
+        if (!name) { results.failed.push({ name: raw, reason: 'Nom vide' }); continue; }
+        if (usedNames.has(name.toLowerCase())) { results.skipped.push({ name, reason: 'Nom déjà existant' }); continue; }
+
+        let color = COLORS.find(c => !usedColors.has(c));
+        if (!color) color = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+        try {
+            const doc = {
+                name, color, email: '', phone: '',
+                venues: [], roles: [], can_submit_dispos: true,
+                created_at: new Date(),
+            };
+            const result = await db.collection('staff').insertOne(doc);
+            usedNames.add(name.toLowerCase());
+            usedColors.add(color);
+            results.created.push({ ...doc, _id: result.insertedId });
+        } catch (e) {
+            results.failed.push({ name, reason: e.message });
+        }
+    }
+
+    res.status(201).json(results);
+});
+
 app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { color, name, email, venues, can_submit_dispos, groups } = req.body;

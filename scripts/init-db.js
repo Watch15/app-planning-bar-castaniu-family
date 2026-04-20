@@ -27,6 +27,20 @@ async function main() {
             { name: 'Sophie', color: '#e67e22', email: '' },
         ]);
         console.log('✅ 3 membres du staff créés');
+        
+        // Supprimer les indexes existants (sauf _id) avant de les recréer
+        const collections = [
+            'establishments', 'staff', 'shifts', 'users',
+            'sessions', 'availabilities', 'push_subscriptions',
+            'notifications', 'shift_swaps', 'settings', 'roles'
+        ];
+        for (const col of collections) {
+            try {
+                await db.collection(col).dropIndexes();
+            } catch (e) {
+                // Collection inexistante — on ignore
+            }
+        }
 
         await db.collection('establishments').createIndex({ id: 1 }, { unique: true });
         await db.collection('shifts').createIndex({ establishment_id: 1, date: 1 });
