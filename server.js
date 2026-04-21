@@ -146,6 +146,14 @@ async function sendEmail(to, subject, html) {
 
 // ── SMS via Twilio ────────────────────────────────────────────────────────────
 
+// Renvoie l'URL publique de l'app, en garantissant un préfixe https://
+// (sinon les clients SMS iOS/Android ne rendent pas le lien cliquable)
+function appUrl() {
+    let u = process.env.APP_URL || 'http://localhost:3000';
+    if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+    return u.replace(/\/+$/, '');
+}
+
 async function sendSMS(to, body) {
     const sid   = process.env.TWILIO_ACCOUNT_SID;
     const token = process.env.TWILIO_AUTH_TOKEN;
@@ -524,7 +532,7 @@ app.post('/auth/forgot-password', checkDB, async (req, res) => {
             { $set: { reset_token: hashToken(token), reset_expires: expires } }
         );
 
-        const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token + '&mode=reset';
+        const link = appUrl() + '/set-password.html?token=' + token + '&mode=reset';
 
         // ── Envoi par SMS si compte téléphone ──────────────────────────────────
         if (phone) {
@@ -550,7 +558,7 @@ app.post('/auth/forgot-password', checkDB, async (req, res) => {
             let manual = false;
             try {
                 // Message court : 1 segment SMS = 1 seul tarif Twilio (< 160 chars)
-                await sendSMS(normalizePhone(phone), 'Templyo\nRéinitialisation de ton mot de passe :\n' + link + '\n(valable 1h)');
+                await sendSMS(normalizePhone(phone), 'Templyo - Reinitialisation de ton mot de passe\n' + link + '\nValable 1h');
             } catch (smsErr) {
                 console.error('❌ Reset SMS failed:', smsErr.message);
                 manual = true;
@@ -646,10 +654,10 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
                     { $set: { phone: normalizedPhone } }
                 );
             }
-            const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token;
+            const link = appUrl() + '/set-password.html?token=' + token;
             let smsSent = true;
             try {
-                await sendSMS(normalizedPhone, 'Templyo\nBienvenue' + (name ? ' ' + name : '') + ' 👋\nCrée ton mot de passe :\n' + link);
+                await sendSMS(normalizedPhone, 'Templyo - Bienvenue' + (name ? ' ' + name : '') + '\nCree ton mot de passe ici\n' + link);
             } catch (smsErr) {
                 console.error('❌ SMS bienvenue non envoyé:', smsErr.message);
                 smsSent = false;
@@ -686,7 +694,7 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
             );
         }
 
-        const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token;
+        const link = appUrl() + '/set-password.html?token=' + token;
         const html =
             '<p>Bonjour ' + (name || '') + ',</p>' +
             '<p>Tu as été invité(e) à rejoindre <strong>Templyo</strong>.</p>' +
@@ -838,10 +846,10 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
                     active: false, created_at: new Date(),
                 });
 
-                const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token;
+                const link = appUrl() + '/set-password.html?token=' + token;
                 let sent = false;
                 if (normalizedPhone) {
-                    try { await sendSMS(normalizedPhone, 'Templyo\nBienvenue ' + existingStaff.name + ' 👋\nCrée ton mot de passe :\n' + link); sent = true; }
+                    try { await sendSMS(normalizedPhone, 'Templyo - Bienvenue ' + existingStaff.name + '\nCree ton mot de passe ici\n' + link); sent = true; }
                     catch (e) { console.error('Bulk SMS erreur ' + existingStaff.name + ':', e.message); }
                 }
                 if (email && !sent) {
@@ -879,9 +887,9 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
                     const token   = crypto.randomBytes(32).toString('hex');
                     const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
                     await db.collection('users').updateOne({ _id: existingUser._id }, { $set: { invite_token: hashToken(token), invite_expires: expires } });
-                    link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token;
+                    link = appUrl() + '/set-password.html?token=' + token;
                     if (added.includes('téléphone') && normalizedPhone) {
-                        try { await sendSMS(normalizedPhone, 'Templyo\nBienvenue ' + existingUser.name + ' 👋\nCrée ton mot de passe :\n' + link); sent = true; }
+                        try { await sendSMS(normalizedPhone, 'Templyo - Bienvenue ' + existingUser.name + '\nCree ton mot de passe ici\n' + link); sent = true; }
                         catch (e) { console.error('Bulk SMS erreur ' + existingUser.name + ':', e.message); }
                     }
                     if (!sent && added.includes('email') && email) {
@@ -924,12 +932,12 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
                 active: false, created_at: new Date(),
             });
 
-            const link = (process.env.APP_URL || 'http://localhost:3000') + '/set-password.html?token=' + token;
+            const link = appUrl() + '/set-password.html?token=' + token;
             let sent = false;
 
             if (normalizedPhone) {
                 try {
-                    await sendSMS(normalizedPhone, 'Templyo\nBienvenue' + (name ? ' ' + name : '') + ' 👋\nCrée ton mot de passe :\n' + link);
+                    await sendSMS(normalizedPhone, 'Templyo - Bienvenue' + (name ? ' ' + name : '') + '\nCree ton mot de passe ici\n' + link);
                     sent = true;
                 } catch (e) { console.error('Bulk SMS erreur ' + name + ':', e.message); }
             }
