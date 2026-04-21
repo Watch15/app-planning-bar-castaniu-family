@@ -1040,6 +1040,17 @@ function extendDisplayForRealHours() {
     TOTAL_HOURS = END_HOUR - START_HOUR;
 }
 
+// Filtre groupe : renvoie true si le staff appartient au groupe actif
+// ou n'a aucun groupe (toujours visible). Les Jokers sont également toujours visibles.
+function staffMatchesCurrentGroup(staffId) {
+    if (!currentGroup) return true;
+    if (!staffId || staffId === '__joker__') return true;
+    const staff = allStaff.find(s => String(s._id) === String(staffId));
+    if (!staff) return true;
+    const groups = staff.groups || [];
+    return groups.length === 0 || groups.includes(currentGroup);
+}
+
 function buildDisplayedStaff() {
     const seen = new Map();
     currentShifts.forEach(s => {
@@ -1048,6 +1059,7 @@ function buildDisplayedStaff() {
             const rowId = String(s._id);
             seen.set(rowId, { _id: rowId, name: s.staff_name, color: s.color || '#95a5a6', isJoker: true });
         } else if (!seen.has(s.staff_id)) {
+            if (!staffMatchesCurrentGroup(s.staff_id)) return;
             seen.set(s.staff_id, { _id: s.staff_id, name: s.staff_name, color: s.color });
         }
     });
@@ -2253,6 +2265,7 @@ function renderDashboard() {
     const staffMap = new Map(); // staff_id → { name, color, shifts: { date: [shift, ...] } }
     days.forEach(({ date }) => {
         (weekFullData[date] || []).forEach(shift => {
+            if (!staffMatchesCurrentGroup(shift.staff_id)) return;
             if (!staffMap.has(shift.staff_id)) {
                 staffMap.set(shift.staff_id, {
                     _id: shift.staff_id, name: shift.staff_name,
@@ -2396,7 +2409,7 @@ function renderAgenda() {
     for (let i = 0; i < 7; i++) {
         const date = toDateStr(addDays(currentWeekStart, i));
         const d    = addDays(currentWeekStart, i);
-        const shifts = weekFullData[date] || [];
+        const shifts = (weekFullData[date] || []).filter(s => staffMatchesCurrentGroup(s.staff_id));
         const today  = isToday(date);
         const empty  = shifts.length === 0;
 
