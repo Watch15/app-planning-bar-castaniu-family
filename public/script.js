@@ -812,8 +812,9 @@ function renderSidebar() {
                 const nameEl = card.querySelector('.staff-info-name');
                 if (nameEl) nameEl.style.color = newNameColor || '';
                 document.querySelectorAll('.shift').forEach(el => {
-                    if (el.dataset.staffId === String(staff._id)) {
-                        el.style.color = newNameColor || '';
+                    const sd = currentShifts.find(s => String(s._id) === el.dataset.id);
+                    if (sd && sd.staff_id === staff._id) {
+                        el.style.color = newNameColor || textColorFor(sd.color || '#3498db');
                     }
                 });
             } catch (err) { showToast(err.message, true); }
@@ -1190,7 +1191,7 @@ function createShiftEl(shift) {
     el.dataset.id = shift._id;
 
     const bgColor   = shift.color || '#3498db';
-    const textColor = textColorFor(bgColor);
+    const textColor = shiftTextColor(shift);
     if (shift.is_joker || shift.staff_id === '__joker__') {
         el.style.background = 'repeating-linear-gradient(45deg, #bdc3c7, #bdc3c7 4px, #ecf0f1 4px, #ecf0f1 10px)';
         el.style.color      = '#555';
@@ -2332,7 +2333,7 @@ function renderDashboard() {
                     const dispStart = shift.real_start != null ? shift.real_start : shift.start_time;
                     const dispEnd   = shift.real_end   != null ? shift.real_end   : shift.end_time;
                     const hasReal   = shift.real_start != null && shift.real_end != null;
-                    const textColor = textColorFor(shift.color);
+                    const textColor = shiftTextColor(shift);
                     return `<span class="dash-shift-pill"
                         style="background:${shift.color};color:${textColor}"
                         onclick="switchToDayView('${date}')"
@@ -2437,15 +2438,16 @@ function renderAgenda() {
                 return hh + 'h' + (mm > 0 ? String(mm).padStart(2,'0') : '');
             };
             shifts.forEach(shift => {
-                const textColor  = textColorFor(shift.color);
-                const dispStart  = shift.real_start != null ? shift.real_start : shift.start_time;
-                const dispEnd    = shift.real_end   != null ? shift.real_end   : shift.end_time;
+                const staff     = allStaff.find(s => String(s._id) === String(shift.staff_id));
+                const nameColor = (staff && staff.name_color) ? staff.name_color : shift.color;
+                const dispStart = shift.real_start != null ? shift.real_start : shift.start_time;
+                const dispEnd   = shift.real_end   != null ? shift.real_end   : shift.end_time;
                 const pill = document.createElement('span');
                 pill.className = 'agenda-pill';
                 pill.style.background = shift.color + '22';
                 pill.innerHTML = `
                     <span class="agenda-pill-dot" style="background:${escapeHtml(shift.color)}"></span>
-                    <span style="color:${escapeHtml(shift.color)}">${escapeHtml(shift.staff_name)}</span>
+                    <span style="color:${escapeHtml(nameColor)}">${escapeHtml(shift.staff_name)}</span>
                     <span style="color:#888;font-weight:400">${fmtA(dispStart)}-${fmtA(dispEnd)}</span>`;
                 pills.appendChild(pill);
             });
@@ -4282,6 +4284,17 @@ function textColorFor(hex) {
     return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.55 ? '#1a1a2e' : '#ffffff';
 }
 
+// Couleur de la police à utiliser sur un shift :
+// — si le staff a défini une couleur de texte personnalisée (name_color), on l'applique,
+// — sinon on choisit noir ou blanc automatiquement selon le contraste avec la couleur de fond.
+function shiftTextColor(shift) {
+    if (!shift) return '#1a1a2e';
+    if (shift.is_joker || shift.staff_id === '__joker__') return '#555';
+    const staff = allStaff.find(s => String(s._id) === String(shift.staff_id));
+    if (staff && staff.name_color) return staff.name_color;
+    return textColorFor(shift.color || '#3498db');
+}
+
 const AUTO_COLORS = [
     '#3498db','#9b59b6','#e67e22','#2ecc71','#e74c3c',
     '#1abc9c','#e91e8c','#f39c12','#16a085','#8e44ad',
@@ -4313,11 +4326,13 @@ async function updateStaffColor(staff, newColor, card) {
         const fp = card.querySelector('.font-color-picker');
         if (fp) fp.value = newColor;
     }
-    const newTextColor = textColorFor(newColor);
+    const fallbackText = textColorFor(newColor);
     document.querySelectorAll('.shift').forEach(el => {
         const sd = currentShifts.find(s => String(s._id) === el.dataset.id);
         if (sd && sd.staff_id === staff._id) {
-            el.style.background = newColor; el.style.color = newTextColor; sd.color = newColor;
+            sd.color = newColor;
+            el.style.background = newColor;
+            el.style.color = staff.name_color || fallbackText;
         }
     });
     document.querySelectorAll('.row-label-dot').forEach(dot => {
