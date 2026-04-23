@@ -1201,10 +1201,15 @@ app.get('/api/my-shifts', checkDB, requireAuth, async (req, res) => {
         const staffGroups = staffDoc?.groups || [];
 
         // Si le staff a des groupes définis, limiter aux établissements de ces groupes
+        // Les établissements sans groupe (groups vide ou absent) sont toujours inclus
         let allowedEstabIds = null;
         if (staffGroups.length > 0) {
             const groupEstabs = await db.collection('establishments').find({
-                groups: { $in: staffGroups }
+                $or: [
+                    { groups: { $in: staffGroups } },
+                    { groups: { $size: 0 } },
+                    { groups: { $exists: false } },
+                ]
             }).toArray();
             allowedEstabIds = groupEstabs.map(e => e.id);
         }
