@@ -17,12 +17,12 @@
             --dark-border:  #2a2a42;
             --accent:       #6C63FF;
             --accent-soft:  #534AB7;
-            --accent-glow:  rgba(108,99,255,0.15);
+            --accent-glow:  rgba(108,99,255,0.18);
             --light-bg:     #f4f5f8;
             --light-card:   #ffffff;
             --light-border: #e8eaed;
             --text-primary: #1a1a2e;
-            --text-secondary:#4a5068;
+            --text-secondary:#8892a4;
             --text-muted:   #8892a4;
             --success:      #10b981;
             --success-bg:   #d1fae5;
@@ -55,6 +55,12 @@
             position: sticky;
             top: 0;
             z-index: 10;
+        }
+        .header-logo-tile {
+            width: 28px; height: 28px; background: var(--accent); border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 13px; font-weight: 700; flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(108,99,255,.35);
         }
         .header-title {
             font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.2px;
@@ -339,9 +345,12 @@
 <body>
 
 <header class="header">
-    <div>
-        <div class="header-title" id="header-title">Pointage</div>
-        <div class="header-sub"  id="header-date"></div>
+    <div style="display:flex;align-items:center;gap:10px">
+        <div class="header-logo-tile">T</div>
+        <div>
+            <div class="header-title" id="header-title">Pointage</div>
+            <div class="header-sub"  id="header-date"></div>
+        </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
         <a href="/planning.html" class="btn-back" id="btn-back" style="display:none">← Planning</a>

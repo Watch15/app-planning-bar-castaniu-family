@@ -8,4 +8,5 @@ Thumbs.db
 .claude
 .idea/
 .vscode/
-task.md
+task.md*
+ui_kits/

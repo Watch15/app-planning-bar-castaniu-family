@@ -663,6 +663,27 @@
             }
         }
 
+        /* ── Brand desktop (logo + wordmark) ── */
+        .header-desktop-brand {
+            display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+        }
+        .header-logo-tile {
+            width: 28px; height: 28px;
+            background: var(--accent);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 13px; font-weight: 700;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(108,99,255,.35);
+        }
+        .header-app-title {
+            font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.2px;
+        }
+        @media (max-width: 767px) {
+            .header-desktop-brand { display: none !important; }
+            .header-desktop-sep   { display: none !important; }
+        }
+
         /* Print styles (hors mobile) */
         @media print {
             body > * { display: none !important; }
@@ -685,12 +706,18 @@
         <div class="header-left">
             <!-- Brand mobile uniquement (visible <768px) -->
             <div class="header-mobile-brand" style="display:none;align-items:center;gap:8px">
-                <div class="mobile-brand-icon">P</div>
+                <div class="mobile-brand-icon">T</div>
                 <div>
                     <div class="mobile-brand-title">Templyo</div>
                     <div class="mobile-brand-sub" id="mobile-brand-sub">Dashboard</div>
                 </div>
             </div>
+            <!-- Brand desktop uniquement (visible ≥768px) -->
+            <div class="header-desktop-brand">
+                <div class="header-logo-tile">T</div>
+                <span class="header-app-title">Templyo</span>
+            </div>
+            <div class="header-sep header-desktop-sep"></div>
             <!-- Groupe 1 : gestion -->
             <button class="btn-manage-staff" id="btn-manage-staff">👥 Staff</button>
             <button class="btn-manage-staff" id="btn-manage-accounts" style="background:var(--accent-subtle);border-color:var(--accent);color:var(--accent)">🔑 Comptes</button>
