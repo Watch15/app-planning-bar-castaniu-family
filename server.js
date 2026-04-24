@@ -558,7 +558,7 @@ app.post('/auth/forgot-password', checkDB, async (req, res) => {
             let manual = false;
             try {
                 // Message court : 1 segment SMS = 1 seul tarif Twilio (< 160 chars)
-                await sendSMS(normalizePhone(phone), 'Templyo - Reinitialisation de ton mot de passe\n' + link + '\nValable 1h');
+                await sendSMS(normalizePhone(phone), 'Templyo - Nouveau mot de passe :\n' + link);
             } catch (smsErr) {
                 console.error('❌ Reset SMS failed:', smsErr.message);
                 manual = true;
@@ -657,7 +657,7 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
             const link = appUrl() + '/set-password.html?token=' + token;
             let smsSent = true;
             try {
-                await sendSMS(normalizedPhone, 'Templyo - Bienvenue' + (name ? ' ' + name : '') + '\nCree ton mot de passe ici\n' + link);
+                await sendSMS(normalizedPhone, 'Templyo - Bonjour '  + (name ? ' ' + name : '') + '!\n' + link);
             } catch (smsErr) {
                 console.error('❌ SMS bienvenue non envoyé:', smsErr.message);
                 smsSent = false;
@@ -849,7 +849,7 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
                 const link = appUrl() + '/set-password.html?token=' + token;
                 let sent = false;
                 if (normalizedPhone) {
-                    try { await sendSMS(normalizedPhone, 'Templyo - Bienvenue ' + existingStaff.name + '\nCree ton mot de passe ici\n' + link); sent = true; }
+                    try { await sendSMS(normalizedPhone, 'Templyo - Bonjour ' + existingStaff.name + '!\n' + link); sent = true; }
                     catch (e) { console.error('Bulk SMS erreur ' + existingStaff.name + ':', e.message); }
                 }
                 if (email && !sent) {
@@ -937,7 +937,7 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
 
             if (normalizedPhone) {
                 try {
-                    await sendSMS(normalizedPhone, 'Templyo - Bienvenue' + (name ? ' ' + name : '') + '\nCree ton mot de passe ici\n' + link);
+                    await sendSMS(normalizedPhone, 'Templyo - Bonjour ' + (name ? ' ' + name : '') + '!\n' + link);
                     sent = true;
                 } catch (e) { console.error('Bulk SMS erreur ' + name + ':', e.message); }
             }
