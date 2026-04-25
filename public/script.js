@@ -2331,9 +2331,12 @@ function renderDashboard() {
         const mm = Math.round((v % 1) * 60);
         return hh + 'h' + (mm > 0 ? String(mm).padStart(2,'0') : '');
     };
+    let accTotalH = 0;
+    let accNbStaff = 0;
     staffMap.forEach(staff => {
         const tr = document.createElement('tr');
         let totalH = 0;
+        if (staff._id !== '__joker__') accNbStaff++;
 
         let row = `<td class="col-staff"><div class="dash-staff-cell">
             <span class="dash-dot" style="background:${staff.color}"></span>
@@ -2383,21 +2386,16 @@ function renderDashboard() {
         row += `<td class="dash-total-cell">${fmtTotal(totalH)}</td>`;
         tr.innerHTML = row;
         tbody.appendChild(tr);
+        if (staff._id !== '__joker__') accTotalH += totalH;
     });
     table.appendChild(tbody);
     container.appendChild(table);
 
-    const isJokerShift   = s => s.is_joker || s.staff_id === '__joker__';
-    const allShifts      = Object.values(weekFullData).flat();
-    const realShifts     = allShifts.filter(s => !isJokerShift(s));
-    const totalHSemaine  = realShifts.reduce((a, s) => {
-        const start = s.real_start != null ? s.real_start : s.start_time;
-        const end   = s.real_end   != null ? s.real_end   : s.end_time;
-        return a + (end - start);
-    }, 0);
+    // totalHSemaine et nbStaff sont accumulés pendant le rendu du tableau
+    // → garantit par construction que la moyenne correspond aux totaux affichés.
+    const totalHSemaine = accTotalH;
+    const nbStaff = accNbStaff;
     const joursStaffes = Object.values(weekFullData).filter(arr => arr.length > 0).length;
-    // Exclut le(s) entrée(s) joker dans staffMap pour ne compter que les vrais employés
-    const nbStaff      = Array.from(staffMap.keys()).filter(id => id !== '__joker__').length;
 
     const fmtTotalH = h => {
         const totalMins = Math.round(h * 60);
@@ -4375,13 +4373,20 @@ function renderStats() {
     // heures cumulées ET du nombre de staff pour que « Moy. par personne »
     // reflète bien les personnes réellement planifiées.
     const isJokerShift = s => s.is_joker || s.staff_id === '__joker__';
-    const realShifts   = currentShifts.filter(s => !isJokerShift(s));
-    const totalH  = realShifts.reduce((a, s) => {
+    // On restreint au même périmètre que displayedStaff (filtre groupe inclus)
+    // pour que la moyenne soit mathématiquement cohérente avec les heures cumulées.
+    const displayedStaffIds = new Set(
+        displayedStaff.filter(s => !s.isJoker).map(s => String(s._id))
+    );
+    const realShifts = currentShifts.filter(s =>
+        !isJokerShift(s) && displayedStaffIds.has(String(s.staff_id))
+    );
+    const totalH = realShifts.reduce((a, s) => {
         const start = s.real_start != null ? s.real_start : s.start_time;
         const end   = s.real_end   != null ? s.real_end   : s.end_time;
         return a + (end - start);
     }, 0);
-    const nbStaff = displayedStaff.filter(s => !s.isJoker).length;
+    const nbStaff = displayedStaffIds.size;
     const fmtH = h => {
         const totalMins = Math.round(h * 60);
         const hrs = Math.floor(totalMins / 60);
