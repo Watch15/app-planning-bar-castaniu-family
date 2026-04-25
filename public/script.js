@@ -829,6 +829,25 @@ function renderSidebar() {
             e.stopPropagation();
             const autoColor = generateColor(staff.name);
             picker.value = autoColor;
+            // Réinitialise aussi la couleur de police custom
+            if (staff.name_color) {
+                try {
+                    const res = await fetch('/api/staff/' + staff._id, {
+                        method: 'PATCH', credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name_color: null }),
+                    });
+                    if (!res.ok) throw new Error((await res.json()).error);
+                    staff.name_color = null;
+                    const nameEl = card.querySelector('.staff-info-name');
+                    if (nameEl) nameEl.style.color = '';
+                    fontPicker.value = autoColor;
+                    document.querySelectorAll('.shift').forEach(el => {
+                        const sd = currentShifts.find(s => String(s._id) === el.dataset.id);
+                        if (sd && sd.staff_id === staff._id) el.style.color = textColorFor(sd.color || '#3498db');
+                    });
+                } catch (err) { showToast(err.message, true); }
+            }
             await updateStaffColor(staff, autoColor, card);
         });
         btnAuto.addEventListener('mousedown', e => e.stopPropagation());
