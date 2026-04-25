@@ -2375,8 +2375,9 @@ function renderDashboard() {
         });
 
         const fmtTotal = h => {
-            const hrs  = Math.floor(h);
-            const mins = Math.round((h - hrs) * 60);
+            const totalMins = Math.round(h * 60);
+            const hrs = Math.floor(totalMins / 60);
+            const mins = totalMins % 60;
             return mins > 0 ? hrs + 'h' + String(mins).padStart(2,'0') : hrs + 'h';
         };
         row += `<td class="dash-total-cell">${fmtTotal(totalH)}</td>`;
@@ -2399,8 +2400,9 @@ function renderDashboard() {
     const nbStaff      = Array.from(staffMap.keys()).filter(id => id !== '__joker__').length;
 
     const fmtTotalH = h => {
-        const hrs  = Math.floor(h);
-        const mins = Math.round((h - hrs) * 60);
+        const totalMins = Math.round(h * 60);
+        const hrs = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
         return mins > 0 ? hrs + 'h' + String(mins).padStart(2,'0') : hrs + 'h';
     };
     const stats = document.createElement('div');
@@ -3221,8 +3223,9 @@ async function loadRecapData() {
 
         const fmtH = h => {
             if (h == null) return '—';
-            const hrs = Math.floor(Math.abs(h));
-            const mins = Math.round((Math.abs(h) - hrs) * 60);
+            const totalMins = Math.round(Math.abs(h) * 60);
+            const hrs = Math.floor(totalMins / 60);
+            const mins = totalMins % 60;
             const str = hrs + 'h' + (mins > 0 ? String(mins).padStart(2, '0') : '');
             return h < 0 ? '−' + str : str;
         };
@@ -3295,9 +3298,9 @@ function exportRecapCsv() {
     const fmtH = h => {
         if (h == null) return '';
         const sign = h < 0 ? '-' : '';
-        const abs = Math.abs(h);
-        const hrs = Math.floor(abs);
-        const mins = Math.round((abs - hrs) * 60);
+        const totalMins = Math.round(Math.abs(h) * 60);
+        const hrs = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
         return sign + hrs + 'h' + String(mins).padStart(2, '0');
     };
     const esc = v => {
@@ -4265,9 +4268,6 @@ document.getElementById('btn-add-staff').addEventListener('click', async () => {
 
     if (!name) { showToast('Le prénom est obligatoire', true); nameInput.focus(); return; }
 
-    const dup = allStaff.find(s => s.name.toLowerCase() === name.toLowerCase());
-    if (dup) { showToast(`${name} existe déjà`, true); return; }
-
     try {
         const res = await fetch('/api/staff', {
             method:  'POST',
@@ -4383,8 +4383,9 @@ function renderStats() {
     }, 0);
     const nbStaff = displayedStaff.filter(s => !s.isJoker).length;
     const fmtH = h => {
-        const hrs  = Math.floor(h);
-        const mins = Math.round((h - hrs) * 60);
+        const totalMins = Math.round(h * 60);
+        const hrs = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
         return mins > 0 ? hrs + 'h' + String(mins).padStart(2,'0') : hrs + 'h';
     };
     [
