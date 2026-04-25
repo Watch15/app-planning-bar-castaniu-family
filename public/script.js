@@ -4294,7 +4294,7 @@ function applyCardNameContrast(card, staffColor, nameColor) {
         const r = parseInt(staffColor.slice(1, 3), 16);
         const g = parseInt(staffColor.slice(3, 5), 16);
         const b = parseInt(staffColor.slice(5, 7), 16);
-        card.style.background = `rgba(${r},${g},${b},0.55)`;
+        card.style.background = `rgba(${r},${g},${b},0.75)`;
     } else {
         card.style.background = '';
     }
