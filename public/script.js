@@ -4191,10 +4191,6 @@ function renderStaffManageList() {
 
             if (!newName) { showToast('Le nom ne peut pas être vide', true); return; }
 
-            // Vérif doublon couleur
-            const dup = allStaff.find(s => s.color === newColor && s._id !== staff._id);
-            if (dup) { showToast(dup.name + ' utilise déjà cette couleur', true); return; }
-
             // Déterminer si name_color est différent de color (sinon null = reset)
             const effectiveNameColor = newNameColor && newNameColor !== newColor ? newNameColor : null;
 
@@ -4271,9 +4267,6 @@ document.getElementById('btn-add-staff').addEventListener('click', async () => {
 
     const dup = allStaff.find(s => s.name.toLowerCase() === name.toLowerCase());
     if (dup) { showToast(`${name} existe déjà`, true); return; }
-
-    const dupColor = allStaff.find(s => s.color === color);
-    if (dupColor) { showToast(`${dupColor.name} utilise déjà cette couleur`, true); return; }
 
     try {
         const res = await fetch('/api/staff', {
