@@ -1980,6 +1980,11 @@ async function onUp() {
 
 let _touchScrollLeft = 0; // scrollLeft du conteneur au moment du touchstart
 let _touchActive     = false; // bloque mousedown pendant un drag touch (évite double-déclenchement Android)
+let _touchStartX     = 0;
+let _touchStartY     = 0;
+let _touchIntent     = null; // 'drag' | 'scroll' | null
+const DRAG_THRESHOLD   = 8;  // px horizontal avant déclenchement drag
+const SCROLL_THRESHOLD = 8;  // px vertical avant déclenchement scroll
 
 document.addEventListener('touchstart', onTouchStart, { passive: false });
 document.addEventListener('touchmove',  onTouchMove,  { passive: false });
@@ -1988,8 +1993,6 @@ document.addEventListener('touchend',   onTouchEnd);
 function onTouchStart(e) {
     const shiftEl = e.target.closest('.shift');
     if (!shiftEl || e.target.closest('.shift-delete')) return;
-
-    e.preventDefault();
 
     _touchActive     = true;
     _shiftWasDragged = false;
@@ -2004,22 +2007,53 @@ function onTouchStart(e) {
     startLeft    = activeEl.offsetLeft;
     startWidth   = activeEl.offsetWidth;
 
+    _touchStartX = touch.clientX;
+    _touchStartY = touch.clientY;
+    _touchIntent = null;
+
     const isLeft  = e.target.closest('.resizer.left');
     const isRight = e.target.closest('.resizer.right');
     activeAction  = isLeft ? 'res-left' : isRight ? 'res-right' : 'drag';
+
+    // Resize : geste forcément horizontal, on déclenche le drag immédiatement
+    if (isLeft || isRight) _touchIntent = 'drag';
 }
 
 function onTouchMove(e) {
     if (!activeEl) return;
-    e.preventDefault();
     const touch = e.touches[0];
-    // Corriger le clientX avec le scroll courant du conteneur
-    const scroller = document.getElementById('timeline-scroll');
-    const scrollDelta = scroller ? (scroller.scrollLeft - _touchScrollLeft) : 0;
-    onMove({ clientX: touch.clientX - scrollDelta });
+
+    // Détermine l'intention au premier mouvement significatif
+    if (_touchIntent === null) {
+        const deltaX = Math.abs(touch.clientX - _touchStartX);
+        const deltaY = Math.abs(touch.clientY - _touchStartY);
+
+        if (deltaX > DRAG_THRESHOLD && deltaX > deltaY) {
+            _touchIntent = 'drag';
+        } else if (deltaY > SCROLL_THRESHOLD && deltaY > deltaX) {
+            _touchIntent = 'scroll';
+            activeEl = null;
+            activeAction = null;
+            _touchActive = false;
+            return; // laisser le scroll natif prendre la main
+        } else {
+            return; // intention pas encore décidée
+        }
+    }
+
+    if (_touchIntent === 'scroll') return;
+
+    if (_touchIntent === 'drag') {
+        e.preventDefault();
+        // Corriger le clientX avec le scroll courant du conteneur
+        const scroller = document.getElementById('timeline-scroll');
+        const scrollDelta = scroller ? (scroller.scrollLeft - _touchScrollLeft) : 0;
+        onMove({ clientX: touch.clientX - scrollDelta });
+    }
 }
 
 function onTouchEnd() {
+    _touchIntent = null;
     _touchActive = false;
     if (!activeEl) return;
 
