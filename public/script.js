@@ -274,6 +274,13 @@ async function init() {
         document.getElementById('confirm-dispo-modal').style.display = 'none';
     });
 
+    // Synchronise le header des heures avec le scroll horizontal de la timeline
+    const timelineScroll = document.getElementById('timeline-scroll');
+    if (timelineScroll) timelineScroll.addEventListener('scroll', () => {
+        const hdr = document.getElementById('timeline-header');
+        if (hdr) hdr.style.transform = `translateX(-${timelineScroll.scrollLeft}px)`;
+    }, { passive: true });
+
     const btnEstab = document.getElementById('btn-manage-establishments');
     if (btnEstab) {
         if (currentUser.role !== 'patron') {

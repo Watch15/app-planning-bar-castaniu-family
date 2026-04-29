@@ -219,13 +219,14 @@ a:hover { color: var(--accent-soft); }
 /* ── Vue détail d'un jour ────────────────────────────────────────────────────*/
 .day-detail {
   background: var(--light-card); border-radius: 0;
-  box-shadow: none; overflow: hidden;
+  box-shadow: none; overflow: visible;
   border-top: 1px solid var(--light-border);
 }
 .day-detail-header {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 20px; border-bottom: 1px solid var(--light-border);
   background: var(--light-bg);
+  position: sticky; top: 52px; z-index: 51;
 }
 .day-detail-title { font-size: 14px; font-weight: 700; color: var(--text-primary); flex: 1; }
 /* Boutons dans le header jour (fond clair) — surcharge le style header sombre */
@@ -257,9 +258,13 @@ a:hover { color: var(--accent-soft); }
 .day-detail-close:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-bg); }
 
 /* ── Timeline ────────────────────────────────────────────────────────────────*/
-.timeline-top { display: flex; border-bottom: 1px solid var(--light-border); background: var(--light-card); }
+.timeline-top {
+  display: flex; border-bottom: 1px solid var(--light-border); background: var(--light-card);
+  position: sticky; top: 96px; z-index: 50;
+}
 .tl-corner { width: 90px; flex-shrink: 0; border-right: 1px solid var(--light-border); }
-.timeline-header { display: flex; overflow: hidden; }
+.timeline-header-clip { flex: 1; overflow: hidden; }
+.timeline-header { display: flex; }
 .tl-hour {
   flex-shrink: 0; width: 60px; height: 30px;
   display: flex; align-items: center; padding-left: 6px;
@@ -655,8 +660,8 @@ label[for], select, .tab-btn, .staff-card, .shift-card {
 .view-tab.active { background: var(--light-card); color: var(--text-primary); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.10); }
 
 /* ── Vue semaine complète ────────────────────────────────────────────────────*/
-.week-full { background: var(--light-card); border-radius: 0; box-shadow: none; overflow: hidden; border-top: 1px solid var(--light-border); }
-.week-sub-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--light-border); padding: 0 20px; background: var(--light-bg); }
+.week-full { background: var(--light-card); border-radius: 0; box-shadow: none; overflow: visible; border-top: 1px solid var(--light-border); }
+.week-sub-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--light-border); padding: 0 20px; background: var(--light-bg); position: sticky; top: 52px; z-index: 51; }
 .week-sub-tab {
   padding: 11px 16px; border: none; background: transparent;
   font-size: 13px; font-weight: 500; color: var(--text-muted);
@@ -799,8 +804,7 @@ label[for], select, .tab-btn, .staff-card, .shift-card {
   .day-name { font-size: 9px; }
   .day-num  { font-size: 14px; }
   .day-shift-count { font-size: 10px; }
-  .day-detail { overflow: visible; }
-  .timeline-top  { position: sticky; top: 0; z-index: 20; }
+  .timeline-top  { top: 96px; z-index: 50; }
   .tl-corner { width: 70px; }
   .row-label { width: 70px; font-size: 11px; padding: 0 6px; }
   .row-total { width: 32px; font-size: 10px; }

@@ -722,7 +722,9 @@
         }
         .gantt-bar:hover { opacity: .85; }
         .gantt-axis {
-            display: flex; margin-left: 76px; margin-bottom: 6px;
+            display: flex; padding-left: 76px; margin-bottom: 0;
+            position: sticky; top: 96px; z-index: 50;
+            background: var(--light-card); padding-top: 4px; padding-bottom: 4px;
         }
         .gantt-tick {
             font-size: 10px; color: var(--text-muted); flex: 1; text-align: left;
@@ -844,12 +846,15 @@
             <button class="day-detail-close" id="day-detail-close">×</button>
         </div>
 
-        <!-- Timeline — wrapper scroll horizontal synchronisé -->
-        <div class="timeline-scroll" id="timeline-scroll">
-            <div class="timeline-top">
-                <div class="tl-corner"></div>
+        <!-- Ligne des heures — sticky hors du scroll horizontal -->
+        <div class="timeline-top" id="timeline-top">
+            <div class="tl-corner"></div>
+            <div class="timeline-header-clip">
                 <div class="timeline-header" id="timeline-header"></div>
             </div>
+        </div>
+        <!-- Timeline — wrapper scroll horizontal -->
+        <div class="timeline-scroll" id="timeline-scroll">
             <div class="timeline-body" id="timeline-body"></div>
         </div>
 
