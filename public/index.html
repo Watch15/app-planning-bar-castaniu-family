@@ -696,6 +696,43 @@
             #recap-modal select { display: none !important; }
             #recap-content { max-height: none !important; overflow: visible !important; }
         }
+        .gantt-day { margin-bottom: 20px; }
+        .gantt-day-label {
+            font-size: 12px; font-weight: 500; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px;
+        }
+        .gantt-row {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 4px; height: 26px;
+        }
+        .gantt-name {
+            font-size: 12px; color: var(--text-muted); width: 68px;
+            flex-shrink: 0; text-align: right; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .gantt-track {
+            flex: 1; position: relative; height: 22px;
+            background: #f4f5f8; border-radius: 4px; overflow: hidden;
+        }
+        .gantt-bar {
+            position: absolute; top: 2px; height: 18px; border-radius: 3px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; white-space: nowrap; overflow: hidden; padding: 0 4px;
+            cursor: pointer; transition: opacity .15s;
+        }
+        .gantt-bar:hover { opacity: .85; }
+        .gantt-axis {
+            display: flex; margin-left: 76px; margin-bottom: 6px;
+        }
+        .gantt-tick {
+            font-size: 10px; color: var(--text-muted); flex: 1; text-align: left;
+        }
+        .gantt-divider {
+            border: none; border-top: 1px solid #f0f0f0; margin: 14px 0;
+        }
+        .gantt-empty {
+            font-size: 12px; color: #ccc; margin-left: 76px; padding: 6px 0;
+        }
     </style>
 </head>
 <body>
@@ -789,9 +826,11 @@
         <div class="week-sub-tabs">
             <button class="week-sub-tab active" data-sub="dashboard">Tableau de bord</button>
             <button class="week-sub-tab" data-sub="agenda">Agenda</button>
+            <button class="week-sub-tab" data-sub="gantt">Gantt</button>
         </div>
         <div id="week-dashboard"></div>
         <div id="week-agenda" style="display:none"></div>
+        <div id="week-gantt" style="display:none"></div>
     </div>
 
     <!-- ── Vue détail d'un jour ── -->
@@ -972,6 +1011,16 @@
                 <input type="checkbox" id="confirm-create-shift" checked>
                 Cr&eacute;er le shift automatiquement
             </label>
+        </div>
+        <div id="confirm-dispo-note" style="display:none;
+            margin: 8px 0 12px;
+            padding: 8px 10px;
+            background: #fff8e1;
+            border-left: 3px solid #f39c12;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #555;
+            font-style: italic;">
         </div>
         <div class="modal-actions">
             <button class="btn-cancel" id="confirm-dispo-cancel" style="border-color:var(--danger);color:var(--danger)">Refuser</button>

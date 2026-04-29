@@ -371,6 +371,8 @@ function initViewTabs() {
             btn.classList.add('active');
             document.getElementById('week-dashboard').style.display = currentSubView === 'dashboard' ? '' : 'none';
             document.getElementById('week-agenda').style.display    = currentSubView === 'agenda'    ? '' : 'none';
+            document.getElementById('week-gantt').style.display     = currentSubView === 'gantt'     ? '' : 'none';
+            if (currentSubView === 'gantt') renderWeekGantt();
         });
     });
 }
@@ -2341,6 +2343,7 @@ document.getElementById('copy-modal-confirm').addEventListener('click', async ()
 function renderWeekFull() {
     renderDashboard();
     renderAgenda();
+    if (currentSubView === 'gantt') renderWeekGantt();
 }
 
 // ── Tableau de bord (lignes staff × colonnes jour) ────────────────────────────
@@ -2572,6 +2575,106 @@ function renderAgenda() {
     }
 
     wrap.appendChild(agendaWrap);
+}
+
+// ── Vue Gantt semaine ─────────────────────────────────────────────────────────
+
+function renderWeekGantt() {
+    const wrap = document.getElementById('week-gantt');
+    wrap.innerHTML = '';
+
+    const OPEN_H  = 10;
+    const CLOSE_H = 26;
+    const RANGE   = CLOSE_H - OPEN_H;
+
+    const pctLeft  = h  => ((h - OPEN_H) / RANGE * 100).toFixed(2) + '%';
+    const pctWidth = (s, e) => ((e - s) / RANGE * 100).toFixed(2) + '%';
+    const fmtH     = h  => h <= 24 ? h + 'h' : (h - 24) + 'h';
+
+    // Axe horaire
+    const axis = document.createElement('div');
+    axis.className = 'gantt-axis';
+    for (let h = OPEN_H; h <= CLOSE_H; h += 2) {
+        const tick = document.createElement('span');
+        tick.className   = 'gantt-tick';
+        tick.textContent = fmtH(h);
+        axis.appendChild(tick);
+    }
+    wrap.appendChild(axis);
+
+    for (let i = 0; i < 7; i++) {
+        const d      = addDays(currentWeekStart, i);
+        const date   = toDateStr(d);
+        const shifts = (weekFullData[date] || [])
+            .filter(s => staffMatchesCurrentGroup(s.staff_id))
+            .slice()
+            .sort((a, b) => (a.start_time || 0) - (b.start_time || 0));
+
+        const dayDiv = document.createElement('div');
+        dayDiv.className = 'gantt-day';
+
+        const label = document.createElement('div');
+        label.className   = 'gantt-day-label';
+        label.textContent = DAY_NAMES_LONG[d.getDay()] + ' ' + d.getDate();
+        dayDiv.appendChild(label);
+
+        if (shifts.length === 0) {
+            const empty = document.createElement('div');
+            empty.className   = 'gantt-empty';
+            empty.textContent = 'Aucun shift';
+            dayDiv.appendChild(empty);
+        } else {
+            shifts.forEach(shift => {
+                const isJoker = shift.is_joker || shift.staff_id === '__joker__';
+                const sH = shift.real_start != null ? shift.real_start : shift.start_time;
+                const eH = shift.real_end   != null ? shift.real_end   : shift.end_time;
+                const clampS = Math.max(sH, OPEN_H);
+                const clampE = Math.min(eH, CLOSE_H);
+                if (clampS >= clampE) return;
+
+                const row = document.createElement('div');
+                row.className = 'gantt-row';
+
+                const nameEl = document.createElement('div');
+                nameEl.className   = 'gantt-name';
+                nameEl.textContent = isJoker ? 'Joker' : shift.staff_name;
+                row.appendChild(nameEl);
+
+                const track = document.createElement('div');
+                track.className = 'gantt-track';
+
+                const bar = document.createElement('div');
+                bar.className = 'gantt-bar';
+                if (isJoker) {
+                    bar.style.background = 'repeating-linear-gradient(45deg,#bdc3c7,#bdc3c7 4px,#ecf0f1 4px,#ecf0f1 10px)';
+                    bar.style.color      = '#555';
+                    bar.style.border     = '1.5px dashed #95a5a6';
+                } else {
+                    bar.style.background = shift.color || '#3498db';
+                    bar.style.color      = textColorFor(shift.color || '#3498db');
+                }
+                bar.style.left  = pctLeft(clampS);
+                bar.style.width = pctWidth(clampS, clampE);
+
+                if ((clampE - clampS) >= 1.5) {
+                    bar.textContent = fmtH(sH) + '→' + fmtH(eH);
+                }
+
+                bar.addEventListener('click', () => switchToDayView(date));
+                track.appendChild(bar);
+                row.appendChild(track);
+                dayDiv.appendChild(row);
+            });
+        }
+
+        wrap.appendChild(dayDiv);
+
+        if (i < 6) {
+            const hr = document.createElement('hr');
+            hr.className = 'gantt-divider';
+            wrap.appendChild(hr);
+        }
+    }
 }
 
 // ── Switcher vers vue jour sur une date précise ───────────────────────────────
@@ -3666,7 +3769,8 @@ async function loadDisposList() {
                     '<div style="font-size:10px;color:#aaa;margin-bottom:2px">' + DAY_SHORT[d.getDay()] + ' ' + d.getDate() + '</div>' +
                     (dispo
                         ? '<div style="font-size:12px;font-weight:700;color:' + typeColor + '">' + (dispo.type === 'soir' ? 'Soir' : dispo.type === 'midi' ? 'Midi' : 'Perso') + '</div>' +
-                          '<div style="font-size:10px;color:#999;margin-top:1px">' + fmt(dispo.start_time) + '→' + fmt(dispo.end_time) + '</div>'
+                          '<div style="font-size:10px;color:#999;margin-top:1px">' + fmt(dispo.start_time) + '→' + fmt(dispo.end_time) + '</div>' +
+                          (dispo.note ? '<div style="font-size:9px;color:#f39c12;margin-top:2px">✎ note</div>' : '')
                         : '<div style="font-size:14px;color:#ddd">—</div>');
 
                 if (dispo) {
@@ -3732,6 +3836,16 @@ function openConfirmDispo(dispo, pill, card, staffId) {
     if (!modal) return;
     modal.style.display = 'flex';
     buildEstablishmentSelect();
+
+    const noteEl = document.getElementById('confirm-dispo-note');
+    if (noteEl) {
+        if (dispo.note && dispo.note.trim()) {
+            noteEl.textContent = '"' + dispo.note.trim() + '"';
+            noteEl.style.display = 'block';
+        } else {
+            noteEl.style.display = 'none';
+        }
+    }
 
     document.getElementById('confirm-dispo-btn').onclick = async () => {
         const establishmentId = document.getElementById('confirm-dispo-establishment').value;
