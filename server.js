@@ -875,7 +875,7 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
                     try { await sendSMS(normalizedPhone, 'Templyo - Bonjour ' + existingStaff.name + '!\n' + link); sent = true; }
                     catch (e) { console.error('Bulk SMS erreur ' + existingStaff.name + ':', e.message); }
                 }
-                if (email && !sent) {
+                if (email) {
                     const html = '<p>Bonjour ' + existingStaff.name + ',</p><p>Tu as été invité(e) à rejoindre <strong>Templyo</strong>.</p>' +
                         '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
                         '<p style="color:#999;font-size:12px">Ce lien expire dans 7 jours.</p>';
@@ -915,7 +915,7 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
                         try { await sendSMS(normalizedPhone, 'Templyo - Bienvenue ' + existingUser.name + '\nCree ton mot de passe ici\n' + link); sent = true; }
                         catch (e) { console.error('Bulk SMS erreur ' + existingUser.name + ':', e.message); }
                     }
-                    if (!sent && added.includes('email') && email) {
+                    if (added.includes('email') && email) {
                         const html = '<p>Bonjour ' + existingUser.name + ',</p><p>Tu as été invité(e) à rejoindre <strong>Templyo</strong>.</p>' +
                             '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
                             '<p style="color:#999;font-size:12px">Ce lien expire dans 7 jours.</p>';
@@ -964,7 +964,7 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
                     sent = true;
                 } catch (e) { console.error('Bulk SMS erreur ' + name + ':', e.message); }
             }
-            if (email && !sent) {
+            if (email) {
                 const html = '<p>Bonjour ' + name + ',</p><p>Tu as été invité(e) à rejoindre <strong>Templyo</strong>.</p>' +
                     '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
                     '<p style="color:#999;font-size:12px">Ce lien expire dans 7 jours.</p>';
