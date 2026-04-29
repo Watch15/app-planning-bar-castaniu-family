@@ -3833,7 +3833,21 @@ async function confirmAllForStaff(dispos, card) {
         if (createShift) await refreshWeek();
         showToast(confirmed + ' dispo(s) confirmée(s)');
     };
-    document.getElementById('confirm-dispo-cancel').onclick = () => { modal.style.display = 'none'; };
+    document.getElementById('confirm-dispo-cancel').onclick = () => {
+        modal.style.display = 'none';
+        showConfirm('Refuser toutes les dispos de ce membre ?', async () => {
+            let refused = 0;
+            for (const dispo of dispos) {
+                try {
+                    await fetch('/api/dispos/' + dispo._id + '/reject', { credentials: 'include', method: 'PATCH' });
+                    refused++;
+                } catch { }
+            }
+            card.remove();
+            loadDisposBadge();
+            showToast(refused + ' dispo(s) refusée(s)');
+        });
+    };
 }
 
 function openConfirmDispo(dispo, pill, card, staffId) {
