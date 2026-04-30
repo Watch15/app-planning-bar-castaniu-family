@@ -2686,18 +2686,17 @@ function renderWeekGantt() {
     const pctLeft  = h       => ((h - OPEN_H) / RANGE * 100).toFixed(3) + '%';
     const pctWidth = (s, e)  => ((e - s)       / RANGE * 100).toFixed(3) + '%';
 
-    // Variable CSS pour la grille (toutes les 2h)
-    wrap.style.setProperty('--gantt-tick-pct', (2 / RANGE * 100).toFixed(3) + '%');
+    // Variable CSS pour la grille (toutes les 1h)
+    wrap.style.setProperty('--gantt-tick-pct', (1 / RANGE * 100).toFixed(3) + '%');
 
     // ── Axe horaire avec ticks positionnés précisément ──
     const axis = document.createElement('div');
     axis.className = 'gantt-axis';
     const axisTrack = document.createElement('div');
     axisTrack.className = 'gantt-axis-track';
-    // Ticks toutes les 2h + firstH et lastH toujours présents
+    // Ticks chaque heure + firstH et lastH toujours présents
     const tickSet  = new Set([firstH, lastH]);
-    const t2start  = OPEN_H % 2 === 0 ? OPEN_H : OPEN_H + 1;
-    for (let h = t2start; h <= CLOSE_H; h += 2) tickSet.add(h);
+    for (let h = OPEN_H; h <= CLOSE_H; h += 1) tickSet.add(h);
     [...tickSet].sort((a, b) => a - b).forEach(h => {
         const tick = document.createElement('span');
         tick.className   = 'gantt-tick';
