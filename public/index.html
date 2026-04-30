@@ -713,13 +713,13 @@
         .gantt-track {
             flex: 1; position: relative; height: 22px;
             border-radius: 4px; overflow: hidden;
-            background-color: #f4f5f8;
+            background-color: #f0f2f5;
             background-image: repeating-linear-gradient(
                 to right,
                 transparent 0,
-                transparent calc(12.5% - 1px),
-                rgba(0,0,0,0.07) calc(12.5% - 1px),
-                rgba(0,0,0,0.07) 12.5%
+                transparent calc(var(--gantt-tick-pct, 12.5%) - 1px),
+                rgba(0,0,0,0.14) calc(var(--gantt-tick-pct, 12.5%) - 1px),
+                rgba(0,0,0,0.14) var(--gantt-tick-pct, 12.5%)
             );
         }
         .gantt-bar {
@@ -735,9 +735,14 @@
             background: var(--light-card); padding-top: 6px; padding-bottom: 6px;
             border-bottom: 1px solid var(--light-border);
         }
-        .gantt-tick {
-            font-size: 10px; color: var(--text-muted); flex: 1; text-align: left;
+        .gantt-axis-track {
+            position: relative; flex: 1; height: 16px;
         }
+        .gantt-tick {
+            position: absolute; font-size: 10px; color: var(--text-muted);
+            transform: translateX(-50%); white-space: nowrap;
+        }
+        .gantt-tick:first-child { transform: none; }
         .gantt-divider {
             border: none; border-top: 1px solid #f0f0f0; margin: 14px 0;
         }

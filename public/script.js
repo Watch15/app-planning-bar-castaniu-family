@@ -2656,28 +2656,52 @@ function renderWeekGantt() {
     const wrap = document.getElementById('week-gantt');
     wrap.innerHTML = '';
 
-    const OPEN_H  = 10;
-    const CLOSE_H = 26;
-    const RANGE   = CLOSE_H - OPEN_H;
-
-    const pctLeft  = h  => ((h - OPEN_H) / RANGE * 100).toFixed(2) + '%';
-    const pctWidth = (s, e) => ((e - s) / RANGE * 100).toFixed(2) + '%';
-    const fmtH     = h  => {
+    const fmtH = h => {
         const totalMin = Math.round(h * 60);
         const hh = Math.floor(totalMin / 60) % 24;
         const mm = totalMin % 60;
         return (hh === 0 ? '00' : hh) + 'h' + (mm > 0 ? String(mm).padStart(2, '0') : '');
     };
 
-    // Axe horaire
+    // ── Bornes dynamiques calculées depuis les shifts de la semaine ──
+    let minH = Infinity, maxH = -Infinity;
+    for (let i = 0; i < 7; i++) {
+        const date = toDateStr(addDays(currentWeekStart, i));
+        for (const s of (weekFullData[date] || [])) {
+            if (!staffMatchesCurrentGroup(s.staff_id)) continue;
+            const sH = s.real_start != null ? s.real_start : s.start_time;
+            const eH = s.real_end   != null ? s.real_end   : s.end_time;
+            if (sH != null && isFinite(sH)) minH = Math.min(minH, sH);
+            if (eH != null && isFinite(eH)) maxH = Math.max(maxH, eH);
+        }
+    }
+    if (!isFinite(minH) || !isFinite(maxH)) { minH = 10; maxH = 26; }
+
+    const OPEN_H  = Math.max(0,  Math.floor(minH));
+    const CLOSE_H = Math.min(30, Math.ceil(maxH));
+    const RANGE   = CLOSE_H - OPEN_H || 1;
+
+    const pctLeft  = h       => ((h - OPEN_H) / RANGE * 100).toFixed(3) + '%';
+    const pctWidth = (s, e)  => ((e - s)       / RANGE * 100).toFixed(3) + '%';
+
+    // Variable CSS pour la grille (toutes les 2h)
+    wrap.style.setProperty('--gantt-tick-pct', (2 / RANGE * 100).toFixed(3) + '%');
+
+    // ── Axe horaire avec ticks positionnés précisément ──
     const axis = document.createElement('div');
     axis.className = 'gantt-axis';
-    for (let h = OPEN_H; h <= CLOSE_H; h += 2) {
+    const axisTrack = document.createElement('div');
+    axisTrack.className = 'gantt-axis-track';
+    // Premier tick pair >= OPEN_H
+    const tickStart = OPEN_H % 2 === 0 ? OPEN_H : OPEN_H + 1;
+    for (let h = tickStart; h <= CLOSE_H; h += 2) {
         const tick = document.createElement('span');
         tick.className   = 'gantt-tick';
         tick.textContent = fmtH(h);
-        axis.appendChild(tick);
+        tick.style.left  = pctLeft(h);
+        axisTrack.appendChild(tick);
     }
+    axis.appendChild(axisTrack);
     wrap.appendChild(axis);
 
     for (let i = 0; i < 7; i++) {
