@@ -316,6 +316,17 @@ async function init() {
         document.getElementById('confirm-dispo-modal').style.display = 'none';
     });
 
+    // Dropdown menu utilisateur (avatar)
+    const userMenuTrigger  = document.getElementById('user-menu-trigger');
+    const userMenuDropdown = document.getElementById('user-menu-dropdown');
+    if (userMenuTrigger && userMenuDropdown) {
+        userMenuTrigger.addEventListener('click', e => {
+            e.stopPropagation();
+            userMenuDropdown.classList.toggle('open');
+        });
+        document.addEventListener('click', () => userMenuDropdown.classList.remove('open'));
+    }
+
     // Synchronise le header des heures avec le scroll horizontal de la timeline
     const timelineScroll = document.getElementById('timeline-scroll');
     if (timelineScroll) timelineScroll.addEventListener('scroll', () => {

@@ -789,14 +789,20 @@
         <div class="header-right">
             <span class="date-display" id="date-display"></span>
             <div class="header-sep"></div>
-            <div class="user-badge-wrap">
-                <div class="user-avatar" id="user-avatar">?</div>
-                <span class="user-badge" id="user-badge"></span>
-            </div>
             <button class="btn-notif-patron" id="btn-notif-patron" title="Activité récente" onclick="openNotifPanel()">
-                🔔 <span style="font-size:11px">Activité</span><span class="notif-badge" id="notif-badge">0</span>
+                🔔 <span class="btn-notif-label">Activité</span><span class="notif-badge" id="notif-badge">0</span>
             </button>
-            <button class="btn-logout" onclick="logout()">⎋ Sortir</button>
+            <!-- Avatar + dropdown déconnexion -->
+            <div class="user-menu-wrap" id="user-menu-wrap">
+                <button class="user-menu-trigger" id="user-menu-trigger" title="Mon compte">
+                    <div class="user-avatar" id="user-avatar">?</div>
+                    <span class="user-badge" id="user-badge"></span>
+                    <span class="user-menu-arrow">▾</span>
+                </button>
+                <div class="user-menu-dropdown" id="user-menu-dropdown">
+                    <button class="user-menu-item user-menu-logout" onclick="logout()">⎋ Déconnexion</button>
+                </div>
+            </div>
             <button id="btn-mobile-menu" title="Menu" onclick="openMobileDrawer()">☰</button>
         </div>
     </header>
