@@ -712,7 +712,15 @@
         }
         .gantt-track {
             flex: 1; position: relative; height: 22px;
-            background: #f4f5f8; border-radius: 4px; overflow: hidden;
+            border-radius: 4px; overflow: hidden;
+            background-color: #f4f5f8;
+            background-image: repeating-linear-gradient(
+                to right,
+                transparent 0,
+                transparent calc(12.5% - 1px),
+                rgba(0,0,0,0.07) calc(12.5% - 1px),
+                rgba(0,0,0,0.07) 12.5%
+            );
         }
         .gantt-bar {
             position: absolute; top: 2px; height: 18px; border-radius: 3px;

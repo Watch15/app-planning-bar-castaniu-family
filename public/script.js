@@ -439,6 +439,12 @@ function initViewTabs() {
             document.getElementById('week-agenda').style.display    = currentSubView === 'agenda'    ? '' : 'none';
             document.getElementById('week-gantt').style.display     = currentSubView === 'gantt'     ? '' : 'none';
             if (currentSubView === 'gantt') renderWeekGantt();
+            // Repositionne la vue pour que le sticky header ne masque pas la première ligne
+            const weekFull = document.getElementById('week-full');
+            if (weekFull) {
+                const top = weekFull.getBoundingClientRect().top + window.pageYOffset - 52;
+                window.scrollTo({ top, behavior: 'smooth' });
+            }
         });
     });
 }
