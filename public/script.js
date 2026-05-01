@@ -1405,42 +1405,32 @@ function openMobileShiftEditModal(shift) {
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
 
+    const inp = 'width:100%;padding:7px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:16px;outline:none;color:#1a1a2e';
+    const lbl = 'font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px';
     overlay.innerHTML =
-        '<div style="background:white;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:480px;box-shadow:0 -4px 32px rgba(0,0,0,0.18);padding-bottom:max(24px,env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto">' +
-            '<div style="width:40px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 20px"></div>' +
-            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">' +
-                '<span style="width:12px;height:12px;border-radius:50%;background:' + (shift.color || '#888') + ';flex-shrink:0;display:inline-block"></span>' +
-                '<span style="font-size:15px;font-weight:700;color:#1a1a2e">' + shift.staff_name + '</span>' +
+        '<div style="background:white;border-radius:16px 16px 0 0;padding:16px 16px max(16px,env(safe-area-inset-bottom));width:100%;max-width:480px;box-shadow:0 -4px 32px rgba(0,0,0,0.18);max-height:80vh;overflow-y:auto">' +
+            '<div style="width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 12px"></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' +
+                '<span style="width:10px;height:10px;border-radius:50%;background:' + (shift.color || '#888') + ';flex-shrink:0;display:inline-block"></span>' +
+                '<span style="font-size:14px;font-weight:700;color:#1a1a2e">' + shift.staff_name + '</span>' +
             '</div>' +
-            '<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Horaires planifiés</div>' +
-            '<div style="display:flex;gap:12px;margin-bottom:16px">' +
-                '<div style="flex:1">' +
-                    '<div style="font-size:11px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Début</div>' +
-                    '<input id="_ms-start" type="time" value="' + fmt(shift.start_time) + '" style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:16px;outline:none;color:#1a1a2e">' +
-                '</div>' +
-                '<div style="flex:1">' +
-                    '<div style="font-size:11px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Fin</div>' +
-                    '<input id="_ms-end" type="time" value="' + fmt(shift.end_time) + '" style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:16px;outline:none;color:#1a1a2e">' +
-                '</div>' +
+            '<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Horaires planifiés</div>' +
+            '<div style="display:flex;gap:10px;margin-bottom:12px">' +
+                '<div style="flex:1"><div style="' + lbl + '">Début</div><input id="_ms-start" type="time" value="' + fmt(shift.start_time) + '" style="' + inp + '"></div>' +
+                '<div style="flex:1"><div style="' + lbl + '">Fin</div><input id="_ms-end" type="time" value="' + fmt(shift.end_time) + '" style="' + inp + '"></div>' +
             '</div>' +
-            '<div style="border-top:1px solid #f0f0f0;padding-top:16px;margin-bottom:16px">' +
-                '<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Heures réelles</div>' +
-                '<div style="display:flex;gap:12px">' +
-                    '<div style="flex:1">' +
-                        '<div style="font-size:11px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Début réel</div>' +
-                        '<input id="_ms-real-start" type="time" value="' + fmt(shift.real_start) + '" style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:16px;outline:none;color:#1a1a2e">' +
-                    '</div>' +
-                    '<div style="flex:1">' +
-                        '<div style="font-size:11px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Fin réelle</div>' +
-                        '<input id="_ms-real-end" type="time" value="' + fmt(shift.real_end) + '" style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:16px;outline:none;color:#1a1a2e">' +
-                    '</div>' +
+            '<div style="border-top:1px solid #f0f0f0;padding-top:10px;margin-bottom:12px">' +
+                '<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Heures réelles</div>' +
+                '<div style="display:flex;gap:10px">' +
+                    '<div style="flex:1"><div style="' + lbl + '">Début réel</div><input id="_ms-real-start" type="time" value="' + fmt(shift.real_start) + '" style="' + inp + '"></div>' +
+                    '<div style="flex:1"><div style="' + lbl + '">Fin réelle</div><input id="_ms-real-end" type="time" value="' + fmt(shift.real_end) + '" style="' + inp + '"></div>' +
                 '</div>' +
             '</div>' +
-            '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-                '<button id="_ms-delete" style="padding:12px 16px;border-radius:10px;border:1.5px solid #e74c3c;background:white;font-size:13px;cursor:pointer;color:#e74c3c;flex-shrink:0">Supprimer</button>' +
-                '<button id="_ms-copy"   style="padding:12px 16px;border-radius:10px;border:1.5px solid #6C63FF;background:white;font-size:13px;cursor:pointer;color:#6C63FF;flex-shrink:0">Copier vers…</button>' +
-                '<button id="_ms-cancel" style="padding:12px 16px;border-radius:10px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555;flex:1">Annuler</button>' +
-                '<button id="_ms-save"   style="padding:12px 16px;border-radius:10px;border:none;background:#1a1a2e;color:white;font-size:13px;font-weight:600;cursor:pointer;flex:1">Enregistrer</button>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+                '<button id="_ms-delete" style="padding:9px 12px;border-radius:8px;border:1.5px solid #e74c3c;background:white;font-size:12px;cursor:pointer;color:#e74c3c;flex-shrink:0">Supprimer</button>' +
+                '<button id="_ms-copy"   style="padding:9px 12px;border-radius:8px;border:1.5px solid #6C63FF;background:white;font-size:12px;cursor:pointer;color:#6C63FF;flex-shrink:0">Copier vers…</button>' +
+                '<button id="_ms-cancel" style="padding:9px 12px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:12px;cursor:pointer;color:#555;flex:1">Annuler</button>' +
+                '<button id="_ms-save"   style="padding:9px 12px;border-radius:8px;border:none;background:#1a1a2e;color:white;font-size:12px;font-weight:600;cursor:pointer;flex:1">Enregistrer</button>' +
             '</div>' +
         '</div>';
 
