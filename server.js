@@ -1527,7 +1527,7 @@ app.post('/api/copy-day', checkDB, requirePatron, async (req, res) => {
         let created = 0;
         for (const date of to_dates) {
             await db.collection('shifts').deleteMany({ establishment_id, date });
-            const newShifts = shifts.map(({ _id, ...rest }) => ({ ...rest, date }));
+            const newShifts = shifts.map(({ _id, ...rest }) => ({ ...rest, establishment_id, date }));
             if (newShifts.length > 0) { await db.collection('shifts').insertMany(newShifts); created += newShifts.length; }
         }
         res.json({ message: created + ' shifts copiés sur ' + to_dates.length + ' jour(s)' });

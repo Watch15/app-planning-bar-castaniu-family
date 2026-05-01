@@ -1436,8 +1436,9 @@ function openMobileShiftEditModal(shift) {
                     '</div>' +
                 '</div>' +
             '</div>' +
-            '<div style="display:flex;gap:8px">' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
                 '<button id="_ms-delete" style="padding:12px 16px;border-radius:10px;border:1.5px solid #e74c3c;background:white;font-size:13px;cursor:pointer;color:#e74c3c;flex-shrink:0">Supprimer</button>' +
+                '<button id="_ms-copy"   style="padding:12px 16px;border-radius:10px;border:1.5px solid #6C63FF;background:white;font-size:13px;cursor:pointer;color:#6C63FF;flex-shrink:0">Copier vers…</button>' +
                 '<button id="_ms-cancel" style="padding:12px 16px;border-radius:10px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555;flex:1">Annuler</button>' +
                 '<button id="_ms-save"   style="padding:12px 16px;border-radius:10px;border:none;background:#1a1a2e;color:white;font-size:13px;font-weight:600;cursor:pointer;flex:1">Enregistrer</button>' +
             '</div>' +
@@ -1453,6 +1454,10 @@ function openMobileShiftEditModal(shift) {
         close();
         deleteShift(new Event('click'), String(shift._id), shift.staff_id);
     });
+
+    const msCopyBtn = overlay.querySelector('#_ms-copy');
+    if (allEstablishments.length <= 1) msCopyBtn.style.display = 'none';
+    msCopyBtn.addEventListener('click', () => { close(); openCopyShiftModal(shift); });
 
     overlay.querySelector('#_ms-save').addEventListener('click', async () => {
         const parseT = v => {
@@ -1526,6 +1531,76 @@ function openMobileShiftEditModal(shift) {
     });
 }
 
+// ── Modale copie d'un shift vers un autre établissement ───────────────────────
+
+function openCopyShiftModal(shift) {
+    const fmt = h => h == null ? '' : String(Math.floor(h % 24)).padStart(2, '0') + ':' + String(Math.round((h % 1) * 60)).padStart(2, '0');
+
+    const venueOptions = allEstablishments
+        .filter(e => e.id !== shift.establishment_id)
+        .map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}</option>`)
+        .join('');
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
+
+    overlay.innerHTML =
+        '<div style="background:white;border-radius:14px;padding:24px;max-width:340px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.18)">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">' +
+                '<span style="width:10px;height:10px;border-radius:50%;background:' + (shift.color || '#888') + ';flex-shrink:0;display:inline-block"></span>' +
+                '<p style="font-size:14px;font-weight:700;color:#1a1a2e">' + escapeHtml(displayName(shift.staff_id, shift.staff_name)) + '</p>' +
+                '<span style="font-size:12px;color:#aaa;margin-left:auto">' + fmt(shift.start_time) + ' → ' + fmt(shift.end_time) + '</span>' +
+            '</div>' +
+            '<div style="margin-bottom:14px">' +
+                '<div style="font-size:11px;font-weight:600;color:#aaa;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Établissement cible</div>' +
+                '<select id="_cs-venue" style="width:100%;padding:9px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;color:#1a1a2e;background:#f8f8f8">' + venueOptions + '</select>' +
+            '</div>' +
+            '<div style="margin-bottom:18px">' +
+                '<div style="font-size:11px;font-weight:600;color:#aaa;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Date cible</div>' +
+                '<input id="_cs-date" type="date" value="' + shift.date + '" style="width:100%;padding:9px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;color:#1a1a2e;background:#f8f8f8">' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+                '<button id="_cs-cancel"  style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555">Annuler</button>' +
+                '<button id="_cs-confirm" style="padding:8px 16px;border-radius:8px;border:none;background:#1a1a2e;color:white;font-size:13px;font-weight:600;cursor:pointer">Copier</button>' +
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(overlay);
+    const close = () => document.body.removeChild(overlay);
+
+    overlay.querySelector('#_cs-cancel').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    overlay.querySelector('#_cs-confirm').addEventListener('click', async () => {
+        const targetEstabId = overlay.querySelector('#_cs-venue').value;
+        const targetDate    = overlay.querySelector('#_cs-date').value;
+        if (!targetEstabId || !targetDate) { showToast('Champs manquants', true); return; }
+
+        const btn = overlay.querySelector('#_cs-confirm');
+        btn.disabled    = true;
+        btn.textContent = 'Copie…';
+
+        try {
+            const { _id, establishment_id, date, real_start, real_end, pointage_resp, extra, ...rest } = shift;
+            const res = await fetch('/api/shifts', {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...rest, establishment_id: targetEstabId, date: targetDate }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            const targetName = allEstablishments.find(e => e.id === targetEstabId)?.name || targetEstabId;
+            close();
+            showToast('Shift copié vers ' + targetName);
+            if (data.warnings?.length) showConflictAlert(data.warnings, shift.staff_name);
+        } catch (err) {
+            showToast(err.message || 'Erreur', true);
+            btn.disabled    = false;
+            btn.textContent = 'Copier';
+        }
+    });
+}
+
 // ── Modale heures réelles (côté patron) ──────────────────────────────────────
 
 
@@ -1554,7 +1629,8 @@ function openRealHoursModal(shift, shiftEl) {
                 '</div>' +
             '</div>' +
             '<div id="_rh-ecart" style="text-align:center;font-size:12px;color:#aaa;min-height:18px;margin-bottom:14px"></div>' +
-            '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">' +
+                '<button id="_rh-copy"   style="padding:8px 16px;border-radius:8px;border:1.5px solid #6C63FF;background:white;font-size:13px;cursor:pointer;color:#6C63FF">Copier vers…</button>' +
                 '<button id="_rh-cancel" style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555">Annuler</button>' +
                 '<button id="_rh-clear"  style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#e74c3c">Effacer</button>' +
                 '<button id="_rh-save"   style="padding:8px 16px;border-radius:8px;border:none;background:#1a1a2e;color:white;font-size:13px;font-weight:600;cursor:pointer">Enregistrer</button>' +
@@ -1636,6 +1712,10 @@ function openRealHoursModal(shift, shiftEl) {
 
     overlay.querySelector('#_rh-cancel').addEventListener('click', close);
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    const rhCopyBtn = overlay.querySelector('#_rh-copy');
+    if (allEstablishments.length <= 1) rhCopyBtn.style.display = 'none';
+    rhCopyBtn.addEventListener('click', () => { close(); openCopyShiftModal(shift); });
 
     overlay.querySelector('#_rh-clear').addEventListener('click', async () => {
         try {
@@ -2332,6 +2412,18 @@ function openCopyModal() {
         });
     });
 
+    // Sélecteur d'établissement cible
+    const venueRow = document.getElementById('copy-target-venue-row');
+    const venueSelect = document.getElementById('copy-target-venue');
+    if (allEstablishments.length > 1) {
+        venueSelect.innerHTML = allEstablishments.map(e =>
+            `<option value="${e.id}"${e.id === currentVenueId ? ' selected' : ''}>${escapeHtml(e.name)}</option>`
+        ).join('');
+        venueRow.style.display = '';
+    } else {
+        venueRow.style.display = 'none';
+    }
+
     // Grille des jours — semaine courante + semaine suivante
     const daysGrid = document.getElementById('copy-days-grid');
     daysGrid.innerHTML = '';
@@ -2395,11 +2487,13 @@ document.getElementById('copy-modal-confirm').addEventListener('click', async ()
 
     if (!targetDates.length) { showToast('Sélectionne au moins un jour cible', true); return; }
 
+    const targetVenueId = document.getElementById('copy-target-venue').value || currentVenueId;
+
     try {
         const res = await fetch('/api/copy-day', {
             method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                establishment_id: currentVenueId,
+                establishment_id: targetVenueId,
                 to_dates: targetDates,
                 shifts: copyShiftsBuffer,
             }),
