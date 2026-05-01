@@ -241,6 +241,15 @@
             border-left: 3px solid var(--accent); border-radius: 14px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
+        .dispo-card-rest {
+            background: var(--light-bg); border-color: #e0e0e0;
+            border-left-color: #c8ccd6; opacity: 0.7;
+        }
+        .dispo-rest-badge {
+            font-size: 11px; font-weight: 600; color: var(--text-muted);
+            background: #efefef; border-radius: 20px;
+            padding: 2px 10px; letter-spacing: .3px;
+        }
         .dispo-day-header {
             padding: 10px 16px; border-bottom: 1px solid var(--light-border);
             display: flex; align-items: center; justify-content: space-between;
@@ -1148,13 +1157,16 @@ async function loadDisposTab() {
     // Jours de repos à masquer
     const restDays = dispoSettings.rest_days || [];
 
-    // Générer les cartes en sautant les jours de repos
+    // Générer les cartes (jours de repos en lecture seule)
     formEl.innerHTML = '';
     for (let i = 0; i < 7; i++) {
         const d    = addDays(nextMonday, i);
-        if (restDays.includes(d.getDay())) continue;
         const date = toDateStr(d);
-        formEl.appendChild(createDispoCard(date, d));
+        if (restDays.includes(d.getDay())) {
+            formEl.appendChild(createRestDayCard(d));
+        } else {
+            formEl.appendChild(createDispoCard(date, d));
+        }
     }
 
     // Bloc note globale semaine
@@ -1299,6 +1311,17 @@ function createDispoCard(date, d) {
         });
     });
 
+    return card;
+}
+
+function createRestDayCard(d) {
+    const card = document.createElement('div');
+    card.className = 'dispo-card dispo-card-rest';
+    card.innerHTML =
+        '<div class="dispo-day-header">' +
+            '<div class="dispo-day-name">' + DAY_NAMES[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + '</div>' +
+            '<span class="dispo-rest-badge">Repos</span>' +
+        '</div>';
     return card;
 }
 
