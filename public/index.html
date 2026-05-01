@@ -909,6 +909,7 @@
         <div style="display:flex;border-bottom:1px solid var(--light-border);margin-bottom:0">
             <button class="staff-modal-tab active" data-tab="staff">Membres</button>
             <button class="staff-modal-tab" data-tab="roles">R&ocirc;les</button>
+            <button class="staff-modal-tab" data-tab="repos">Jours de repos</button>
         </div>
 
         <!-- Onglet Membres -->
@@ -926,6 +927,11 @@
                     <button class="btn-add-staff" id="btn-add-staff">Ajouter</button>
                 </div>
             </div>
+        </div>
+
+        <!-- Onglet Jours de repos -->
+        <div id="staff-tab-repos" style="display:none;overflow-y:auto;max-height:420px;">
+            <div id="rest-days-list"></div>
         </div>
 
         <!-- Onglet Rôles -->

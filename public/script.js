@@ -4383,9 +4383,12 @@ function openStaffModal() {
             const tab = btn.dataset.tab;
             const staffTab = document.getElementById('staff-tab-staff');
             const rolesTab = document.getElementById('staff-tab-roles');
+            const reposTab = document.getElementById('staff-tab-repos');
             if (staffTab) staffTab.style.display = tab === 'staff' ? '' : 'none';
-            if (rolesTab) rolesTab.style.display  = tab === 'roles'  ? '' : 'none';
+            if (rolesTab) rolesTab.style.display  = tab === 'roles' ? '' : 'none';
+            if (reposTab) reposTab.style.display  = tab === 'repos' ? '' : 'none';
             if (tab === 'roles') renderRolesList();
+            if (tab === 'repos') renderRestDaysTab();
         });
     });
     // Revenir sur l'onglet Membres
@@ -4393,10 +4396,122 @@ function openStaffModal() {
     document.querySelector('[data-tab="staff"]')?.classList.add('active');
     const staffTab = document.getElementById('staff-tab-staff');
     const rolesTab = document.getElementById('staff-tab-roles');
+    const reposTab = document.getElementById('staff-tab-repos');
     if (staffTab) staffTab.style.display = '';
     if (rolesTab) rolesTab.style.display  = 'none';
+    if (reposTab) reposTab.style.display  = 'none';
     renderStaffManageList();
     document.getElementById('staff-modal').style.display = 'flex';
+}
+
+function renderRestDaysTab() {
+    const container = document.getElementById('rest-days-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const REST_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    const REST_VALUES = [1, 2, 3, 4, 5, 6, 0];
+
+    // Header row
+    const header = document.createElement('div');
+    header.style.cssText = 'display:grid;grid-template-columns:160px repeat(7,44px) auto;gap:4px 6px;align-items:center;padding:8px 12px 4px;border-bottom:1px solid #f0f0f0;font-size:11px;font-weight:600;color:#aaa;';
+    header.innerHTML = '<span>Membre</span>' +
+        REST_LABELS.map(l => '<span style="text-align:center">' + l + '</span>').join('') +
+        '<span></span>';
+    container.appendChild(header);
+
+    allStaff.forEach(staff => {
+        const restDays = staff.rest_days || [];
+        const row = document.createElement('div');
+        row.style.cssText = 'display:grid;grid-template-columns:160px repeat(7,44px) auto;gap:4px 6px;align-items:center;padding:6px 12px;border-bottom:1px solid #fafafa;';
+
+        const nameEl = document.createElement('span');
+        nameEl.style.cssText = 'font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+        nameEl.title = staff.name;
+        nameEl.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + escapeHtml(staff.color) + ';margin-right:5px;vertical-align:middle"></span>' + escapeHtml(staff.name);
+        row.appendChild(nameEl);
+
+        const dayBtns = [];
+        REST_VALUES.forEach((dayVal, idx) => {
+            const cell = document.createElement('div');
+            cell.style.cssText = 'display:flex;justify-content:center;';
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.dataset.day = String(dayVal);
+            const isRest = restDays.includes(dayVal);
+            btn.className = 'rest-day-tab-btn' + (isRest ? ' active' : '');
+            btn.style.cssText = 'width:36px;height:28px;border-radius:6px;border:1.5px solid ' +
+                (isRest ? '#e74c3c' : '#e0e0e0') + ';background:' + (isRest ? '#fff5f5' : 'white') +
+                ';color:' + (isRest ? '#e74c3c' : '#bbb') + ';font-size:11px;font-weight:600;cursor:pointer;transition:all 0.12s;';
+            btn.textContent = REST_LABELS[idx];
+            btn.addEventListener('click', () => {
+                btn.classList.toggle('active');
+                const active = btn.classList.contains('active');
+                btn.style.borderColor = active ? '#e74c3c' : '#e0e0e0';
+                btn.style.background  = active ? '#fff5f5' : 'white';
+                btn.style.color       = active ? '#e74c3c' : '#bbb';
+            });
+            dayBtns.push(btn);
+            cell.appendChild(btn);
+            row.appendChild(cell);
+        });
+
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.textContent = 'Enregistrer';
+        saveBtn.style.cssText = 'font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-subtle);color:var(--accent);cursor:pointer;white-space:nowrap;';
+        saveBtn.addEventListener('click', async () => {
+            const newRestDays = dayBtns.filter(b => b.classList.contains('active')).map(b => parseInt(b.dataset.day));
+            try {
+                const res = await fetch('/api/staff/' + staff._id, {
+                    method: 'PATCH', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rest_days: newRestDays }),
+                });
+                if (!res.ok) throw new Error((await res.json()).error);
+                staff.rest_days = newRestDays;
+                saveBtn.textContent = '✓';
+                setTimeout(() => { saveBtn.textContent = 'Enregistrer'; }, 1500);
+            } catch (e) { showToast(e.message || 'Erreur', true); }
+        });
+        row.appendChild(saveBtn);
+        container.appendChild(row);
+    });
+
+    // Bouton "Tout enregistrer"
+    if (allStaff.length > 1) {
+        const footer = document.createElement('div');
+        footer.style.cssText = 'display:flex;justify-content:flex-end;padding:10px 12px 4px;';
+        const saveAll = document.createElement('button');
+        saveAll.type = 'button';
+        saveAll.textContent = 'Tout enregistrer';
+        saveAll.style.cssText = 'font-size:12px;padding:6px 16px;border-radius:8px;border:none;background:var(--accent);color:white;cursor:pointer;font-weight:600;';
+        saveAll.addEventListener('click', async () => {
+            const rows = container.querySelectorAll('[data-staff-id]');
+            // collect per-staff from row buttons
+            let ok = 0, fail = 0;
+            const rowEls = Array.from(container.children).slice(1, -1); // skip header and footer
+            const promises = allStaff.map((s, i) => {
+                const rowEl = rowEls[i];
+                if (!rowEl) return Promise.resolve();
+                const btns = Array.from(rowEl.querySelectorAll('.rest-day-tab-btn'));
+                const newRestDays = btns.filter(b => b.classList.contains('active')).map(b => parseInt(b.dataset.day));
+                return fetch('/api/staff/' + s._id, {
+                    method: 'PATCH', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rest_days: newRestDays }),
+                }).then(res => {
+                    if (!res.ok) return res.json().then(d => { fail++; throw new Error(d.error); });
+                    s.rest_days = newRestDays;
+                    ok++;
+                }).catch(() => { fail++; });
+            });
+            await Promise.all(promises);
+            showToast(ok + ' membre(s) mis à jour' + (fail ? ', ' + fail + ' erreur(s)' : ''), fail > 0);
+        });
+        footer.appendChild(saveAll);
+        container.appendChild(footer);
+    }
 }
 
 function renderRolesHeader() {
@@ -4543,22 +4658,6 @@ function renderStaffManageList() {
               ).join('') + '</div></div>'
             : '';
 
-        // Jours de repos
-        const staffRestDays  = staff.rest_days || [];
-        const REST_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-        const REST_VALUES = [1, 2, 3, 4, 5, 6, 0]; // lundi en premier, 0=dim
-        const restDaysHTML = '<div style="margin-top:6px">' +
-            '<div style="font-size:11px;color:#aaa;margin-bottom:4px">Jours de repos</div>' +
-            '<div style="display:flex;flex-wrap:wrap;gap:4px">' +
-            REST_VALUES.map((dayVal, idx) => {
-                const isRest = staffRestDays.includes(dayVal);
-                return '<button type="button" class="rest-day-btn' + (isRest ? ' active' : '') +
-                    '" data-day="' + dayVal + '" style="padding:3px 10px;border-radius:20px;border:1.5px solid ' +
-                    (isRest ? '#e74c3c' : '#e0e0e0') + ';background:' + (isRest ? '#fff5f5' : 'white') +
-                    ';color:' + (isRest ? '#e74c3c' : '#888') + ';font-size:11px;cursor:pointer">' +
-                    REST_LABELS[idx] + '</button>';
-            }).join('') +
-            '</div></div>';
 
         row.innerHTML =
             '<input type="color" class="staff-manage-color" value="' + escapeHtml(staff.color) + '" title="Changer la couleur">' +
@@ -4573,7 +4672,6 @@ function renderStaffManageList() {
                 '<div class="venue-pref-row">' + venueButtons + '</div>' +
                 '<div class="role-assign-section">' + rolesHTML + '</div>' +
                 groupChips +
-                restDaysHTML +
                 '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#888;margin-top:6px;cursor:pointer">' +
                     '<input type="checkbox" class="staff-can-submit" ' + (canSubmit ? 'checked' : '') + '>' +
                     'Peut envoyer ses dispos' +
@@ -4615,17 +4713,6 @@ function renderStaffManageList() {
             btn.addEventListener('click', () => btn.classList.toggle('active'));
         });
 
-        // Toggle jours de repos
-        row.querySelectorAll('.rest-day-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                btn.classList.toggle('active');
-                const isActive = btn.classList.contains('active');
-                btn.style.borderColor = isActive ? '#e74c3c' : '#e0e0e0';
-                btn.style.background  = isActive ? '#fff5f5' : 'white';
-                btn.style.color       = isActive ? '#e74c3c' : '#888';
-            });
-        });
-
         // (suppression des rôles déplacée dans l'onglet Rôles)
         row.querySelectorAll('.btn-delete-role').forEach(btn => {
             btn.addEventListener('click', async (e) => {
@@ -4657,7 +4744,6 @@ function renderStaffManageList() {
             const newRoles      = Array.from(row.querySelectorAll('.role-assign-btn.active')).map(b => b.dataset.role);
             const newCanSubmit  = row.querySelector('.staff-can-submit').checked;
             const newGroups     = Array.from(row.querySelectorAll('.staff-group-btn.active')).map(b => b.dataset.group);
-            const newRestDays   = Array.from(row.querySelectorAll('.rest-day-btn.active')).map(b => parseInt(b.dataset.day));
 
             if (!newName) { showToast('Le nom ne peut pas être vide', true); return; }
 
@@ -4669,7 +4755,7 @@ function renderStaffManageList() {
                     method:      'PATCH',
                     credentials: 'include',
                     headers:     { 'Content-Type': 'application/json' },
-                    body:        JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups, name_color: effectiveNameColor, rest_days: newRestDays }),
+                    body:        JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups, name_color: effectiveNameColor }),
                 });
                 if (!res.ok) throw new Error((await res.json()).error);
 
@@ -4680,8 +4766,7 @@ function renderStaffManageList() {
                 staff.roles             = newRoles;
                 staff.can_submit_dispos = newCanSubmit;
                 staff.groups            = newGroups;
-                staff.name_color        = effectiveNameColor;
-                staff.rest_days         = newRestDays;
+                staff.name_color = effectiveNameColor;
 
                 // Propager sur les shifts visibles
                 document.querySelectorAll('.shift').forEach(el => {
