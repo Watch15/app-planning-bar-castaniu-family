@@ -360,12 +360,11 @@ function canAccessEstablishment(user, establishmentId) {
     return assigned.includes(establishmentId);
 }
 
-// Vérifie si un staff est responsable de soirée pour un établissement à une date donnée
 // Vérifie si un staff est le responsable de pointage pour un établissement à une date donnée.
 // Les rôles sont portés par le profil staff, pas par le shift.
 // Règle : parmi les shifts de cet établissement/date dont le staff a un rôle 'responsable',
-//         seul celui avec pointage_resp:true peut faire le pointage
-//         (fallback si aucun désigné : premier staff_name alphabétique)
+//         seul celui avec pointage_resp:true peut faire le pointage.
+//         Si aucun n'est explicitement désigné, personne n'a accès.
 async function isResponsablePourSoiree(staffId, establishmentId, date) {
     if (!staffId || !establishmentId || !date) return false;
 
@@ -401,12 +400,8 @@ async function isResponsablePourSoiree(staffId, establishmentId, date) {
 
     // Quelqu'un est-il explicitement désigné pointage_resp ?
     const designated = responsableShifts.find(s => s.pointage_resp === true);
-    if (designated) {
-        return String(designated.staff_id) === String(staffId);
-    }
-    // Fallback : premier shift responsable par ordre alphabétique staff_name
-    responsableShifts.sort((a, b) => a.staff_name.localeCompare(b.staff_name, 'fr'));
-    return String(responsableShifts[0].staff_id) === String(staffId);
+    if (!designated) return false;
+    return String(designated.staff_id) === String(staffId);
 }
 
 // Compte établissement uniquement
