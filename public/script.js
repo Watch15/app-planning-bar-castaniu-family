@@ -1405,8 +1405,11 @@ function openMobileShiftEditModal(shift) {
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
 
-    const inp = 'width:100%;padding:7px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:16px;outline:none;color:#1a1a2e';
+    const isPortrait = window.innerHeight > window.innerWidth;
+    const inp = 'width:100%;padding:6px 8px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:15px;outline:none;color:#1a1a2e';
     const lbl = 'font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px';
+    const grp = isPortrait ? 'flex:0 0 auto;width:110px' : 'flex:1';
+    const row = isPortrait ? 'display:flex;gap:10px;justify-content:center' : 'display:flex;gap:10px';
     overlay.innerHTML =
         '<div style="background:white;border-radius:16px 16px 0 0;padding:16px 16px max(16px,env(safe-area-inset-bottom));width:100%;max-width:480px;box-shadow:0 -4px 32px rgba(0,0,0,0.18);max-height:80vh;overflow-y:auto">' +
             '<div style="width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 12px"></div>' +
@@ -1415,15 +1418,15 @@ function openMobileShiftEditModal(shift) {
                 '<span style="font-size:14px;font-weight:700;color:#1a1a2e">' + shift.staff_name + '</span>' +
             '</div>' +
             '<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Horaires planifiés</div>' +
-            '<div style="display:flex;gap:10px;margin-bottom:12px">' +
-                '<div style="flex:1"><div style="' + lbl + '">Début</div><input id="_ms-start" type="time" value="' + fmt(shift.start_time) + '" style="' + inp + '"></div>' +
-                '<div style="flex:1"><div style="' + lbl + '">Fin</div><input id="_ms-end" type="time" value="' + fmt(shift.end_time) + '" style="' + inp + '"></div>' +
+            '<div style="' + row + ';margin-bottom:12px">' +
+                '<div style="' + grp + '"><div style="' + lbl + '">Début</div><input id="_ms-start" type="time" value="' + fmt(shift.start_time) + '" style="' + inp + '"></div>' +
+                '<div style="' + grp + '"><div style="' + lbl + '">Fin</div><input id="_ms-end" type="time" value="' + fmt(shift.end_time) + '" style="' + inp + '"></div>' +
             '</div>' +
             '<div style="border-top:1px solid #f0f0f0;padding-top:10px;margin-bottom:12px">' +
                 '<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Heures réelles</div>' +
-                '<div style="display:flex;gap:10px">' +
-                    '<div style="flex:1"><div style="' + lbl + '">Début réel</div><input id="_ms-real-start" type="time" value="' + fmt(shift.real_start) + '" style="' + inp + '"></div>' +
-                    '<div style="flex:1"><div style="' + lbl + '">Fin réelle</div><input id="_ms-real-end" type="time" value="' + fmt(shift.real_end) + '" style="' + inp + '"></div>' +
+                '<div style="' + row + '">' +
+                    '<div style="' + grp + '"><div style="' + lbl + '">Début réel</div><input id="_ms-real-start" type="time" value="' + fmt(shift.real_start) + '" style="' + inp + '"></div>' +
+                    '<div style="' + grp + '"><div style="' + lbl + '">Fin réelle</div><input id="_ms-real-end" type="time" value="' + fmt(shift.real_end) + '" style="' + inp + '"></div>' +
                 '</div>' +
             '</div>' +
             '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
