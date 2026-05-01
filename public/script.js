@@ -4416,13 +4416,21 @@ function renderRestDaysTab() {
     if (!container) return;
     container.innerHTML = '';
 
-    const REST_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    const portrait = window.innerHeight > window.innerWidth && window.innerWidth < 600;
+    const REST_LABELS = portrait
+        ? ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+        : ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
     const REST_VALUES = [1, 2, 3, 4, 5, 6, 0];
-    const COL = '1fr repeat(7,44px)';
+    const colW  = portrait ? '28px' : '44px';
+    const pad   = portrait ? '5px 8px' : '7px 14px';
+    const hpad  = portrait ? '6px 8px 4px' : '8px 14px 6px';
+    const COL   = '1fr repeat(7,' + colW + ')';
+    const cbSz  = portrait ? '14px' : '16px';
+    const nameFz = portrait ? '12px' : '13px';
 
     // En-tête sticky
     const header = document.createElement('div');
-    header.style.cssText = 'display:grid;grid-template-columns:' + COL + ';gap:0 6px;align-items:center;padding:8px 14px 6px;border-bottom:2px solid #ececec;font-size:11px;font-weight:600;color:#aaa;position:sticky;top:0;background:#fff;z-index:1;';
+    header.style.cssText = 'display:grid;grid-template-columns:' + COL + ';gap:0 2px;align-items:center;padding:' + hpad + ';border-bottom:2px solid #ececec;font-size:10px;font-weight:600;color:#aaa;position:sticky;top:0;background:#fff;z-index:1;';
     header.innerHTML = '<span>Membre</span>' +
         REST_LABELS.map(l => '<span style="text-align:center">' + escapeHtml(l) + '</span>').join('');
     container.appendChild(header);
@@ -4431,12 +4439,12 @@ function renderRestDaysTab() {
     allStaff.forEach(staff => {
         const restDays = staff.rest_days || [];
         const row = document.createElement('div');
-        row.style.cssText = 'display:grid;grid-template-columns:' + COL + ';gap:0 6px;align-items:center;padding:7px 14px;border-bottom:1px solid #f5f5f5;';
+        row.style.cssText = 'display:grid;grid-template-columns:' + COL + ';gap:0 2px;align-items:center;padding:' + pad + ';border-bottom:1px solid #f5f5f5;';
 
         const nameEl = document.createElement('span');
-        nameEl.style.cssText = 'font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+        nameEl.style.cssText = 'font-size:' + nameFz + ';font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
         nameEl.title = staff.name;
-        nameEl.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + escapeHtml(staff.color) + ';margin-right:6px;vertical-align:middle;flex-shrink:0"></span>' + escapeHtml(staff.name);
+        nameEl.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + escapeHtml(staff.color) + ';margin-right:5px;vertical-align:middle;flex-shrink:0"></span>' + escapeHtml(staff.name);
         row.appendChild(nameEl);
 
         REST_VALUES.forEach(dayVal => {
@@ -4447,7 +4455,7 @@ function renderRestDaysTab() {
             cb.dataset.day = String(dayVal);
             cb.className = 'rest-day-tab-cb';
             cb.checked = restDays.includes(dayVal);
-            cb.style.cssText = 'width:16px;height:16px;accent-color:#e74c3c;cursor:pointer;';
+            cb.style.cssText = 'width:' + cbSz + ';height:' + cbSz + ';accent-color:#e74c3c;cursor:pointer;';
             cell.appendChild(cb);
             row.appendChild(cell);
         });
