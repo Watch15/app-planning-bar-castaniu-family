@@ -3261,11 +3261,24 @@ async function renderAccountsList() {
             else if (isEtab) { statusLabel = 'Établissement'; statusBadge = 'linked'; }
             else             { statusLabel = user.active ? 'Actif' : 'Invitation envoyée'; statusBadge = user.active ? 'linked' : 'unlinked'; }
 
+            const phoneRaw = user.phone || '';
+            const phoneDisplay = (() => {
+                if (!phoneRaw) return '';
+                if (/^\+33\d{9}$/.test(phoneRaw))
+                    return '+33 ' + phoneRaw[3] + ' ' + phoneRaw.slice(4).replace(/(\d{2})(?=\d)/g, '$1 ');
+                return phoneRaw;
+            })();
+            const coordsParts = [
+                user.email    ? '📧 ' + escapeHtml(user.email)        : '',
+                phoneDisplay  ? '📱 ' + escapeHtml(phoneDisplay)       : '',
+            ].filter(Boolean);
+            const coordsHtml = coordsParts.length ? coordsParts.join('&nbsp;&nbsp;|&nbsp;&nbsp;') : '—';
+
             row.innerHTML =
                 '<span class="staff-manage-dot" style="background:' + escapeHtml(color) + '"></span>' +
                 '<div class="staff-manage-info" style="flex:1">' +
                     '<div style="font-size:13px;font-weight:600;color:#333">' + escapeHtml(user.name || '—') + '</div>' +
-                    '<div style="font-size:12px;color:#999">' + escapeHtml(user.email || user.phone || '—') + '</div>' +
+                    '<div style="font-size:12px;color:#999">' + coordsHtml + '</div>' +
                 '</div>' +
                 '<span class="staff-login-badge ' + statusBadge + '" style="margin-right:8px">' + escapeHtml(statusLabel) + '</span>' +
                 (currentUser.role === 'patron' && String(user._id) !== currentUser._id
