@@ -3272,7 +3272,7 @@ async function renderAccountsList() {
                 user.email    ? '📧 ' + escapeHtml(user.email)        : '',
                 phoneDisplay  ? '📱 ' + escapeHtml(phoneDisplay)       : '',
             ].filter(Boolean);
-            const coordsHtml = coordsParts.length ? coordsParts.join('&nbsp;&nbsp;|&nbsp;&nbsp;') : '—';
+            const coordsHtml = coordsParts.length ? coordsParts.join('<br>') : '—';
 
             row.innerHTML =
                 '<span class="staff-manage-dot" style="background:' + escapeHtml(color) + '"></span>' +
