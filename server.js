@@ -1646,6 +1646,54 @@ app.get('/api/dispos/week-notes', checkDB, requirePatron, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/dispos/notes', checkDB, requirePatron, async (req, res) => {
+    const { week_start } = req.query;
+    if (!week_start) return res.status(400).json({ error: 'week_start requis' });
+    try {
+        const notes = await db.collection('availabilities').find({ week_start, type: 'week_note' }).toArray();
+        if (notes.length === 0) return res.json([]);
+
+        const staffIds = notes.map(n => n.staff_id);
+        const staffDocs = await db.collection('staff').find({ _id: { $in: staffIds.map(id => new ObjectId(id)) } }).toArray();
+        const staffMap = {};
+        staffDocs.forEach(s => { staffMap[String(s._id)] = { name: s.name, color: s.color }; });
+
+        const [y, mo, d] = week_start.split('-').map(Number);
+        const we = new Date(y, mo - 1, d + 6);
+        const pad = n => String(n).padStart(2, '0');
+        const weekEnd = we.getFullYear() + '-' + pad(we.getMonth() + 1) + '-' + pad(we.getDate());
+
+        const dispos = await db.collection('availabilities').find({
+            staff_id: { $in: staffIds },
+            date: { $gte: week_start, $lte: weekEnd },
+            type: { $ne: 'week_note' },
+        }).toArray();
+
+        const statusByStaff = {};
+        dispos.forEach(({ staff_id: sid, status }) => {
+            if (!statusByStaff[sid]) statusByStaff[sid] = new Set();
+            statusByStaff[sid].add(status);
+        });
+
+        function aggStatus(set) {
+            if (!set || set.size === 0) return null;
+            if (set.has('pending')) return 'pending';
+            if (set.has('confirmed') && set.has('rejected')) return 'mixed';
+            if (set.has('confirmed')) return 'confirmed';
+            if (set.has('rejected')) return 'rejected';
+            return null;
+        }
+
+        res.json(notes.map(n => ({
+            staff_id:     n.staff_id,
+            week_note:    n.week_note,
+            name:         staffMap[n.staff_id]?.name  || 'Inconnu',
+            color:        staffMap[n.staff_id]?.color || '#95a5a6',
+            dispo_status: aggStatus(statusByStaff[n.staff_id]),
+        })));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/dispos/week-note', checkDB, requireAuth, async (req, res) => {
     const staffId = req.session.user.staff_id;
     const { week_start } = req.query;
