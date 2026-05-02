@@ -295,12 +295,13 @@ async function init() {
         document.getElementById('swaps-modal').style.display = 'none';
     });
 
-    const btnStaffNotes = document.getElementById('btn-staff-notes');
-    if (btnStaffNotes) btnStaffNotes.addEventListener('click', openStaffNotesModal);
-    const staffNotesClose = document.getElementById('staff-notes-modal-close');
-    if (staffNotesClose) staffNotesClose.addEventListener('click', () => {
-        document.getElementById('staff-notes-modal').style.display = 'none';
-    });
+    // Onglets dans la modale dispos
+    const disposTabList  = document.getElementById('dispos-tab-btn-list');
+    const disposTabNotes = document.getElementById('dispos-tab-btn-notes');
+    if (disposTabList && disposTabNotes) {
+        disposTabList.addEventListener('click', () => switchDisposTab('list'));
+        disposTabNotes.addEventListener('click', () => switchDisposTab('notes'));
+    }
     const staffNotesPrev = document.getElementById('staff-notes-prev');
     if (staffNotesPrev) staffNotesPrev.addEventListener('click', () => {
         if (!staffNotesWeekStart) return;
@@ -3940,9 +3941,33 @@ async function loadDisposBadge() {
     } catch { }
 }
 
+function switchDisposTab(tab) {
+    const isNotes = tab === 'notes';
+    document.getElementById('dispos-tab-list').style.display  = isNotes ? 'none' : '';
+    document.getElementById('dispos-tab-notes').style.display = isNotes ? '' : 'none';
+    const btnList  = document.getElementById('dispos-tab-btn-list');
+    const btnNotes = document.getElementById('dispos-tab-btn-notes');
+    if (btnList) {
+        btnList.style.borderBottomColor = isNotes ? 'transparent' : 'var(--accent)';
+        btnList.style.color             = isNotes ? 'var(--text-secondary)' : 'var(--accent)';
+        btnList.style.fontWeight        = isNotes ? '500' : '600';
+    }
+    if (btnNotes) {
+        btnNotes.style.borderBottomColor = isNotes ? 'var(--accent)' : 'transparent';
+        btnNotes.style.color             = isNotes ? 'var(--accent)' : 'var(--text-secondary)';
+        btnNotes.style.fontWeight        = isNotes ? '600' : '500';
+    }
+    if (isNotes) {
+        staffNotesWeekStart = getMondayOf(addDays(new Date(), 7));
+        renderStaffNotesWeekLabel();
+        loadStaffNotesList(toDateStr(staffNotesWeekStart));
+    }
+}
+
 async function openDisposPanel() {
     const modal = document.getElementById('dispos-modal');
     if (!modal) return;
+    switchDisposTab('list');
     modal.style.display = 'flex';
     await loadDisposList();
 }
@@ -4171,15 +4196,6 @@ function openConfirmDispo(dispo, pill, card, staffId) {
 // ── Notes staff — côté patron ─────────────────────────────────────────────────
 
 let staffNotesWeekStart = null;
-
-function openStaffNotesModal() {
-    const modal = document.getElementById('staff-notes-modal');
-    if (!modal) return;
-    staffNotesWeekStart = getMondayOf(addDays(new Date(), 7));
-    modal.style.display = 'flex';
-    renderStaffNotesWeekLabel();
-    loadStaffNotesList(toDateStr(staffNotesWeekStart));
-}
 
 function renderStaffNotesWeekLabel() {
     const label = document.getElementById('staff-notes-week-label');
