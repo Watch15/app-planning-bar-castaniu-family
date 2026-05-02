@@ -1162,6 +1162,9 @@ async function loadDisposTab() {
         dispoSelections[d.date] = { type: d.type, start_time: d.start_time, end_time: d.end_time, note: d.note || '' };
     });
 
+    // Vérifier si des dispos ont déjà été soumises (pending ou confirmed)
+    const alreadySubmitted = existingDispos.some(d => d.status === 'pending' || d.status === 'confirmed');
+
     // Jours de repos à masquer
     const restDays = dispoSettings.rest_days || [];
 
@@ -1175,6 +1178,21 @@ async function loadDisposTab() {
         } else {
             formEl.appendChild(createDispoCard(date, d));
         }
+    }
+
+    // Si déjà soumises → lecture seule
+    if (alreadySubmitted) {
+        formEl.querySelectorAll('.dispo-type-btn, .dispo-time-input, .dispo-note-input').forEach(el => {
+            el.disabled = true;
+            el.style.opacity = '0.6';
+            el.style.cursor  = 'not-allowed';
+            el.style.pointerEvents = 'none';
+        });
+        const notice = document.createElement('div');
+        notice.style.cssText = 'background:#fff8e1;border:1px solid #f9c74f;border-radius:10px;padding:12px 16px;font-size:13px;color:#7a5c00;margin-bottom:4px;line-height:1.5;';
+        notice.textContent = 'Tes disponibilités ont déjà été envoyées. Contacte ton responsable pour toute modification.';
+        formEl.insertBefore(notice, formEl.firstChild);
+        btnSubmit.style.display = 'none';
     }
 
     // Bloc note globale semaine

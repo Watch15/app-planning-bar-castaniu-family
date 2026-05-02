@@ -1692,7 +1692,12 @@ app.post('/api/dispos', checkDB, requireAuth, async (req, res) => {
     if (!Array.isArray(dispos) || dispos.length === 0) return res.status(400).json({ error: 'Aucune disponibilité fournie' });
     try {
         const dates = dispos.map(d => d.date);
-        await db.collection('availabilities').deleteMany({ staff_id: staffId, date: { $in: dates }, status: 'pending' });
+        const already = await db.collection('availabilities').findOne({
+            staff_id: staffId,
+            date: { $in: dates },
+            status: { $in: ['pending', 'confirmed'] },
+        });
+        if (already) return res.status(409).json({ error: 'Des disponibilités ont déjà été soumises pour cette période.' });
         const docs = dispos.map(d => ({
             staff_id: staffId, staff_name: req.session.user.name || '',
             date: d.date, type: d.type || 'custom',
