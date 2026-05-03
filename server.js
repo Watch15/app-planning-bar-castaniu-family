@@ -1663,30 +1663,42 @@ app.get('/api/dispos/notes', checkDB, requirePatron, async (req, res) => {
     const { week_start } = req.query;
     if (!week_start) return res.status(400).json({ error: 'week_start requis' });
     try {
-        const notes = await db.collection('availabilities').find({ week_start, type: 'week_note' }).toArray();
-        if (notes.length === 0) return res.json([]);
-
-        const staffIds = notes.map(n => n.staff_id);
-        const staffDocs = await db.collection('staff').find({ _id: { $in: staffIds.map(id => new ObjectId(id)) } }).toArray();
-        const staffMap = {};
-        staffDocs.forEach(s => { staffMap[String(s._id)] = { name: s.name, color: s.color }; });
-
         const [y, mo, d] = week_start.split('-').map(Number);
         const we = new Date(y, mo - 1, d + 6);
         const pad = n => String(n).padStart(2, '0');
         const weekEnd = we.getFullYear() + '-' + pad(we.getMonth() + 1) + '-' + pad(we.getDate());
 
-        const dispos = await db.collection('availabilities').find({
-            staff_id: { $in: staffIds },
-            date: { $gte: week_start, $lte: weekEnd },
-            type: { $ne: 'week_note' },
+        // Récupérer notes semaine + toutes les dispos de la semaine en une seule passe
+        const allDocs = await db.collection('availabilities').find({
+            $or: [
+                { week_start, type: 'week_note' },
+                { date: { $gte: week_start, $lte: weekEnd }, type: { $ne: 'week_note' } },
+            ],
         }).toArray();
 
-        const statusByStaff = {};
-        dispos.forEach(({ staff_id: sid, status }) => {
-            if (!statusByStaff[sid]) statusByStaff[sid] = new Set();
-            statusByStaff[sid].add(status);
+        // Grouper par staff_id
+        const byStaff = {};
+        allDocs.forEach(doc => {
+            const sid = doc.staff_id;
+            if (!byStaff[sid]) byStaff[sid] = { week_note: '', day_notes: [], statuses: new Set() };
+            if (doc.type === 'week_note') {
+                byStaff[sid].week_note = doc.week_note || '';
+            } else {
+                if (doc.note && doc.note.trim()) byStaff[sid].day_notes.push({ date: doc.date, note: doc.note.trim() });
+                if (doc.status) byStaff[sid].statuses.add(doc.status);
+            }
         });
+
+        // Feature 1 — exclure les staff sans aucune note
+        const staffIds = Object.keys(byStaff).filter(sid => {
+            const s = byStaff[sid];
+            return (s.week_note && s.week_note.trim()) || s.day_notes.length > 0;
+        });
+        if (staffIds.length === 0) return res.json([]);
+
+        const staffDocs = await db.collection('staff').find({ _id: { $in: staffIds.map(id => new ObjectId(id)) } }).toArray();
+        const staffMap = {};
+        staffDocs.forEach(s => { staffMap[String(s._id)] = { name: s.name, color: s.color }; });
 
         function aggStatus(set) {
             if (!set || set.size === 0) return null;
@@ -1697,13 +1709,18 @@ app.get('/api/dispos/notes', checkDB, requirePatron, async (req, res) => {
             return null;
         }
 
-        res.json(notes.map(n => ({
-            staff_id:     n.staff_id,
-            week_note:    n.week_note,
-            name:         staffMap[n.staff_id]?.name  || 'Inconnu',
-            color:        staffMap[n.staff_id]?.color || '#95a5a6',
-            dispo_status: aggStatus(statusByStaff[n.staff_id]),
-        })));
+        res.json(staffIds.map(sid => {
+            const s = byStaff[sid];
+            s.day_notes.sort((a, b) => a.date.localeCompare(b.date));
+            return {
+                staff_id:     sid,
+                week_note:    (s.week_note && s.week_note.trim()) ? s.week_note.trim() : null,
+                day_notes:    s.day_notes,
+                name:         staffMap[sid]?.name  || 'Inconnu',
+                color:        staffMap[sid]?.color || '#95a5a6',
+                dispo_status: aggStatus(s.statuses),
+            };
+        }));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

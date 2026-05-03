@@ -316,6 +316,8 @@ async function init() {
         renderStaffNotesWeekLabel();
         loadStaffNotesList(toDateStr(staffNotesWeekStart));
     });
+    const staffNotesSearch = document.getElementById('staff-notes-search');
+    if (staffNotesSearch) staffNotesSearch.addEventListener('input', renderStaffNotesList);
 
     const btnRecap = document.getElementById('btn-recap');
     if (btnRecap) btnRecap.addEventListener('click', openRecapModal);
@@ -3972,6 +3974,8 @@ function switchDisposTab(tab) {
     }
     if (isNotes) {
         staffNotesWeekStart = getMondayOf(addDays(new Date(), 7));
+        const srch = document.getElementById('staff-notes-search');
+        if (srch) srch.value = '';
         renderStaffNotesWeekLabel();
         loadStaffNotesList(toDateStr(staffNotesWeekStart));
     }
@@ -4218,60 +4222,98 @@ function renderStaffNotesWeekLabel() {
     label.textContent = 'Sem. ' + formatDateShort(from) + ' – ' + formatDateShort(to);
 }
 
+let _staffNotesData = [];
+
 async function loadStaffNotesList(weekStart) {
     const list = document.getElementById('staff-notes-list');
     if (!list) return;
-    list.innerHTML = '<div style="padding:16px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
+    list.innerHTML = '<div style=”padding:16px;text-align:center;color:#ccc;font-size:13px”>Chargement…</div>';
     try {
         const res  = await fetch('/api/dispos/notes?week_start=' + weekStart, { credentials: 'include' });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        if (data.length === 0) {
-            list.innerHTML = '<div style="padding:28px;text-align:center;color:#ccc;font-size:13px">Aucune note pour cette semaine</div>';
-            return;
-        }
-        list.innerHTML = '';
-        const statusMap = {
-            confirmed: { icon: '✅', label: 'Acceptées',  bg: '#eafaf1', color: '#27ae60' },
-            rejected:  { icon: '❌', label: 'Refusées',   bg: '#fff5f5', color: '#e74c3c' },
-            pending:   { icon: '⏳', label: 'En attente', bg: '#fff8e1', color: '#d68910' },
-            mixed:     { icon: '↕',  label: 'Mixte',      bg: '#f0f0f0', color: '#555'    },
-        };
-        data.forEach(entry => {
-            const row = document.createElement('div');
-            row.style.cssText = 'display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-bottom:1px solid var(--light-border)';
-
-            const dot = document.createElement('div');
-            dot.style.cssText = 'width:10px;height:10px;border-radius:50%;background:' + (entry.color || '#95a5a6') + ';flex-shrink:0;margin-top:4px';
-            row.appendChild(dot);
-
-            const content = document.createElement('div');
-            content.style.cssText = 'flex:1;min-width:0';
-
-            const nameEl = document.createElement('div');
-            nameEl.style.cssText = 'font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:3px';
-            nameEl.textContent = entry.name;
-            content.appendChild(nameEl);
-
-            const noteEl = document.createElement('div');
-            noteEl.style.cssText = 'font-size:12px;color:#555;line-height:1.4;margin-bottom:6px;font-style:italic';
-            noteEl.textContent = '“' + entry.week_note + '”';
-            content.appendChild(noteEl);
-
-            if (entry.dispo_status) {
-                const s = statusMap[entry.dispo_status] || statusMap.pending;
-                const badge = document.createElement('span');
-                badge.style.cssText = 'font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;background:' + s.bg + ';color:' + s.color;
-                badge.textContent = s.icon + ' Dispos : ' + s.label;
-                content.appendChild(badge);
-            }
-
-            row.appendChild(content);
-            list.appendChild(row);
-        });
+        _staffNotesData = data;
+        renderStaffNotesList();
     } catch (e) {
-        list.innerHTML = '<div style="padding:16px;text-align:center;color:#e74c3c;font-size:13px">' + escapeHtml(e.message) + '</div>';
+        _staffNotesData = [];
+        list.innerHTML = '<div style=”padding:16px;text-align:center;color:#e74c3c;font-size:13px”>' + escapeHtml(e.message) + '</div>';
     }
+}
+
+function renderStaffNotesList() {
+    const list = document.getElementById('staff-notes-list');
+    if (!list) return;
+
+    const searchInput = document.getElementById('staff-notes-search');
+    const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    const filtered = query
+        ? _staffNotesData.filter(e => e.name.toLowerCase().includes(query))
+        : _staffNotesData;
+
+    list.innerHTML = '';
+
+    if (_staffNotesData.length === 0) {
+        list.innerHTML = '<div style=”padding:28px;text-align:center;color:#ccc;font-size:13px”>Aucune note pour cette semaine</div>';
+        return;
+    }
+    if (filtered.length === 0) {
+        list.innerHTML = '<div style=”padding:20px;text-align:center;color:#ccc;font-size:13px”>Aucun résultat</div>';
+        return;
+    }
+
+    const statusMap = {
+        confirmed: { icon: '✅', label: 'Acceptées',  bg: '#eafaf1', color: '#27ae60' },
+        rejected:  { icon: '❌', label: 'Refusées',   bg: '#fff5f5', color: '#e74c3c' },
+        pending:   { icon: '⏳', label: 'En attente', bg: '#fff8e1', color: '#d68910' },
+        mixed:     { icon: '↕',  label: 'Mixte',      bg: '#f0f0f0', color: '#555'    },
+    };
+
+    filtered.forEach(entry => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-bottom:1px solid var(--light-border)';
+
+        const dot = document.createElement('div');
+        dot.style.cssText = 'width:10px;height:10px;border-radius:50%;background:' + (entry.color || '#95a5a6') + ';flex-shrink:0;margin-top:4px';
+        row.appendChild(dot);
+
+        const content = document.createElement('div');
+        content.style.cssText = 'flex:1;min-width:0';
+
+        const nameEl = document.createElement('div');
+        nameEl.style.cssText = 'font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:4px';
+        nameEl.textContent = entry.name;
+        content.appendChild(nameEl);
+
+        // Note globale semaine
+        if (entry.week_note) {
+            const wn = document.createElement('div');
+            wn.style.cssText = 'font-size:12px;color:#555;line-height:1.4;margin-bottom:3px';
+            wn.innerHTML = '<span style=”color:#999;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.3px”>Semaine</span> <span style=”font-style:italic”>”' + escapeHtml(entry.week_note) + '”</span>';
+            content.appendChild(wn);
+        }
+
+        // Notes par jour
+        if (entry.day_notes && entry.day_notes.length > 0) {
+            entry.day_notes.forEach(dn => {
+                const dayName = DAY_NAMES_LONG[parseDate(dn.date).getDay()];
+                const dn_el = document.createElement('div');
+                dn_el.style.cssText = 'font-size:12px;color:#555;line-height:1.4;margin-bottom:3px';
+                dn_el.innerHTML = '<span style=”color:#999;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.3px”>' + escapeHtml(dayName) + '</span> <span style=”font-style:italic”>”' + escapeHtml(dn.note) + '”</span>';
+                content.appendChild(dn_el);
+            });
+        }
+
+        if (entry.dispo_status) {
+            const s = statusMap[entry.dispo_status] || statusMap.pending;
+            const badge = document.createElement('span');
+            badge.style.cssText = 'display:inline-block;margin-top:5px;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;background:' + s.bg + ';color:' + s.color;
+            badge.textContent = s.icon + ' Dispos : ' + s.label;
+            content.appendChild(badge);
+        }
+
+        row.appendChild(content);
+        list.appendChild(row);
+    });
 }
 
 function buildEstablishmentSelect() {
