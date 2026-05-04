@@ -5635,7 +5635,7 @@ function exportWeekCSV() {
         const date = toDateStr(d);
         (weekFullData[date] || []).forEach(shift => {
             if (shift.is_joker || shift.staff_id === '__joker__') return;
-            if (!staffMap.has(shift.staff_id)) staffMap.set(shift.staff_id, { name: shift.staff_name, shifts: {} });
+            if (!staffMap.has(shift.staff_id)) staffMap.set(shift.staff_id, { _id: shift.staff_id, name: shift.staff_name, shifts: {} });
             const entry = staffMap.get(shift.staff_id);
             if (!entry.shifts[date]) entry.shifts[date] = [];
             entry.shifts[date].push(shift);
@@ -5715,7 +5715,7 @@ function generatePrintDashboard() {
         (weekFullData[date] || []).forEach(shift => {
             if (!staffMatchesCurrentGroup(shift.staff_id)) return;
             if (!staffMap.has(shift.staff_id))
-                staffMap.set(shift.staff_id, { name: shift.staff_name, color: shift.color, shifts: {} });
+                staffMap.set(shift.staff_id, { _id: shift.staff_id, name: shift.staff_name, color: shift.color, shifts: {} });
             const entry = staffMap.get(shift.staff_id);
             if (!entry.shifts[date]) entry.shifts[date] = [];
             entry.shifts[date].push(shift);
