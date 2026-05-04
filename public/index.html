@@ -850,6 +850,11 @@
             <button class="week-sub-tab active" data-sub="dashboard">Tableau de bord</button>
             <button class="week-sub-tab" data-sub="agenda">Agenda</button>
             <button class="week-sub-tab" data-sub="gantt">Gantt</button>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:4px 0 4px 8px">
+                <button id="btn-export-csv" title="Exporter le planning en CSV" style="font-size:11px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#555;cursor:pointer;white-space:nowrap">⬇ CSV</button>
+                <button id="btn-print-dashboard" title="Imprimer le tableau de bord" style="font-size:11px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#555;cursor:pointer;white-space:nowrap">🖨 Imprimer</button>
+                <button id="btn-print-gantt" title="Imprimer le Gantt" style="display:none;font-size:11px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#555;cursor:pointer;white-space:nowrap">🖨 Imprimer</button>
+            </div>
         </div>
         <div id="week-dashboard"></div>
         <div id="week-agenda" style="display:none"></div>

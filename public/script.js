@@ -319,6 +319,23 @@ async function init() {
     const staffNotesSearch = document.getElementById('staff-notes-search');
     if (staffNotesSearch) staffNotesSearch.addEventListener('input', renderStaffNotesList);
 
+    // Boutons export semaine
+    const btnExportCsv       = document.getElementById('btn-export-csv');
+    const btnPrintDashboard  = document.getElementById('btn-print-dashboard');
+    const btnPrintGantt      = document.getElementById('btn-print-gantt');
+    if (btnExportCsv)      btnExportCsv.addEventListener('click', exportWeekCSV);
+    if (btnPrintDashboard) btnPrintDashboard.addEventListener('click', generatePrintDashboard);
+    if (btnPrintGantt)     btnPrintGantt.addEventListener('click', generatePrintGantt);
+    // Synchroniser visibilité boutons impression avec le sous-onglet actif
+    document.querySelectorAll('.week-sub-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const isDash = btn.dataset.sub === 'dashboard';
+            const isGantt = btn.dataset.sub === 'gantt';
+            if (btnPrintDashboard) btnPrintDashboard.style.display = isDash  ? '' : 'none';
+            if (btnPrintGantt)     btnPrintGantt.style.display     = isGantt ? '' : 'none';
+        });
+    });
+
     const btnRecap = document.getElementById('btn-recap');
     if (btnRecap) btnRecap.addEventListener('click', openRecapModal);
 
@@ -5597,4 +5614,173 @@ function initNotifListeners() {
     if (overlay) overlay.addEventListener('click', e => {
         if (e.target === overlay) overlay.style.display = 'none';
     });
+}
+
+// ── Exports planning ──────────────────────────────────────────────────────────
+
+function exportWeekCSV() {
+    const days = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+    const fmtD = v => {
+        const hh = Math.floor(v % 24).toString().padStart(2, '0');
+        const mm = Math.round((v % 1) * 60);
+        return hh + 'h' + (mm > 0 ? String(mm).padStart(2, '0') : '');
+    };
+    const estabName = id => {
+        const e = allEstablishments.find(e => e.id === id || String(e._id) === id);
+        return e ? e.name : '';
+    };
+
+    const staffMap = new Map();
+    days.forEach(d => {
+        const date = toDateStr(d);
+        (weekFullData[date] || []).forEach(shift => {
+            if (shift.is_joker || shift.staff_id === '__joker__') return;
+            if (!staffMap.has(shift.staff_id)) staffMap.set(shift.staff_id, { name: shift.staff_name, shifts: {} });
+            const entry = staffMap.get(shift.staff_id);
+            if (!entry.shifts[date]) entry.shifts[date] = [];
+            entry.shifts[date].push(shift);
+        });
+    });
+
+    const header = ['﻿Staff', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche', 'Total heures'];
+    const rows = [header.join(';')];
+
+    staffMap.forEach(({ name, shifts }) => {
+        let maxPerDay = 1;
+        days.forEach(d => {
+            const cnt = (shifts[toDateStr(d)] || []).length;
+            if (cnt > maxPerDay) maxPerDay = cnt;
+        });
+
+        let totalMins = 0;
+        days.forEach(d => {
+            (shifts[toDateStr(d)] || []).forEach(s => {
+                const ds = s.real_start != null ? s.real_start : s.start_time;
+                const de = s.real_end   != null ? s.real_end   : s.end_time;
+                totalMins += Math.round((de - ds) * 60);
+            });
+        });
+        const totalStr = Math.floor(totalMins / 60) + 'h' + (totalMins % 60 > 0 ? String(totalMins % 60).padStart(2, '0') : '');
+
+        for (let row = 0; row < maxPerDay; row++) {
+            const cols = [row === 0 ? name : ''];
+            days.forEach(d => {
+                const dayShifts = shifts[toDateStr(d)] || [];
+                if (row < dayShifts.length) {
+                    const s = dayShifts[row];
+                    const ds = s.real_start != null ? s.real_start : s.start_time;
+                    const de = s.real_end   != null ? s.real_end   : s.end_time;
+                    const en = estabName(s.establishment_id);
+                    cols.push(fmtD(ds) + ' – ' + fmtD(de) + (en ? ' (' + en + ')' : ''));
+                } else {
+                    cols.push('');
+                }
+            });
+            cols.push(row === 0 ? totalStr : '');
+            rows.push(cols.join(';'));
+        }
+    });
+
+    const blob = new Blob([rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'planning-semaine-' + toDateStr(currentWeekStart) + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function generatePrintDashboard() {
+    const days = Array.from({ length: 7 }, (_, i) => {
+        const d = addDays(currentWeekStart, i);
+        return { date: toDateStr(d), d };
+    });
+    const fmtD = v => {
+        const hh = Math.floor(v % 24).toString().padStart(2, '0');
+        const mm = Math.round((v % 1) * 60);
+        return hh + 'h' + (mm > 0 ? String(mm).padStart(2, '0') : '');
+    };
+    const fmtTotal = h => {
+        const totalMins = Math.round(h * 60);
+        const hrs = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
+        return mins > 0 ? hrs + 'h' + String(mins).padStart(2, '0') : hrs + 'h';
+    };
+
+    const staffMap = new Map();
+    days.forEach(({ date }) => {
+        (weekFullData[date] || []).forEach(shift => {
+            if (!staffMatchesCurrentGroup(shift.staff_id)) return;
+            if (!staffMap.has(shift.staff_id))
+                staffMap.set(shift.staff_id, { name: shift.staff_name, color: shift.color, shifts: {} });
+            const entry = staffMap.get(shift.staff_id);
+            if (!entry.shifts[date]) entry.shifts[date] = [];
+            entry.shifts[date].push(shift);
+        });
+    });
+
+    let thead = '<tr style="background:#f0f0f0"><th style="padding:6px 10px;text-align:left;border:1px solid #ddd">Staff</th>';
+    days.forEach(({ d }) => {
+        thead += '<th style="padding:6px 8px;text-align:center;border:1px solid #ddd;min-width:60px">' +
+            DAY_NAMES_SHORT[d.getDay()] + '<br>' + d.getDate() + '</th>';
+    });
+    thead += '<th style="padding:6px 10px;text-align:center;border:1px solid #ddd">Total</th></tr>';
+
+    let tbody = '';
+    staffMap.forEach(staff => {
+        let totalH = 0;
+        let row = '<tr><td style="padding:6px 10px;border:1px solid #ddd;white-space:nowrap">' +
+            '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + staff.color + ';margin-right:5px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></span>' +
+            escapeHtml(staff.name) + '</td>';
+        days.forEach(({ date }) => {
+            const dayShifts = staff.shifts[date];
+            if (dayShifts && dayShifts.length) {
+                let dayH = 0;
+                dayShifts.forEach(s => {
+                    const ds = s.real_start != null ? s.real_start : s.start_time;
+                    const de = s.real_end   != null ? s.real_end   : s.end_time;
+                    dayH += de - ds;
+                });
+                totalH += dayH;
+                const pills = dayShifts.map(s => {
+                    const ds = s.real_start != null ? s.real_start : s.start_time;
+                    const de = s.real_end   != null ? s.real_end   : s.end_time;
+                    const tc = textColorFor(s.color || '#3498db');
+                    return '<div style="background:' + s.color + ';color:' + tc + ';border-radius:4px;padding:2px 5px;font-size:10px;margin-bottom:2px;-webkit-print-color-adjust:exact;print-color-adjust:exact">' +
+                        escapeHtml(fmtD(ds)) + '–' + escapeHtml(fmtD(de)) + '</div>';
+                }).join('');
+                row += '<td style="padding:4px 6px;border:1px solid #ddd">' + pills + '</td>';
+            } else {
+                row += '<td style="padding:6px;border:1px solid #ddd;color:#bbb;text-align:center">—</td>';
+            }
+        });
+        row += '<td style="padding:6px 10px;font-weight:600;text-align:center;border:1px solid #ddd">' + fmtTotal(totalH) + '</td></tr>';
+        tbody += row;
+    });
+
+    const from  = currentWeekStart;
+    const to    = addDays(currentWeekStart, 6);
+    const title = 'Planning ' + formatDateShort(from) + ' – ' + formatDateShort(to);
+
+    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>' + title + '</title>' +
+        '<style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a2e}' +
+        'h2{font-size:14px;margin:0 0 10px}table{width:100%;border-collapse:collapse}' +
+        'tr:nth-child(even){background:#fafafa}-webkit-print-color-adjust:exact;print-color-adjust:exact</style></head>' +
+        '<body><h2>' + title + '</h2>' +
+        '<table><thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>' +
+        '<script>window.print();<\/script></body></html>';
+
+    const w = window.open('', '_blank');
+    if (!w) { showToast('Autorise les popups pour imprimer', true); return; }
+    w.document.write(html);
+    w.document.close();
+}
+
+function generatePrintGantt() {
+    document.body.classList.add('printing-gantt');
+    window.addEventListener('afterprint', function onAfterPrint() {
+        document.body.classList.remove('printing-gantt');
+        window.removeEventListener('afterprint', onAfterPrint);
+    }, { once: true });
+    window.print();
 }
