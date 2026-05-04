@@ -984,15 +984,3 @@ label[for], select, .tab-btn, .staff-card, .shift-card {
   color: var(--accent);
 }
 
-/* ── Impression Gantt ────────────────────────────────────────────────────────*/
-@media print {
-  body.printing-gantt * { visibility: hidden; }
-  body.printing-gantt #week-gantt,
-  body.printing-gantt #week-gantt * { visibility: visible; }
-  body.printing-gantt #week-gantt {
-    position: fixed; top: 0; left: 0; width: 100%;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  @page { size: A4 landscape; margin: 10mm; }
-}

@@ -5785,10 +5785,39 @@ function generatePrintDashboard() {
 }
 
 function generatePrintGantt() {
-    document.body.classList.add('printing-gantt');
-    window.addEventListener('afterprint', function onAfterPrint() {
-        document.body.classList.remove('printing-gantt');
-        window.removeEventListener('afterprint', onAfterPrint);
-    }, { once: true });
-    window.print();
+    const ganttEl = document.getElementById('week-gantt');
+    if (!ganttEl) { showToast('Affiche d\'abord le Gantt', true); return; }
+
+    // Copier tous les styles du document courant (variables CSS incluses)
+    let stylesHtml = '';
+    document.querySelectorAll('style').forEach(s => { stylesHtml += s.outerHTML; });
+    document.querySelectorAll('link[rel="stylesheet"]').forEach(l => { stylesHtml += l.outerHTML; });
+
+    // Récupérer la variable CSS --gantt-tick-pct posée dynamiquement par renderWeekGantt
+    const tickPct = ganttEl.style.getPropertyValue('--gantt-tick-pct') || '6.25%';
+
+    const from  = currentWeekStart;
+    const to    = addDays(currentWeekStart, 6);
+    const title = 'Gantt ' + formatDateShort(from) + ' – ' + formatDateShort(to);
+
+    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>' + title + '</title>' +
+        stylesHtml +
+        '<style>' +
+        '@page{size:A4 landscape;margin:10mm}' +
+        'body{margin:0;padding:10px;background:#fff;font-family:Arial,sans-serif}' +
+        'h2{font-size:14px;margin:0 0 12px;color:#1a1a2e}' +
+        '#week-gantt{padding:0!important;--gantt-tick-pct:' + tickPct + '}' +
+        '.gantt-axis{position:static!important;top:auto!important;border-bottom:1px solid #e0e0e0}' +
+        '.gantt-bar{cursor:default!important}' +
+        '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+        '</style></head>' +
+        '<body><h2>' + title + '</h2>' +
+        ganttEl.outerHTML +
+        '<script>window.onload=function(){window.print()};<\/script>' +
+        '</body></html>';
+
+    const w = window.open('', '_blank');
+    if (!w) { showToast('Autorise les popups pour imprimer', true); return; }
+    w.document.write(html);
+    w.document.close();
 }
