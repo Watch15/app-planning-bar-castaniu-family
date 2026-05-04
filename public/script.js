@@ -5686,8 +5686,11 @@ function exportWeekCSV() {
     const a    = document.createElement('a');
     a.href     = url;
     a.download = 'planning-semaine-' + toDateStr(currentWeekStart) + '.csv';
+    a.style.display = 'none';
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function generatePrintDashboard() {
@@ -5763,12 +5766,17 @@ function generatePrintDashboard() {
     const title = 'Planning ' + formatDateShort(from) + ' – ' + formatDateShort(to);
 
     const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>' + title + '</title>' +
-        '<style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a2e}' +
-        'h2{font-size:14px;margin:0 0 10px}table{width:100%;border-collapse:collapse}' +
-        'tr:nth-child(even){background:#fafafa}-webkit-print-color-adjust:exact;print-color-adjust:exact</style></head>' +
+        '<style>' +
+        '@page{size:A4 landscape;margin:10mm}' +
+        '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+        'body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a2e;margin:0}' +
+        'h2{font-size:14px;margin:0 0 10px}' +
+        'table{width:100%;border-collapse:collapse}' +
+        'tr:nth-child(even){background:#fafafa}' +
+        '</style></head>' +
         '<body><h2>' + title + '</h2>' +
         '<table><thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>' +
-        '<script>window.print();<\/script></body></html>';
+        '<script>window.onload=function(){window.print()};<\/script></body></html>';
 
     const w = window.open('', '_blank');
     if (!w) { showToast('Autorise les popups pour imprimer', true); return; }
