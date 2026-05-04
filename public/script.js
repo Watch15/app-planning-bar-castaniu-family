@@ -1449,8 +1449,8 @@ function openMobileShiftEditModal(shift) {
     const isPortrait = window.innerHeight > window.innerWidth;
     const inp = 'width:100%;padding:6px 8px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:15px;outline:none;color:#1a1a2e';
     const lbl = 'font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px';
-    const grp = isPortrait ? 'flex:0 0 auto;width:110px;margin:0 5px' : 'flex:1';
-    const row = isPortrait ? 'display:flex;justify-content:center' : 'display:flex;gap:10px';
+    const grp = isPortrait ? 'width:100%' : 'flex:1';
+    const row = isPortrait ? 'display:flex;flex-direction:column;gap:10px' : 'display:flex;gap:10px';
     overlay.innerHTML =
         '<div style="background:white;border-radius:16px 16px 0 0;padding:16px 16px max(16px,env(safe-area-inset-bottom));width:100%;max-width:480px;box-shadow:0 -4px 32px rgba(0,0,0,0.18);max-height:80vh;overflow-y:auto">' +
             '<div style="width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 12px"></div>' +
@@ -1674,18 +1674,14 @@ function openRealHoursModal(shift, shiftEl) {
     document.body.appendChild(overlay);
     const close = () => document.body.removeChild(overlay);
 
-    // Centrer les inputs en portrait mobile
+    // Empiler verticalement en portrait mobile
     if (window.innerWidth <= 600 && window.innerHeight > window.innerWidth) {
         const row = overlay.querySelector('#_rh-time-row');
-        row.style.justifyContent = 'center';
+        row.style.flexDirection = 'column';
+        row.style.gap = '10px';
         row.querySelectorAll('div[style*="flex:1"]').forEach(g => {
             g.style.flex = '0 0 auto';
-            g.style.width = '110px';
-            g.style.margin = '0 5px';
-        });
-        row.querySelectorAll('input[type="time"]').forEach(i => {
-            i.style.padding = '7px 8px';
-            i.style.fontSize = '15px';
+            g.style.width = '100%';
         });
     }
 
