@@ -2641,7 +2641,7 @@ function renderDashboard() {
 
         let row = `<td class="col-staff"><div class="dash-staff-cell">
             <span class="dash-dot" style="background:${staff.color}"></span>
-            ${staff.name}
+            ${displayName(staff._id, staff.name)}
         </div></td>`;
 
         days.forEach(({ date }) => {
