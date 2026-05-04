@@ -5786,31 +5786,41 @@ function generatePrintDashboard() {
 
 function generatePrintGantt() {
     const ganttEl = document.getElementById('week-gantt');
-    if (!ganttEl) { showToast('Affiche d\'abord le Gantt', true); return; }
+    if (!ganttEl || !ganttEl.children.length) {
+        showToast('Affiche d\'abord l\'onglet Gantt', true);
+        return;
+    }
 
-    // Copier tous les styles du document courant (variables CSS incluses)
-    let stylesHtml = '';
-    document.querySelectorAll('style').forEach(s => { stylesHtml += s.outerHTML; });
-    document.querySelectorAll('link[rel="stylesheet"]').forEach(l => { stylesHtml += l.outerHTML; });
-
-    // Récupérer la variable CSS --gantt-tick-pct posée dynamiquement par renderWeekGantt
     const tickPct = ganttEl.style.getPropertyValue('--gantt-tick-pct') || '6.25%';
 
     const from  = currentWeekStart;
     const to    = addDays(currentWeekStart, 6);
     const title = 'Gantt ' + formatDateShort(from) + ' – ' + formatDateShort(to);
 
-    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>' + title + '</title>' +
-        stylesHtml +
-        '<style>' +
+    const css =
         '@page{size:A4 landscape;margin:10mm}' +
-        'body{margin:0;padding:10px;background:#fff;font-family:Arial,sans-serif}' +
-        'h2{font-size:14px;margin:0 0 12px;color:#1a1a2e}' +
-        '#week-gantt{padding:0!important;--gantt-tick-pct:' + tickPct + '}' +
-        '.gantt-axis{position:static!important;top:auto!important;border-bottom:1px solid #e0e0e0}' +
-        '.gantt-bar{cursor:default!important}' +
-        '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
-        '</style></head>' +
+        '*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}' +
+        'body{margin:0;padding:10px;background:#fff;font-family:Arial,sans-serif;font-size:12px;color:#1a1a2e}' +
+        'h2{font-size:14px;margin:0 0 12px}' +
+        ':root{--gantt-tick-pct:' + tickPct + '}' +
+        '#week-gantt{padding:0}' +
+        '.gantt-day{margin-bottom:18px}' +
+        '.gantt-day-label{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}' +
+        '.gantt-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;height:26px}' +
+        '.gantt-name{font-size:11px;color:#888;width:68px;flex-shrink:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+        '.gantt-track{flex:1;position:relative;height:22px;border-radius:4px;overflow:hidden;' +
+            'background-image:repeating-linear-gradient(90deg,rgba(0,0,0,0.08) 0,rgba(0,0,0,0.08) 1px,transparent 1px,transparent var(--gantt-tick-pct,6.25%))}' +
+        '.gantt-bar{position:absolute;top:2px;height:18px;border-radius:3px;display:flex;align-items:center;' +
+            'justify-content:center;font-size:10px;font-weight:600;overflow:hidden;white-space:nowrap;padding:0 4px}' +
+        '.gantt-axis{display:flex;padding-left:76px;margin-bottom:4px;border-bottom:1px solid #e0e0e0}' +
+        '.gantt-axis-track{position:relative;flex:1;height:16px}' +
+        '.gantt-tick{position:absolute;font-size:10px;color:#999;transform:translateX(-50%);white-space:nowrap}' +
+        '.gantt-tick:first-child{transform:none}' +
+        '.gantt-divider{border:none;border-top:1px solid #f0f0f0;margin:12px 0}' +
+        '.gantt-empty{font-size:11px;color:#ccc;margin-left:76px;padding:4px 0}';
+
+    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>' + title + '</title>' +
+        '<style>' + css + '</style></head>' +
         '<body><h2>' + title + '</h2>' +
         ganttEl.outerHTML +
         '<script>window.onload=function(){window.print()};<\/script>' +
