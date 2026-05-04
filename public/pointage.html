@@ -340,10 +340,15 @@
             .extra-section { border-radius: 12px; padding: 16px 12px; }
             .btn-add-extra { height: 52px; }
         }
+        @media (max-height: 500px) and (orientation: landscape) {
+            .time-group { min-width: calc(50% - 5px); }
+            .ecart-badge { width: 100%; text-align: center; }
+            .btn-save { width: 100%; }
+        }
         @media (max-width: 600px) and (orientation: portrait) {
             .time-input { height: 44px; font-size: 18px; padding: 0 8px; }
             .time-group { flex: 1; min-width: 0; }
-            .shift-body { gap: 16px; justify-content: center; flex-wrap: wrap; }
+            .shift-body { gap: 20px; justify-content: center; flex-wrap: wrap; padding-right: 24px; }
             .ecart-badge { flex: 0 0 100%; text-align: center; }
             .btn-save { height: 48px; flex: 0 0 100%; }
             .btn-add-extra { height: 44px; }
