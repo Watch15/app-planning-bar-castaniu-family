@@ -781,10 +781,12 @@
                 <button class="btn-manage-staff" id="btn-dispos">📋 Dispos</button>
                 <span id="dispos-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--danger);color:white;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;align-items:center;justify-content:center;pointer-events:none;z-index:1;border:1.5px solid var(--dark-bg)">0</span>
             </div>
+            <!-- F-05 échanges désactivé
             <div style="position:relative;display:inline-block">
                 <button class="btn-manage-staff" id="btn-swaps" title="Échanges de shifts à valider">⇄ Échanges</button>
                 <span id="swaps-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--danger);color:white;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;align-items:center;justify-content:center;pointer-events:none;z-index:1;border:1.5px solid var(--dark-bg)">0</span>
             </div>
+            -->
             <button class="btn-manage-staff" id="btn-recap" style="background:rgba(16,185,129,0.12);border-color:#10b981;color:#10b981">📊 Récap</button>
             <a href="/pointage.html" class="btn-manage-staff" id="btn-pointage" style="background:rgba(245,158,11,0.12);border-color:#f59e0b;color:#f59e0b;text-decoration:none;display:inline-flex;align-items:center" title="Saisie heures réelles (pointage)">⏱ Pointage</a>
             <div class="header-sep"></div>
@@ -1051,7 +1053,7 @@
     </div>
 </div>
 
-<!-- Modale échanges de shifts (F-05) -->
+<!-- F-05 échanges désactivé
 <div class="modal-overlay" id="swaps-modal" style="display:none">
     <div class="modal" style="width:640px;max-width:95vw">
         <div class="modal-header">
@@ -1061,6 +1063,7 @@
         <div id="swaps-list" style="max-height:65vh;overflow-y:auto"></div>
     </div>
 </div>
+-->
 
 <!-- Modale confirmation dispo -->
 <div class="modal-overlay" id="confirm-dispo-modal" style="display:none">
@@ -1170,10 +1173,12 @@
         📋 Disponibilités
         <span id="drawer-dispos-badge" style="display:none;background:#e74c3c;color:white;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px">0</span>
     </button>
+    <!-- F-05 échanges désactivé
     <button class="drawer-btn" id="drawer-btn-swaps" onclick="closeMobileDrawer();document.getElementById('btn-swaps').click()">
         ⇄ Échanges
         <span id="drawer-swaps-badge" style="display:none;background:#e74c3c;color:white;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px">0</span>
     </button>
+    -->
     <a class="drawer-btn drawer-btn-pointage" href="/pointage.html" onclick="closeMobileDrawer()">⏱ Pointage</a>
     <button class="drawer-btn" onclick="closeMobileDrawer();document.getElementById('btn-recap').click()">📊 Récap mensuel</button>
     <div class="drawer-section-label">Disponibilités</div>

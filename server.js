@@ -1863,7 +1863,7 @@ app.patch('/api/dispos/:id/reject', checkDB, requirePatron, async (req, res) => 
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Échanges de shifts (F-05) ─────────────────────────────────────────────────
+/* ── Échanges de shifts (F-05) — DÉSACTIVÉ ───────────────────────────────────
 //
 // Collection `shift_swaps` : { from_shift_id, to_shift_id, from_staff_id,
 //   to_staff_id, from_establishment_id, to_establishment_id, status, note,
@@ -2157,6 +2157,8 @@ app.delete('/api/shift-swaps/:id', checkDB, requireAuth, async (req, res) => {
         touchLastUpdated();
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+─────────────────────────────────────────────────────────────────────────── */
 
 // ── Publication du planning ───────────────────────────────────────────────────
 
