@@ -676,6 +676,10 @@ async function init() {
     startStaffAutoRefresh(from, to, user);
 
     setTimeout(loadStaffNotifs, 500);
+    setInterval(loadStaffNotifs, 90000); // re-check toutes les 90s (shifts debounced 60s)
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') loadStaffNotifs();
+    });
 
     // Vérifier si le staff est responsable de soirée ce soir → onglet Pointage
     // Avant l'heure de bascule (ex: 9h) on considère encore la date "d'hier" pour
@@ -1476,9 +1480,10 @@ const _NOTIF_CFG = {
     'dispo-traitee':   { color: '#10b981', icon: '✅' },
 };
 
-let _notifQueue   = [];
-let _activeToasts = 0;
-const _MAX_TOASTS = 3;
+let _notifQueue    = [];
+let _activeToasts  = 0;
+const _MAX_TOASTS  = 3;
+const _shownNotifs = new Set(); // évite les doublons entre appels successifs
 
 async function loadStaffNotifs() {
     try {
@@ -1486,7 +1491,9 @@ async function loadStaffNotifs() {
         if (!res.ok) return;
         const { notifications } = await res.json();
         if (!notifications || !notifications.length) return;
-        _notifQueue = [...notifications];
+        const newOnes = notifications.filter(n => !_shownNotifs.has(String(n._id)));
+        if (!newOnes.length) return;
+        newOnes.forEach(n => { _shownNotifs.add(String(n._id)); _notifQueue.push(n); });
         fetch('/api/notifications/mine/read', { method: 'PATCH', credentials: 'include' });
         _drainNotifQueue();
     } catch { /* silencieux */ }

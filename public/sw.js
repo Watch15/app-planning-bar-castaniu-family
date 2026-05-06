@@ -63,16 +63,18 @@ self.addEventListener('message', e => {
 // ── Web Push — réception et affichage ────────────────────────────────────────
 
 self.addEventListener('push', event => {
-    const data = event.data?.json() || {};
+    let data = {};
+    try { if (event.data) data = event.data.json(); } catch { /* payload non-JSON ignoré */ }
     event.waitUntil(
         self.registration.showNotification(data.title || 'Templyo', {
             body:     data.body,
             icon:     '/icons/icon-192.png',
-            badge:    '/icons/badge-72.png',
+            badge:    '/icons/icon-72.png',
             tag:      data.tag || 'templyo-notif',
             renotify: true,
             actions:  data.actions || [],
             data:     { url: data.url || '/planning.html' },
+            vibrate:  [200, 100, 200],
         })
     );
 });
