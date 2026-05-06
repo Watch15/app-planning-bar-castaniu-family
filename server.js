@@ -251,6 +251,24 @@ async function sendPushToStaff(staffIds, payload) {
 }
 
 
+// ── Helpers semaine ───────────────────────────────────────────────────────────
+
+// Retourne le lundi de la semaine contenant `date`
+function _weekStart(date) {
+    const d   = new Date(date);
+    const day = d.getDay();
+    d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+// La semaine en cours (et toutes les semaines passées) est considérée publiée automatiquement
+function _isAutoPublished(shiftDateStr) {
+    const shiftWeek   = _weekStart(new Date(shiftDateStr + 'T12:00:00'));
+    const currentWeek = _weekStart(new Date());
+    return shiftWeek <= currentWeek;
+}
+
 // ── Rappels automatiques dispos ───────────────────────────────────────────────
 
 function _disposWeekStart(now) {
@@ -1492,17 +1510,18 @@ app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
 
         // Notifier les patrons/directeurs si la semaine est déjà publiée
         if (!is_joker && staff_id !== '__joker__') {
-            db.collection('settings').findOne({ key: 'publish_' + date.substring(0, 7) + '-01' })
-                .then(async () => {
-                    const allPubs = await db.collection('settings').find({
-                        key: { $regex: '^publish_' }, published: true,
-                    }).toArray();
-                    const isPublished = allPubs.some(p => {
-                        const weekKey  = p.key.replace('publish_', '');
-                        const weekDate = new Date(weekKey + 'T12:00:00');
-                        const shiftDate = new Date(date + 'T12:00:00');
-                        return Math.abs(shiftDate - weekDate) < 8 * 24 * 60 * 60 * 1000;
-                    });
+            (async () => {
+                    let isPublished = _isAutoPublished(date);
+                    if (!isPublished) {
+                        const allPubs = await db.collection('settings').find({
+                            key: { $regex: '^publish_' }, published: true,
+                        }).toArray();
+                        isPublished = allPubs.some(p => {
+                            const weekDate  = new Date(p.key.replace('publish_', '') + 'T12:00:00');
+                            const shiftDate = new Date(date + 'T12:00:00');
+                            return Math.abs(shiftDate - weekDate) < 8 * 24 * 60 * 60 * 1000;
+                        });
+                    }
                     if (isPublished) {
                         const estabDoc  = await db.collection('establishments').findOne({ _id: establishment_id }) || {};
                         const estabName = estabDoc.name || establishment_id;
@@ -1522,7 +1541,7 @@ app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
                             { date, shift_id: String(result.insertedId) }
                         );
                     }
-                }).catch(() => {});
+                })();
         }
 
         res.status(201).json({ ...shift, _id: result.insertedId, warnings });
@@ -1600,14 +1619,17 @@ app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
                 shiftId,
                 // Push au staff — lancé après 60s de silence
                 async () => {
-                    const allPubs = await db.collection('settings').find({
-                        key: { $regex: '^publish_' }, published: true,
-                    }).toArray();
-                    const isPublished = allPubs.some(p => {
-                        const weekDate  = new Date(p.key.replace('publish_', '') + 'T12:00:00');
-                        const shiftDate = new Date(capturedDate + 'T12:00:00');
-                        return Math.abs(shiftDate - weekDate) < 8 * 24 * 60 * 60 * 1000;
-                    });
+                    let isPublished = _isAutoPublished(capturedDate);
+                    if (!isPublished) {
+                        const allPubs = await db.collection('settings').find({
+                            key: { $regex: '^publish_' }, published: true,
+                        }).toArray();
+                        isPublished = allPubs.some(p => {
+                            const weekDate  = new Date(p.key.replace('publish_', '') + 'T12:00:00');
+                            const shiftDate = new Date(capturedDate + 'T12:00:00');
+                            return Math.abs(shiftDate - weekDate) < 8 * 24 * 60 * 60 * 1000;
+                        });
+                    }
                     if (!isPublished) return;
                     // Relire les horaires finaux depuis la base (après tous les resizes)
                     const finalShift = await db.collection('shifts').findOne({ _id: existing._id });
@@ -1658,12 +1680,15 @@ app.delete('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
         if (!existing.is_joker && existing.staff_id && existing.staff_id !== '__joker__') {
             (async () => {
                 try {
-                    const allPubs = await db.collection('settings').find({ key: { $regex: '^publish_' }, published: true }).toArray();
-                    const isPublished = allPubs.some(p => {
-                        const weekDate  = new Date(p.key.replace('publish_', '') + 'T12:00:00');
-                        const shiftDate = new Date(existing.date + 'T12:00:00');
-                        return Math.abs(shiftDate - weekDate) < 8 * 24 * 60 * 60 * 1000;
-                    });
+                    let isPublished = _isAutoPublished(existing.date);
+                    if (!isPublished) {
+                        const allPubs = await db.collection('settings').find({ key: { $regex: '^publish_' }, published: true }).toArray();
+                        isPublished = allPubs.some(p => {
+                            const weekDate  = new Date(p.key.replace('publish_', '') + 'T12:00:00');
+                            const shiftDate = new Date(existing.date + 'T12:00:00');
+                            return Math.abs(shiftDate - weekDate) < 8 * 24 * 60 * 60 * 1000;
+                        });
+                    }
                     if (!isPublished) return;
                     const estabDoc  = await db.collection('establishments').findOne({ _id: existing.establishment_id }) || {};
                     const estabName = estabDoc.name || existing.establishment_id;
@@ -2334,6 +2359,8 @@ app.delete('/api/shift-swaps/:id', checkDB, requireAuth, async (req, res) => {
 // GET statut publication d'une semaine
 app.get('/api/publish/:weekStart', checkDB, requireAuth, async (req, res) => {
     try {
+        // La semaine en cours et les semaines passées sont automatiquement publiées
+        if (_isAutoPublished(req.params.weekStart)) return res.json({ published: true, auto: true });
         const pub = await db.collection('settings').findOne({ key: 'publish_' + req.params.weekStart });
         res.json({ published: !!(pub && pub.published) });
     } catch (e) { res.status(500).json({ error: e.message }); }
