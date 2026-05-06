@@ -393,24 +393,40 @@ function scheduleDailyAt10() {
 
 // ── Debounce notifications shift (évite le spam lors du drag/resize) ─────────
 
-const _shiftNotifDebounce = new Map(); // shiftId → { timer, payload }
+const _shiftNotifDebounce = new Map(); // shiftId → { timer, originalState }
 
-function scheduleShiftNotif(shiftId, pushPayload, notifPatronFn) {
-    // Annuler le timer précédent s'il existe (nouveau drag sur le même shift)
+// originalState = { _id, start_time, end_time, staff_id } — état du shift AVANT le premier PATCH
+// Si le shift revient à cet état dans la fenêtre de debounce, aucune notif n'est envoyée.
+function scheduleShiftNotif(shiftId, originalState, pushPayload, notifPatronFn) {
+    let storedOriginal;
     if (_shiftNotifDebounce.has(shiftId)) {
+        // Conserver l'état original du PREMIER PATCH de cette fenêtre
+        storedOriginal = _shiftNotifDebounce.get(shiftId).originalState;
         clearTimeout(_shiftNotifDebounce.get(shiftId).timer);
+    } else {
+        storedOriginal = originalState;
     }
     // Programmer l'envoi après 60 secondes de silence
     const timer = setTimeout(async () => {
         _shiftNotifDebounce.delete(shiftId);
         try {
+            // Relire l'état final et comparer à l'état initial : si identique → pas de notif
+            if (storedOriginal && storedOriginal._id) {
+                const finalShift = await db.collection('shifts').findOne({ _id: storedOriginal._id });
+                if (finalShift &&
+                    finalShift.start_time == storedOriginal.start_time &&
+                    finalShift.end_time   == storedOriginal.end_time   &&
+                    String(finalShift.staff_id) === String(storedOriginal.staff_id)) {
+                    return; // Revenu à l'état initial — aucune notification
+                }
+            }
             await pushPayload();
             await notifPatronFn();
         } catch (e) {
             console.error('❌ scheduleShiftNotif error:', e.message);
         }
     }, 60 * 1000);
-    _shiftNotifDebounce.set(shiftId, { timer });
+    _shiftNotifDebounce.set(shiftId, { timer, originalState: storedOriginal });
 }
 
 // ── Notifications in-app pour patron/directeurs ───────────────────────────────
@@ -1617,6 +1633,7 @@ app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
 
             scheduleShiftNotif(
                 shiftId,
+                { _id: existing._id, start_time: existing.start_time, end_time: existing.end_time, staff_id: existing.staff_id },
                 // Push au staff — lancé après 60s de silence
                 async () => {
                     let isPublished = _isAutoPublished(capturedDate);
