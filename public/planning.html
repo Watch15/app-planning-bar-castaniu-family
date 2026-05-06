@@ -476,6 +476,9 @@
             <span>🔔</span>
             <span id="btn-notif-label">Notifs</span>
         </button>
+        <button class="btn-notif" id="btn-notif-test" title="Envoyer une notification test" onclick="testPushNotification()" style="display:none">
+            <span>📨</span>
+        </button>
         <button class="btn-logout" onclick="logout()">⎋ Sortir</button>
     </div>
 </div>
@@ -1612,6 +1615,8 @@ async function initPushButton() {
             btn.title = 'Notifications activées — cliquer pour désactiver';
             const lbl = document.getElementById('btn-notif-label');
             if (lbl) lbl.textContent = 'Activé';
+            const testBtn = document.getElementById('btn-notif-test');
+            if (testBtn) testBtn.style.display = '';
         }
     } catch { /* silencieux */ }
 }
@@ -1635,6 +1640,8 @@ async function togglePushSubscription() {
             btn.title = 'Activer les notifications';
             const lbl = document.getElementById('btn-notif-label');
             if (lbl) lbl.textContent = 'Notifs';
+            const testBtn = document.getElementById('btn-notif-test');
+            if (testBtn) testBtn.style.display = 'none';
         } catch (e) {
             console.error('Erreur désabonnement push:', e);
         }
@@ -1645,7 +1652,11 @@ async function togglePushSubscription() {
     try {
         // Récupérer la clé publique VAPID
         const keyRes = await fetch('/api/push/vapid-public-key', { credentials: 'include' });
-        if (!keyRes.ok) { console.error('VAPID key indisponible'); return; }
+        if (!keyRes.ok) {
+            const err = await keyRes.json().catch(() => ({}));
+            _showNotifToast({ type: 'rappel-dispo', title: 'Push non configuré', body: err.error || 'Clé VAPID manquante côté serveur', url: '/planning.html' });
+            return;
+        }
         const { publicKey } = await keyRes.json();
 
         // Demander la permission
@@ -1654,6 +1665,7 @@ async function togglePushSubscription() {
             if (perm === 'denied') {
                 btn.classList.add('denied');
                 btn.title = 'Notifications bloquées dans les réglages du navigateur';
+                _showNotifToast({ type: 'rappel-dispo', title: 'Notifications bloquées', body: 'Autorise les notifications dans les réglages de ton navigateur', url: '/planning.html' });
             }
             return;
         }
@@ -1676,12 +1688,33 @@ async function togglePushSubscription() {
             btn.title = 'Notifications activées — cliquer pour désactiver';
             const lbl = document.getElementById('btn-notif-label');
             if (lbl) lbl.textContent = 'Activé';
+            const testBtn = document.getElementById('btn-notif-test');
+            if (testBtn) testBtn.style.display = '';
+            _showNotifToast({ type: 'planning-publie', title: 'Notifications activées ✅', body: 'Tu recevras les alertes planning sur cet appareil', url: '/planning.html' });
+        } else {
+            const err = await subRes.json().catch(() => ({}));
+            _showNotifToast({ type: 'rappel-dispo', title: 'Erreur d\'enregistrement', body: err.error || 'Impossible d\'enregistrer la subscription', url: '/planning.html' });
         }
     } catch (e) {
         console.error('Erreur abonnement push:', e);
+        _showNotifToast({ type: 'rappel-dispo', title: 'Erreur push', body: e.message || 'Impossible d\'activer les notifications', url: '/planning.html' });
     }
 }
 
+
+async function testPushNotification() {
+    try {
+        const res  = await fetch('/api/push/test', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        if (res.ok) {
+            _showNotifToast({ type: 'planning-publie', title: 'Test envoyé ✅', body: `${data.sent} notification(s) envoyée(s) — vérifie ton téléphone`, url: '/planning.html' });
+        } else {
+            _showNotifToast({ type: 'rappel-dispo', title: 'Échec du test', body: data.error || 'Erreur inconnue', url: '/planning.html' });
+        }
+    } catch (e) {
+        _showNotifToast({ type: 'rappel-dispo', title: 'Erreur réseau', body: e.message, url: '/planning.html' });
+    }
+}
 
 // ── Auto-refresh polling (staff) ─────────────────────────────────────────────
 

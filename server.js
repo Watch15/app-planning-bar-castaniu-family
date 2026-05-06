@@ -196,7 +196,10 @@ async function sendPushToStaff(staffIds, payload) {
         } catch (e) { console.error('❌ staff_notifications insert error:', e.message); }
     }
 
-    if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+    if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+        console.warn('⚠️  Web Push ignoré : VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY non configurés');
+        return;
+    }
     try {
         // Récupérer les user_ids correspondant aux staff_ids
         let userQuery = {};
@@ -205,12 +208,20 @@ async function sendPushToStaff(staffIds, payload) {
         }
         const users = await db.collection('users').find(userQuery, { projection: { _id: 1 } }).toArray();
         const userIds = users.map(u => String(u._id));
-        if (userIds.length === 0) return;
+        console.log(`📤 Push [${payload.tag || '?'}] → staffIds=${JSON.stringify(staffIds)} → ${users.length} user(s) trouvé(s)`);
+        if (userIds.length === 0) {
+            console.warn('⚠️  Push annulé : aucun user trouvé pour ces staff_ids');
+            return;
+        }
 
         const subs = await db.collection('push_subscriptions')
             .find({ user_id: { $in: userIds } })
             .toArray();
-        if (subs.length === 0) return;
+        console.log(`📤 Push → ${subs.length} subscription(s) trouvée(s)`);
+        if (subs.length === 0) {
+            console.warn('⚠️  Push annulé : aucune subscription — staff non abonnés ou clé périmée');
+            return;
+        }
 
         const payloadStr = JSON.stringify(payload);
         const stale = [];
@@ -218,12 +229,14 @@ async function sendPushToStaff(staffIds, payload) {
         await Promise.allSettled(subs.map(async sub => {
             try {
                 await webpush.sendNotification(sub.subscription, payloadStr);
+                console.log(`✅ Push envoyé → user_id=${sub.user_id}`);
             } catch (err) {
                 // 410 Gone = subscription expirée → à supprimer
                 if (err.statusCode === 410 || err.statusCode === 404) {
                     stale.push(sub._id);
+                    console.warn(`⚠️  Subscription expirée (${err.statusCode}) → suppression user_id=${sub.user_id}`);
                 } else {
-                    console.error('❌ Push error pour user', sub.user_id, ':', err.message);
+                    console.error('❌ Push error pour user', sub.user_id, ':', err.statusCode, err.message);
                 }
             }
         }));
@@ -2791,6 +2804,31 @@ app.delete('/api/push/subscribe', checkDB, requireAuth, async (req, res) => {
             'subscription.endpoint': endpoint,
         });
         res.json({ message: 'Désabonné' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST envoyer une notification test à soi-même (diagnostic)
+app.post('/api/push/test', checkDB, requireAuth, async (req, res) => {
+    if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY)
+        return res.status(503).json({ error: 'Web Push non configuré côté serveur (VAPID manquant)' });
+
+    const userId = req.session.user._id;
+    try {
+        const subs = await db.collection('push_subscriptions').find({ user_id: userId }).toArray();
+        if (subs.length === 0)
+            return res.status(404).json({ error: 'Aucune subscription trouvée pour ce compte — clique d\'abord sur 🔔' });
+
+        const payload = JSON.stringify({
+            title: '🔔 Test Templyo',
+            body:  'Les notifications fonctionnent correctement !',
+            tag:   'test-push',
+            url:   '/planning.html',
+        });
+
+        const results = await Promise.allSettled(subs.map(sub => webpush.sendNotification(sub.subscription, payload)));
+        const errors  = results.filter(r => r.status === 'rejected').map(r => r.reason?.message);
+        const ok      = results.filter(r => r.status === 'fulfilled').length;
+        res.json({ sent: ok, errors });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
