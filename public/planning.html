@@ -422,9 +422,44 @@
             .estab-hours-bar { padding: 0 14px 8px; }
             .estab-hours-chip { font-size: 11px; padding: 3px 8px; }
         }
+        /* ── Notifications in-app toasts ── */
+        #notif-toast-container {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center;
+            pointer-events: none; padding-top: 8px; gap: 6px;
+        }
+        .notif-toast {
+            pointer-events: all;
+            background: #1a1a2e; color: white;
+            border-radius: 12px; padding: 12px 14px;
+            width: calc(100% - 32px); max-width: 440px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            display: flex; align-items: flex-start; gap: 10px;
+            border-left: 4px solid #6C63FF; cursor: pointer;
+            animation: toastIn 0.3s ease;
+        }
+        .notif-toast.hiding { animation: toastOut 0.3s ease forwards; }
+        @keyframes toastIn {
+            from { transform: translateY(-110%); opacity: 0; }
+            to   { transform: translateY(0);     opacity: 1; }
+        }
+        @keyframes toastOut {
+            from { transform: translateY(0);     opacity: 1; }
+            to   { transform: translateY(-110%); opacity: 0; }
+        }
+        .notif-toast-icon    { font-size: 18px; flex-shrink: 0; line-height: 1.4; }
+        .notif-toast-content { flex: 1; min-width: 0; }
+        .notif-toast-title   { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+        .notif-toast-body    { font-size: 12px; opacity: 0.8; overflow: hidden;
+                               display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .notif-toast-close   { font-size: 16px; flex-shrink: 0; opacity: 0.6;
+                               line-height: 1; cursor: pointer; padding: 0 2px; }
+        .notif-toast-close:hover { opacity: 1; }
     </style>
 </head>
 <body>
+
+<div id="notif-toast-container"></div>
 
 <div class="header">
     <div class="header-left">
@@ -639,6 +674,8 @@ async function init() {
     window._currentPlan = { from, to, user };
     await loadPlanning(from, to, user);
     startStaffAutoRefresh(from, to, user);
+
+    setTimeout(loadStaffNotifs, 500);
 
     // Vérifier si le staff est responsable de soirée ce soir → onglet Pointage
     // Avant l'heure de bascule (ex: 9h) on considère encore la date "d'hier" pour
@@ -1428,6 +1465,92 @@ async function submitDispos() {
         btn.disabled    = false;
         btn.textContent = 'Envoyer mes dispos';
     }
+}
+
+// ── Notifications in-app (toasts) ────────────────────────────────────────────
+
+const _NOTIF_CFG = {
+    'planning-publie': { color: '#6C63FF', icon: '📅' },
+    'shift-modifie':   { color: '#f59e0b', icon: '✏️' },
+    'rappel-dispo':    { color: '#ef4444', icon: '⏰' },
+    'dispo-traitee':   { color: '#10b981', icon: '✅' },
+};
+
+let _notifQueue   = [];
+let _activeToasts = 0;
+const _MAX_TOASTS = 3;
+
+async function loadStaffNotifs() {
+    try {
+        const res = await fetch('/api/notifications/mine', { credentials: 'include' });
+        if (!res.ok) return;
+        const { notifications } = await res.json();
+        if (!notifications || !notifications.length) return;
+        _notifQueue = [...notifications];
+        fetch('/api/notifications/mine/read', { method: 'PATCH', credentials: 'include' });
+        _drainNotifQueue();
+    } catch { /* silencieux */ }
+}
+
+function _drainNotifQueue() {
+    while (_activeToasts < _MAX_TOASTS && _notifQueue.length > 0) {
+        _showNotifToast(_notifQueue.shift());
+    }
+}
+
+function _showNotifToast(notif) {
+    const container = document.getElementById('notif-toast-container');
+    if (!container) return;
+
+    const cfg   = _NOTIF_CFG[notif.type] || { color: '#6C63FF', icon: '🔔' };
+    const toast = document.createElement('div');
+    toast.className = 'notif-toast';
+    toast.style.borderLeftColor = cfg.color;
+    toast.innerHTML =
+        '<div class="notif-toast-icon">' + cfg.icon + '</div>' +
+        '<div class="notif-toast-content">' +
+            '<div class="notif-toast-title">' + _esc(notif.title) + '</div>' +
+            '<div class="notif-toast-body">'  + _esc(notif.body)  + '</div>' +
+        '</div>' +
+        '<span class="notif-toast-close" role="button" aria-label="Fermer">✕</span>';
+
+    _activeToasts++;
+    container.appendChild(toast);
+
+    toast.addEventListener('click', e => {
+        if (e.target.classList.contains('notif-toast-close')) return;
+        const url = notif.url || '';
+        if (url.includes('#dispos')) {
+            const t = document.querySelector('[data-tab="dispos"]');
+            if (t) t.click();
+        } else {
+            const t = document.querySelector('[data-tab="planning"]');
+            if (t) t.click();
+        }
+        _dismissToast(toast);
+    });
+
+    toast.querySelector('.notif-toast-close').addEventListener('click', e => {
+        e.stopPropagation();
+        _dismissToast(toast);
+    });
+
+    const timer = setTimeout(() => _dismissToast(toast), 5000);
+    toast._notifTimer = timer;
+}
+
+function _dismissToast(toast) {
+    clearTimeout(toast._notifTimer);
+    toast.classList.add('hiding');
+    toast.addEventListener('animationend', () => {
+        toast.remove();
+        _activeToasts = Math.max(0, _activeToasts - 1);
+        _drainNotifQueue();
+    }, { once: true });
+}
+
+function _esc(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function showMsg(text, type) {

@@ -117,6 +117,7 @@ async function connectDB() {
         await client.connect();
         db = client.db('gestion_bar');
         console.log('✅ Connecté à MongoDB Atlas');
+        scheduleDailyAt10();
     } catch (e) {
         console.error('❌ Connexion échouée :', e.message);
         process.exit(1);
@@ -178,6 +179,23 @@ async function sendSMS(to, body) {
 
 // Envoie une notification push à une liste de staff_ids (ou à tous si staffIds est null)
 async function sendPushToStaff(staffIds, payload) {
+    // Stocker la notif in-app indépendamment du push (fonctionne sans VAPID)
+    if (db && Array.isArray(staffIds) && staffIds.length > 0 && payload.title && payload.body) {
+        try {
+            await db.collection('staff_notifications').insertMany(
+                staffIds.map(id => ({
+                    staff_id:   id,
+                    type:       payload.tag || 'templyo-notif',
+                    title:      payload.title,
+                    body:       payload.body,
+                    url:        payload.url || '/planning.html',
+                    read:       false,
+                    created_at: new Date(),
+                }))
+            );
+        } catch (e) { console.error('❌ staff_notifications insert error:', e.message); }
+    }
+
     if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
     try {
         // Récupérer les user_ids correspondant aux staff_ids
@@ -219,6 +237,138 @@ async function sendPushToStaff(staffIds, payload) {
     }
 }
 
+
+// ── Rappels automatiques dispos ───────────────────────────────────────────────
+
+function _disposWeekStart(now) {
+    // Reproduit getMondayOf(addDays(now, 7)) du client
+    const d7 = new Date(now);
+    d7.setDate(now.getDate() + 7);
+    const day  = d7.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d7.setDate(d7.getDate() + diff);
+    d7.setHours(0, 0, 0, 0);
+    return d7;
+}
+
+async function checkDispoRappels() {
+    if (!db) return;
+    try {
+        const settings = await db.collection('settings').findOne({ key: 'dispo' }) || {};
+        if (settings.force_open) return;
+
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const dateStr = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+
+        const todayStr = dateStr(now);
+        const todayDay = now.getDay(); // 0=dim … 6=sam
+
+        const deadline     = computeEffectiveDeadline(settings.custom_deadline || null, now);
+        const deadlineFmt  = deadline.getDate() + '/' + (deadline.getMonth() + 1);
+        const deadlineTime = String(deadline.getHours()).padStart(2,'0') + 'h' + String(deadline.getMinutes()).padStart(2,'0');
+
+        const weekMonday = _disposWeekStart(now);
+        const weekStart  = dateStr(weekMonday);
+        const weekEndD   = new Date(weekMonday);
+        weekEndD.setDate(weekMonday.getDate() + 6);
+        const weekEnd = dateStr(weekEndD);
+
+        const j2Date = new Date(deadline); j2Date.setDate(deadline.getDate() - 2);
+        const j1Date = new Date(deadline); j1Date.setDate(deadline.getDate() - 1);
+        const j2Str  = dateStr(j2Date);
+        const j1Str  = dateStr(j1Date);
+
+        // Helpers déduplication
+        const alreadySentToday = (field) => {
+            const d = settings[field];
+            return d && dateStr(new Date(d)) === todayStr;
+        };
+
+        // Helper : staff sans dispo pour la semaine
+        async function getTargetsWithoutDispo(allStaff) {
+            const ids = allStaff.map(s => String(s._id));
+            const existing = await db.collection('availabilities').find({
+                staff_id: { $in: ids },
+                date:     { $gte: weekStart, $lte: weekEnd },
+                status:   { $in: ['pending', 'confirmed'] },
+            }, { projection: { staff_id: 1 } }).toArray();
+            const done = new Set(existing.map(d => d.staff_id));
+            return allStaff.filter(s => !done.has(String(s._id)));
+        }
+
+        // ── Trigger 1 : ouverture ────────────────────────────────────────────
+        const openDay = settings.open_day;
+        if (openDay !== null && openDay !== undefined && todayDay === openDay && !alreadySentToday('notif_sent_open')) {
+            const allStaff = await db.collection('staff').find({ can_submit_dispos: true }).toArray();
+            const ids = allStaff.map(s => String(s._id));
+            await sendPushToStaff(ids, {
+                title:   'Templyo — Dispos ouvertes',
+                body:    '📅 Les disponibilités sont ouvertes ! Envoie les tiennes avant le ' + deadlineFmt,
+                tag:     'rappel-dispo',
+                url:     '/planning.html#dispos',
+                actions: [{ action: 'envoyer', title: 'Envoyer mes dispos' }],
+            });
+            await db.collection('settings').updateOne({ key: 'dispo' }, { $set: { notif_sent_open: now } });
+            console.log('✅ Rappel ouverture dispos →', ids.length, 'membres');
+        }
+
+        // ── Trigger 2 : J-2 ─────────────────────────────────────────────────
+        if (todayStr === j2Str && !alreadySentToday('notif_sent_j2')) {
+            const allStaff = await db.collection('staff').find({ can_submit_dispos: true }).toArray();
+            const targets  = await getTargetsWithoutDispo(allStaff);
+            const msg      = '⚠️ Plus que 2 jours pour envoyer tes disponibilités !';
+            if (targets.length > 0) {
+                await sendPushToStaff(targets.map(s => String(s._id)), {
+                    title: 'Templyo — Rappel dispos', body: msg, tag: 'rappel-dispo', url: '/planning.html#dispos',
+                    actions: [{ action: 'envoyer', title: 'Envoyer mes dispos' }],
+                });
+                await Promise.allSettled(targets.map(async s => {
+                    if (!s.phone) return;
+                    try { await sendSMS(normalizePhone(s.phone), msg); }
+                    catch (e) { console.error('❌ SMS J-2 ' + s.name + ':', e.message); }
+                }));
+            }
+            await db.collection('settings').updateOne({ key: 'dispo' }, { $set: { notif_sent_j2: now } });
+            console.log('✅ Rappel J-2 →', targets.length, 'membres');
+        }
+
+        // ── Trigger 3 : J-1 ─────────────────────────────────────────────────
+        if (todayStr === j1Str && !alreadySentToday('notif_sent_j1')) {
+            const allStaff = await db.collection('staff').find({ can_submit_dispos: true }).toArray();
+            const targets  = await getTargetsWithoutDispo(allStaff);
+            const msg      = '🔴 Dernier jour ! Envoie tes disponibilités avant ' + deadlineTime;
+            if (targets.length > 0) {
+                await sendPushToStaff(targets.map(s => String(s._id)), {
+                    title: 'Templyo — Rappel dispos', body: msg, tag: 'rappel-dispo', url: '/planning.html#dispos',
+                    actions: [{ action: 'envoyer', title: 'Envoyer mes dispos' }],
+                });
+                await Promise.allSettled(targets.map(async s => {
+                    if (!s.phone) return;
+                    try { await sendSMS(normalizePhone(s.phone), msg); }
+                    catch (e) { console.error('❌ SMS J-1 ' + s.name + ':', e.message); }
+                }));
+            }
+            await db.collection('settings').updateOne({ key: 'dispo' }, { $set: { notif_sent_j1: now } });
+            console.log('✅ Rappel J-1 →', targets.length, 'membres');
+        }
+    } catch (e) {
+        console.error('❌ checkDispoRappels error:', e.message);
+    }
+}
+
+function scheduleDailyAt10() {
+    const now   = new Date();
+    const next10 = new Date(now);
+    next10.setHours(10, 0, 0, 0);
+    if (next10 <= now) next10.setDate(next10.getDate() + 1);
+    const msUntil10 = next10 - now;
+    setTimeout(() => {
+        checkDispoRappels();
+        setInterval(checkDispoRappels, 24 * 60 * 60 * 1000);
+    }, msUntil10);
+    console.log('⏰ Rappels auto dispos programmés — prochain check 10h00');
+}
 
 // ── Debounce notifications shift (évite le spam lors du drag/resize) ─────────
 
@@ -1355,9 +1505,11 @@ app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
                         const estabName = estabDoc.name || establishment_id;
                         // Push au staff planifié
                         await sendPushToStaff([staff_id], {
-                            title: '✅ Nouveau shift — ' + estabName,
-                            body:  'Tu es planifié(e) ' + formatDateFR(date) + ' · ' + formatShiftTime(parseFloat(start_time)) + ' → ' + formatShiftTime(parseFloat(end_time)),
-                            url:   '/planning.html',
+                            title:   '✅ Nouveau shift — ' + estabName,
+                            body:    'Tu es planifié(e) ' + formatDateFR(date) + ' · ' + formatShiftTime(parseFloat(start_time)) + ' → ' + formatShiftTime(parseFloat(end_time)),
+                            tag:     'planning-publie',
+                            url:     '/planning.html',
+                            actions: [{ action: 'voir', title: 'Voir mon planning' }],
                         });
                         // In-app patron
                         await createNotifForPatrons(
@@ -1461,9 +1613,11 @@ app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
                     const estabDoc = await db.collection('establishments').findOne({ _id: capturedEstab }) || {};
                     const estabName = estabDoc.name || capturedEstab;
                     await sendPushToStaff([targetStaffId], {
-                        title: '✏️ Shift modifié — ' + estabName,
-                        body:  formatDateFR(capturedDate) + ' · ' + formatShiftTime(fS) + ' → ' + formatShiftTime(fE),
-                        url:   '/planning.html',
+                        title:   '✏️ Shift modifié — ' + estabName,
+                        body:    formatDateFR(capturedDate) + ' · ' + formatShiftTime(fS) + ' → ' + formatShiftTime(fE),
+                        tag:     'shift-modifie',
+                        url:     '/planning.html',
+                        actions: [{ action: 'voir', title: 'Voir les changements' }],
                     });
                 },
                 // Notif in-app patron/directeurs
@@ -1511,9 +1665,11 @@ app.delete('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
                     const estabDoc  = await db.collection('establishments').findOne({ _id: existing.establishment_id }) || {};
                     const estabName = estabDoc.name || existing.establishment_id;
                     await sendPushToStaff([existing.staff_id], {
-                        title: '❌ Shift annulé — ' + estabName,
-                        body:  'Ton shift du ' + formatDateFR(existing.date) + ' (' + formatShiftTime(existing.start_time) + ' → ' + formatShiftTime(existing.end_time) + ') a été annulé.',
-                        url:   '/planning.html',
+                        title:   '❌ Shift annulé — ' + estabName,
+                        body:    'Ton shift du ' + formatDateFR(existing.date) + ' (' + formatShiftTime(existing.start_time) + ' → ' + formatShiftTime(existing.end_time) + ') a été annulé.',
+                        tag:     'shift-modifie',
+                        url:     '/planning.html',
+                        actions: [{ action: 'voir', title: 'Voir les changements' }],
                     });
                     await createNotifForPatrons(
                         existing.establishment_id,
@@ -1620,16 +1776,18 @@ app.get('/api/dispo-settings', checkDB, requireAuth, async (req, res) => {
             staffCanSubmit,
             force_open: forceOpen,
             custom_deadline: customDeadline,
+            open_day: settings.open_day ?? null,
             rest_days: staffDoc ? (staffDoc.rest_days || []) : [],
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/dispo-settings', checkDB, requirePatron, async (req, res) => {
-    const { open, message, force_open, custom_deadline } = req.body;
+    const { open, message, force_open, custom_deadline, open_day } = req.body;
     try {
         const update = { key: 'dispo', open: !!open, message: message || null, force_open: !!force_open };
         if (custom_deadline !== undefined) update.custom_deadline = custom_deadline || null;
+        if (open_day !== undefined) update.open_day = (open_day !== null && open_day !== '') ? parseInt(open_day) : null;
         await db.collection('settings').updateOne(
             { key: 'dispo' },
             { $set: update },
@@ -1832,9 +1990,11 @@ app.patch('/api/dispos/:id/confirm', checkDB, requirePatron, async (req, res) =>
                     ? 'Ta dispo du ' + formatDateFR(dispo.date) + ' a été confirmée : ' + formatShiftTime(dispo.start_time) + ' → ' + formatShiftTime(dispo.end_time) + ' au ' + estabName + '.'
                     : 'Ta dispo du ' + formatDateFR(dispo.date) + ' a été confirmée au ' + estabName + '.';
                 await sendPushToStaff([dispo.staff_id], {
-                    title: '✅ Dispo confirmée',
+                    title:   '✅ Dispo confirmée',
                     body,
-                    url: '/planning.html',
+                    tag:     'dispo-traitee',
+                    url:     '/planning.html#dispos',
+                    actions: [{ action: 'voir', title: 'Voir ma réponse' }],
                 });
             } catch { /* silencieux */ }
         })();
@@ -1854,9 +2014,11 @@ app.patch('/api/dispos/:id/reject', checkDB, requirePatron, async (req, res) => 
         (async () => {
             try {
                 await sendPushToStaff([dispo.staff_id], {
-                    title: '❌ Dispo refusée',
-                    body:  'Ta dispo du ' + formatDateFR(dispo.date) + ' a été refusée.',
-                    url:   '/planning.html',
+                    title:   '❌ Dispo refusée',
+                    body:    'Ta dispo du ' + formatDateFR(dispo.date) + ' a été refusée.',
+                    tag:     'dispo-traitee',
+                    url:     '/planning.html#dispos',
+                    actions: [{ action: 'voir', title: 'Voir ma réponse' }],
                 });
             } catch { /* silencieux */ }
         })();
@@ -2053,9 +2215,11 @@ app.patch('/api/shift-swaps/:id/approve', checkDB, requirePatron, async (req, re
         (async () => {
             try {
                 await sendPushToStaff([swap.from_staff_id, swap.to_staff_id], {
-                    title: '✅ Échange approuvé',
-                    body:  'Votre échange de shift a été validé par le patron.',
-                    url:   '/planning.html',
+                    title:   '✅ Échange approuvé',
+                    body:    'Votre échange de shift a été validé par le patron.',
+                    tag:     'shift-modifie',
+                    url:     '/planning.html',
+                    actions: [{ action: 'voir', title: 'Voir les changements' }],
                 });
             } catch {}
         })();
@@ -2087,9 +2251,11 @@ app.patch('/api/shift-swaps/:id/reject', checkDB, requirePatron, async (req, res
         (async () => {
             try {
                 await sendPushToStaff([swap.from_staff_id], {
-                    title: '❌ Échange refusé',
-                    body:  reason ? 'Votre demande d\'échange a été refusée : ' + reason : 'Votre demande d\'échange a été refusée par le patron.',
-                    url:   '/planning.html',
+                    title:   '❌ Échange refusé',
+                    body:    reason ? 'Votre demande d\'échange a été refusée : ' + reason : 'Votre demande d\'échange a été refusée par le patron.',
+                    tag:     'shift-modifie',
+                    url:     '/planning.html',
+                    actions: [{ action: 'voir', title: 'Voir les changements' }],
                 });
             } catch {}
         })();
@@ -2200,9 +2366,11 @@ app.patch('/api/publish/:weekStart', checkDB, requirePatron, async (req, res) =>
             }).then(staffIds => {
                 if (!staffIds.length) return;
                 return sendPushToStaff(staffIds, {
-                    title: '📅 Planning disponible',
-                    body:  'La ' + formatWeekFR(weekStart) + ' est publiée — consulte ton planning.',
-                    url:   '/planning.html',
+                    title:   '📅 Planning disponible',
+                    body:    'La ' + formatWeekFR(weekStart) + ' est publiée — consulte ton planning.',
+                    tag:     'planning-publie',
+                    url:     '/planning.html',
+                    actions: [{ action: 'voir', title: 'Voir mon planning' }],
                 });
             }).catch(() => { /* silencieux — ne pas bloquer */ });
         }
@@ -2222,6 +2390,65 @@ app.get('/api/dispos/confirmed', checkDB, requirePatron, async (req, res) => {
             status: 'confirmed',
         }).toArray();
         res.json(dispos);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Rappel dispo manuel (patron) ─────────────────────────────────────────────
+
+app.post('/api/dispos/rappel', checkDB, requirePatron, async (req, res) => {
+    const { week_start, message } = req.body;
+    if (!week_start) return res.status(400).json({ error: 'week_start requis' });
+
+    const [y, mo, d] = week_start.split('-').map(Number);
+    const pad = n => String(n).padStart(2, '0');
+    const weDate = new Date(y, mo - 1, d + 6);
+    const week_end = weDate.getFullYear() + '-' + pad(weDate.getMonth() + 1) + '-' + pad(weDate.getDate());
+
+    try {
+        const settings = await db.collection('settings').findOne({ key: 'dispo' }) || {};
+        const deadline = computeEffectiveDeadline(settings.custom_deadline || null, new Date());
+        const deadlineStr = deadline.getDate() + '/' + (deadline.getMonth() + 1) + '/' + deadline.getFullYear();
+        const msgText = (message && message.trim()) || ('⏰ N\'oublie pas d\'envoyer tes disponibilités avant le ' + deadlineStr);
+
+        const allStaffDocs = await db.collection('staff').find({ can_submit_dispos: true }).toArray();
+        const allStaffIds  = allStaffDocs.map(s => String(s._id));
+
+        const existing = await db.collection('availabilities').find({
+            staff_id: { $in: allStaffIds },
+            date:     { $gte: week_start, $lte: week_end },
+            status:   { $in: ['pending', 'confirmed'] },
+        }, { projection: { staff_id: 1 } }).toArray();
+        const alreadyIds = new Set(existing.map(doc => doc.staff_id));
+
+        const targets    = allStaffDocs.filter(s => !alreadyIds.has(String(s._id)));
+        const targetIds  = targets.map(s => String(s._id));
+
+        if (targets.length === 0) return res.json({ sent: 0 });
+
+        await sendPushToStaff(targetIds, {
+            title:   'Templyo — Rappel dispos',
+            body:    msgText,
+            tag:     'rappel-dispo',
+            url:     '/planning.html#dispos',
+            actions: [{ action: 'envoyer', title: 'Envoyer mes dispos' }],
+        });
+
+        await Promise.allSettled(targets.map(async s => {
+            if (!s.phone) return;
+            try { await sendSMS(normalizePhone(s.phone), msgText); }
+            catch (e) { console.error('❌ SMS rappel ' + s.name + ':', e.message); }
+        }));
+
+        await db.collection('notifications').insertOne({
+            type:       'rappel_dispo',
+            message:    'Rappel dispos envoyé à ' + targets.length + ' membre(s) — semaine du ' + week_start,
+            week_start,
+            sent_to:    targetIds,
+            read:       false,
+            created_at: new Date(),
+        });
+
+        res.json({ sent: targets.length });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -2646,6 +2873,33 @@ app.patch('/api/notifications/read-all', checkDB, requirePatron, async (req, res
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+
+// GET notifications in-app du staff connecté (non lues)
+app.get('/api/notifications/mine', checkDB, requireAuth, async (req, res) => {
+    const staffId = req.session.user.staff_id;
+    if (!staffId) return res.json({ notifications: [] });
+    try {
+        const notifications = await db.collection('staff_notifications')
+            .find({ staff_id: staffId, read: false })
+            .sort({ created_at: -1 })
+            .limit(20)
+            .toArray();
+        res.json({ notifications });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH marquer toutes les notifications staff comme lues
+app.patch('/api/notifications/mine/read', checkDB, requireAuth, async (req, res) => {
+    const staffId = req.session.user.staff_id;
+    if (!staffId) return res.json({ ok: true });
+    try {
+        await db.collection('staff_notifications').updateMany(
+            { staff_id: staffId, read: false },
+            { $set: { read: true } }
+        );
+        res.json({ ok: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // GET timestamp dernière modification (polling auto-refresh clients)
 app.get('/api/last-updated', checkDB, requireAuth, async (req, res) => {

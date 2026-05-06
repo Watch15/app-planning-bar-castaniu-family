@@ -358,6 +358,9 @@ async function init() {
         document.getElementById('confirm-dispo-modal').style.display = 'none';
     });
 
+    const btnSendRappel = document.getElementById('btn-send-rappel');
+    if (btnSendRappel) btnSendRappel.addEventListener('click', sendRappelDispos);
+
     // Dropdown menu utilisateur (avatar)
     const userMenuTrigger  = document.getElementById('user-menu-trigger');
     const userMenuDropdown = document.getElementById('user-menu-dropdown');
@@ -4003,6 +4006,40 @@ async function openDisposPanel() {
     await loadDisposList();
 }
 
+async function sendRappelDispos() {
+    const btn      = document.getElementById('btn-send-rappel');
+    const feedback = document.getElementById('rappel-feedback');
+    const msg      = document.getElementById('rappel-message').value.trim();
+    btn.disabled    = true;
+    btn.textContent = 'Envoi…';
+    if (feedback) { feedback.style.display = 'none'; feedback.textContent = ''; feedback.style.color = '#27ae60'; }
+    const week_start = toDateStr(getMondayOf(addDays(new Date(), 7)));
+    try {
+        const res  = await fetch('/api/dispos/rappel', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ week_start, message: msg || undefined }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        if (feedback) {
+            feedback.textContent    = data.sent === 0
+                ? 'Tout le staff a déjà soumis ses dispos'
+                : 'Rappel envoyé à ' + data.sent + ' membre' + (data.sent > 1 ? 's' : '');
+            feedback.style.display  = '';
+        }
+    } catch (e) {
+        if (feedback) {
+            feedback.textContent   = e.message;
+            feedback.style.color   = '#e74c3c';
+            feedback.style.display = '';
+        }
+    } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Envoyer un rappel';
+    }
+}
+
 async function loadDisposList() {
     const list = document.getElementById('dispos-list');
     list.innerHTML = '<div style="padding:16px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
@@ -4376,8 +4413,11 @@ async function loadDispoControl() {
             cdDay  = String(cd.getDay());
             cdTime = String(cd.getHours()).padStart(2,'0') + ':' + (cd.getMinutes() < 30 ? '00' : '30');
         }
+        const openDayVal = settings.open_day !== null && settings.open_day !== undefined ? String(settings.open_day) : '';
         const dayOpts = [['1','Lundi'],['2','Mardi'],['3','Mercredi'],['4','Jeudi'],['5','Vendredi'],['6','Samedi'],['0','Dimanche']]
             .map(([v,l]) => '<option value="' + v + '"' + (cdDay === v ? ' selected' : '') + '>' + l + '</option>').join('');
+        const openDayOpts = [['1','Lundi'],['2','Mardi'],['3','Mercredi'],['4','Jeudi'],['5','Vendredi'],['6','Samedi'],['0','Dimanche']]
+            .map(([v,l]) => '<option value="' + v + '"' + (openDayVal === v ? ' selected' : '') + '>' + l + '</option>').join('');
         let tOpts = '';
         for (let h = 10; h < 27; h++) {
             for (const m of [0, 30]) {
@@ -4415,6 +4455,13 @@ async function loadDispoControl() {
                     '</select>' +
                 '</div>' +
                 '<div style="font-size:10px;color:#bbb;margin-top:3px">Laisser jour vide = vendredi 13h auto</div>' +
+            '</div>' +
+            '<div style="margin-bottom:10px;border-top:1px solid #f0f0f0;padding-top:10px">' +
+                '<div style="font-size:11px;color:#aaa;margin-bottom:4px">Rappel auto — ouverture des dispos</div>' +
+                '<select id="dispo-open-day" style="width:100%;font-size:12px;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px">' +
+                    '<option value="">— Désactivé —</option>' + openDayOpts +
+                '</select>' +
+                '<div style="font-size:10px;color:#bbb;margin-top:3px">Jour où le rappel d\'ouverture est envoyé à 10h</div>' +
             '</div>' +
             '<div style="margin-bottom:10px;border-top:1px solid #f0f0f0;padding-top:10px">' +
                 '<div style="font-size:11px;color:#aaa;margin-bottom:6px">Fenêtre de saisie pointage</div>' +
@@ -4469,7 +4516,7 @@ async function loadDispoControl() {
                 fetch('/api/dispo-settings', {
                     credentials: 'include', method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ open: toggle.checked, force_open: forceOpen, custom_deadline: customDeadline }),
+                    body: JSON.stringify({ open: toggle.checked, force_open: forceOpen, custom_deadline: customDeadline, open_day: document.getElementById('dispo-open-day').value }),
                 }),
                 fetch('/api/pointage-settings', {
                     credentials: 'include', method: 'PATCH',
