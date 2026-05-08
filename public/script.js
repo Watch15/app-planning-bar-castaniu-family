@@ -2808,7 +2808,12 @@ function renderWeekGantt() {
     const wrap = document.getElementById('week-gantt');
     wrap.innerHTML = '';
 
-    const fmtH     = h => String(h >= 24 ? h - 24 : h).padStart(2, '0') + 'h';
+    const fmtH = h => {
+        const norm = h >= 24 ? h - 24 : h;
+        const hh = Math.floor(norm);
+        const mm = Math.round((norm - hh) * 60);
+        return String(hh).padStart(2, '0') + 'h' + (mm > 0 ? String(mm).padStart(2, '0') : '');
+    };
     const fmtRange = (s, e) => fmtH(s) + ' → ' + fmtH(e);
 
     // ── Bornes dynamiques ─────────────────────────────────────────────────────
