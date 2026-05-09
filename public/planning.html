@@ -814,7 +814,7 @@ async function init() {
             const tabNext = document.createElement('button');
             tabNext.className   = 'tab-btn';
             tabNext.dataset.tab = 'next-week';
-            tabNext.innerHTML = '<span class="tab-full">Semaine prochaine ✨</span><span class="tab-short">Prochaine</span>';
+            tabNext.innerHTML = '<span class="tab-full">Semaine prochaine ✨</span><span class="tab-short">Semaine pro</span>';
             const histTab = tabBar.querySelector('[data-tab="historique"]');
             tabBar.insertBefore(tabNext, histTab || null);
             initTabs(); // rebind pour inclure le nouvel onglet
