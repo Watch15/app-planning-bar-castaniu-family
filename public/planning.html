@@ -1250,9 +1250,11 @@ async function loadHistoriqueWeek() {
 }
 
 function renderHistoriqueWeek(wrap, data) {
-    const shifts = (data.shifts || []).slice().sort((a, b) =>
-        a.date < b.date ? -1 : a.date > b.date ? 1 : (a.start_time || 0) - (b.start_time || 0)
-    );
+    const shifts = (data.shifts || [])
+        .filter(s => !s.is_joker && s.staff_id !== '__joker__')
+        .slice().sort((a, b) =>
+            a.date < b.date ? -1 : a.date > b.date ? 1 : (a.start_time || 0) - (b.start_time || 0)
+        );
     wrap.innerHTML = '';
 
     if (shifts.length === 0) {

@@ -118,6 +118,7 @@ async function connectDB() {
         db = client.db('gestion_bar');
         console.log('✅ Connecté à MongoDB Atlas');
         scheduleDailyAt10();
+        cleanupOldJokers();
     } catch (e) {
         console.error('❌ Connexion échouée :', e.message);
         process.exit(1);
@@ -378,6 +379,20 @@ async function checkDispoRappels() {
     }
 }
 
+async function cleanupOldJokers() {
+    if (!db) return;
+    try {
+        const now  = new Date();
+        const day  = now.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        const mon  = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
+        const pad  = n => String(n).padStart(2, '0');
+        const mondayStr = mon.getFullYear() + '-' + pad(mon.getMonth() + 1) + '-' + pad(mon.getDate());
+        const result = await db.collection('shifts').deleteMany({ is_joker: true, date: { $lt: mondayStr } });
+        if (result.deletedCount > 0) console.log('🧹 Jokers expirés supprimés :', result.deletedCount);
+    } catch (e) { console.error('❌ cleanupOldJokers error:', e.message); }
+}
+
 function scheduleDailyAt10() {
     const now   = new Date();
     const next10 = new Date(now);
@@ -386,7 +401,9 @@ function scheduleDailyAt10() {
     const msUntil10 = next10 - now;
     setTimeout(() => {
         checkDispoRappels();
+        cleanupOldJokers();
         setInterval(checkDispoRappels, 24 * 60 * 60 * 1000);
+        setInterval(cleanupOldJokers, 24 * 60 * 60 * 1000);
     }, msUntil10);
     console.log('⏰ Rappels auto dispos programmés — prochain check 10h00');
 }
