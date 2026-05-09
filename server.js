@@ -2049,23 +2049,6 @@ app.patch('/api/dispos/:id/confirm', checkDB, requirePatron, async (req, res) =>
         }
         res.json({ message: 'Dispo confirmée' + (create_shift ? ' et shift créé' : '') });
         touchLastUpdated();
-        // Push staff : dispo confirmée
-        (async () => {
-            try {
-                const estabDoc  = await db.collection('establishments').findOne({ _id: establishment_id }) || {};
-                const estabName = estabDoc.name || establishment_id;
-                const body = create_shift
-                    ? 'Ta dispo du ' + formatDateFR(dispo.date) + ' a été confirmée : ' + formatShiftTime(dispo.start_time) + ' → ' + formatShiftTime(dispo.end_time) + ' au ' + estabName + '.'
-                    : 'Ta dispo du ' + formatDateFR(dispo.date) + ' a été confirmée au ' + estabName + '.';
-                await sendPushToStaff([dispo.staff_id], {
-                    title:   '✅ Dispo confirmée',
-                    body,
-                    tag:     'dispo-traitee',
-                    url:     '/planning.html#dispos',
-                    actions: [{ action: 'voir', title: 'Voir ma réponse' }],
-                });
-            } catch { /* silencieux */ }
-        })();
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -2078,18 +2061,6 @@ app.patch('/api/dispos/:id/reject', checkDB, requirePatron, async (req, res) => 
         if (result.matchedCount === 0) return res.status(404).json({ error: 'Dispo introuvable' });
         res.json({ message: 'Dispo refusée' });
         touchLastUpdated();
-        // Push staff : dispo refusée
-        (async () => {
-            try {
-                await sendPushToStaff([dispo.staff_id], {
-                    title:   '❌ Dispo refusée',
-                    body:    'Ta dispo du ' + formatDateFR(dispo.date) + ' a été refusée.',
-                    tag:     'dispo-traitee',
-                    url:     '/planning.html#dispos',
-                    actions: [{ action: 'voir', title: 'Voir ma réponse' }],
-                });
-            } catch { /* silencieux */ }
-        })();
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
