@@ -5938,6 +5938,7 @@ function generatePrintGantt() {
         '.gantt-legend-meta{font-size:9.5px;color:#8892a4;font-weight:500;margin-left:2px}' +
         // Bas de page
         '.legalbar{margin-top:6px;padding-top:6px;border-top:1px dashed #e8eaee;display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#8892a4;font-weight:500;letter-spacing:.4px}' +
+        '.gantt-block-when{display:none}' +
         '.gantt-legend-meta{display:none}' +
         '@media print{body{background:#fff;padding:0}.page{box-shadow:none}@page{size:A4 landscape;margin:0}}';
 
