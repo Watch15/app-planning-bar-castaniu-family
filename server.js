@@ -894,7 +894,7 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
             const link = appUrl() + '/set-password.html?token=' + token;
             let smsSent = true;
             try {
-                await sendSMS(normalizedPhone, 'Templyo - Bonjour '  + (name ? ' ' + name : '') + '!\n' + link);
+                await sendSMS(normalizedPhone, 'Templyo - Bonjour ' + (name ? name.trim().split(' ')[0] : '') + ' !\n' + link);
             } catch (smsErr) {
                 console.error('❌ SMS bienvenue non envoyé:', smsErr.message);
                 smsSent = false;
@@ -933,7 +933,7 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
 
         const link = appUrl() + '/set-password.html?token=' + token;
         const html =
-            '<p>Bonjour ' + (name || '') + ',</p>' +
+            '<p>Bonjour ' + (name ? name.trim().split(' ')[0] : '') + ',</p>' +
             '<p>Tu as été invité(e) à rejoindre <strong>Templyo</strong>.</p>' +
             '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
             '<p style="color:#999;font-size:12px">Ce lien expire dans 24h.</p>';
