@@ -870,6 +870,18 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
 
         // Compte téléphone uniquement — token d'invitation pour créer le mot de passe
         if (!email && normalizedPhone) {
+            // Si le staff a déjà un compte (ex: email), juste ajouter le téléphone sans créer ni envoyer
+            if (staff_id && isValidObjectId(staff_id)) {
+                const linked = await db.collection('users').findOne({ staff_id });
+                if (linked) {
+                    if (!linked.phone) {
+                        await db.collection('users').updateOne({ _id: linked._id }, { $set: { phone: normalizedPhone } });
+                        await db.collection('staff').updateOne({ _id: new ObjectId(staff_id) }, { $set: { phone: normalizedPhone } });
+                    }
+                    return res.status(200).json({ message: 'Téléphone ajouté au compte existant. Aucun message envoyé.' });
+                }
+            }
+
             const token   = crypto.randomBytes(32).toString('hex');
             const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 jours
             await db.collection('users').insertOne({
@@ -938,17 +950,30 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
             '<p><a href="' + link + '" style="background:#1a1a2e;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0">Créer mon mot de passe</a></p>' +
             '<p style="color:#999;font-size:12px">Ce lien expire dans 24h.</p>';
 
-        let manual = false;
+        let emailOk = true, smsOk = true;
         try {
             await sendEmail(email, 'Ton accès Templyo', html);
             console.log('✅ Email envoyé à', email);
         } catch (mailErr) {
             console.error('❌ Erreur envoi email:', mailErr.message);
-            manual = true;
+            emailOk = false;
         }
 
+        if (normalizedPhone) {
+            try {
+                await sendSMS(normalizedPhone, 'Templyo - Bonjour ' + (name ? name.trim().split(' ')[0] : '') + ' !\n' + link);
+                console.log('✅ SMS envoyé à', normalizedPhone);
+            } catch (smsErr) {
+                console.error('❌ SMS bienvenue non envoyé:', smsErr.message);
+                smsOk = false;
+            }
+        }
+
+        const manual = !emailOk;
         res.status(201).json({
-            message: manual ? 'Compte créé mais email non envoyé.' : 'Invitation envoyée à ' + email,
+            message: emailOk
+                ? 'Invitation envoyée à ' + email + (normalizedPhone ? ' et par SMS' : '')
+                : 'Compte créé mais email non envoyé.' + (!smsOk && normalizedPhone ? ' SMS non envoyé.' : ''),
             ...(manual && { link, manual: true }),
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
