@@ -1476,7 +1476,8 @@ function openMobileShiftEditModal(shift) {
             '</div>' +
             '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
                 '<button id="_ms-delete" style="padding:9px 12px;border-radius:8px;border:1.5px solid #e74c3c;background:white;font-size:12px;cursor:pointer;color:#e74c3c;flex-shrink:0">Supprimer</button>' +
-                '<button id="_ms-copy"   style="padding:9px 12px;border-radius:8px;border:1.5px solid #6C63FF;background:white;font-size:12px;cursor:pointer;color:#6C63FF;flex-shrink:0">Copier vers…</button>' +
+                '<button id="_ms-replace" style="padding:9px 12px;border-radius:8px;border:1.5px solid #27ae60;background:white;font-size:12px;cursor:pointer;color:#27ae60;flex-shrink:0">Remplacer…</button>' +
+                '<button id="_ms-copy"   style="padding:9px 12px;border-radius:8px;border:1.5px solid #6C63FF;background:white;font-size:12px;cursor:pointer;color:#6C63FF;flex-shrink:0">Transférer vers…</button>' +
                 '<button id="_ms-cancel" style="padding:9px 12px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:12px;cursor:pointer;color:#555;flex:1">Annuler</button>' +
                 '<button id="_ms-save"   style="padding:9px 12px;border-radius:8px;border:none;background:#1a1a2e;color:white;font-size:12px;font-weight:600;cursor:pointer;flex:1">Enregistrer</button>' +
             '</div>' +
@@ -1493,9 +1494,11 @@ function openMobileShiftEditModal(shift) {
         deleteShift(new Event('click'), String(shift._id), shift.staff_id);
     });
 
+    overlay.querySelector('#_ms-replace').addEventListener('click', () => { close(); openReplaceStaffModal(shift); });
+
     const msCopyBtn = overlay.querySelector('#_ms-copy');
     if (allEstablishments.length <= 1) msCopyBtn.style.display = 'none';
-    msCopyBtn.addEventListener('click', () => { close(); openCopyShiftModal(shift); });
+    msCopyBtn.addEventListener('click', () => { close(); openTransferShiftModal(shift); });
 
     overlay.querySelector('#_ms-save').addEventListener('click', async () => {
         const parseT = v => {
@@ -1569,9 +1572,9 @@ function openMobileShiftEditModal(shift) {
     });
 }
 
-// ── Modale copie d'un shift vers un autre établissement ───────────────────────
+// ── Modale transfert d'un shift vers un autre établissement ──────────────────
 
-function openCopyShiftModal(shift) {
+function openTransferShiftModal(shift) {
     const fmt = h => h == null ? '' : String(Math.floor(h % 24)).padStart(2, '0') + ':' + String(Math.round((h % 1) * 60)).padStart(2, '0');
 
     const venueOptions = allEstablishments
@@ -1599,7 +1602,7 @@ function openCopyShiftModal(shift) {
             '</div>' +
             '<div style="display:flex;gap:8px;justify-content:flex-end">' +
                 '<button id="_cs-cancel"  style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555">Annuler</button>' +
-                '<button id="_cs-confirm" style="padding:8px 16px;border-radius:8px;border:none;background:#1a1a2e;color:white;font-size:13px;font-weight:600;cursor:pointer">Copier</button>' +
+                '<button id="_cs-confirm" style="padding:8px 16px;border-radius:8px;border:none;background:#1a1a2e;color:white;font-size:13px;font-weight:600;cursor:pointer">Transférer</button>' +
             '</div>' +
         '</div>';
 
@@ -1616,7 +1619,7 @@ function openCopyShiftModal(shift) {
 
         const btn = overlay.querySelector('#_cs-confirm');
         btn.disabled    = true;
-        btn.textContent = 'Copie…';
+        btn.textContent = 'Transfert…';
 
         try {
             const { _id, establishment_id, date, real_start, real_end, pointage_resp, extra, ...rest } = shift;
@@ -1627,14 +1630,85 @@ function openCopyShiftModal(shift) {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
+            // Supprimer le shift d'origine
+            await fetch('/api/shifts/' + shift._id, { method: 'DELETE', credentials: 'include' });
+            currentShifts = currentShifts.filter(s => String(s._id) !== String(shift._id));
             const targetName = allEstablishments.find(e => e.id === targetEstabId)?.name || targetEstabId;
             close();
-            showToast('Shift copié vers ' + targetName);
+            showToast('Shift transféré vers ' + targetName);
             if (data.warnings?.length) showConflictAlert(data.warnings, shift.staff_name);
+            renderWeek();
         } catch (err) {
             showToast(err.message || 'Erreur', true);
             btn.disabled    = false;
-            btn.textContent = 'Copier';
+            btn.textContent = 'Transférer';
+        }
+    });
+}
+
+// ── Modale remplacement d'un staff sur un shift ───────────────────────────────
+
+function openReplaceStaffModal(shift) {
+    const staffOptions = allStaff
+        .filter(s => String(s._id) !== String(shift.staff_id))
+        .map(s => `<option value="${escapeHtml(String(s._id))}" data-color="${escapeHtml(s.color || '#888')}" data-name="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`)
+        .join('');
+
+    if (!staffOptions) { showToast('Aucun autre membre disponible', true); return; }
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
+
+    overlay.innerHTML =
+        '<div style="background:white;border-radius:14px;padding:24px;max-width:340px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.18)">' +
+            '<p style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:4px">Remplacer</p>' +
+            '<p style="font-size:12px;color:#aaa;margin-bottom:16px">' + escapeHtml(displayName(shift.staff_id, shift.staff_name)) + ' → choisir le remplaçant</p>' +
+            '<div style="margin-bottom:20px">' +
+                '<select id="_rep-staff" style="width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;color:#1a1a2e;background:#f8f8f8">' +
+                    '<option value="">— Sélectionner —</option>' + staffOptions +
+                '</select>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+                '<button id="_rep-cancel"  style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555">Annuler</button>' +
+                '<button id="_rep-confirm" style="padding:8px 16px;border-radius:8px;border:none;background:#27ae60;color:white;font-size:13px;font-weight:600;cursor:pointer">Remplacer</button>' +
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(overlay);
+    const close = () => document.body.removeChild(overlay);
+
+    overlay.querySelector('#_rep-cancel').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    overlay.querySelector('#_rep-confirm').addEventListener('click', async () => {
+        const sel = overlay.querySelector('#_rep-staff');
+        const newStaffId = sel.value;
+        if (!newStaffId) { showToast('Sélectionne un remplaçant', true); return; }
+        const opt = sel.options[sel.selectedIndex];
+        const newName  = opt.dataset.name;
+        const newColor = opt.dataset.color;
+
+        const btn = overlay.querySelector('#_rep-confirm');
+        btn.disabled    = true;
+        btn.textContent = 'En cours…';
+
+        try {
+            const res = await fetch('/api/shifts/' + shift._id, {
+                method: 'PATCH', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ staff_id: newStaffId, staff_name: newName, color: newColor }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            const s = currentShifts.find(s => String(s._id) === String(shift._id));
+            if (s) { s.staff_id = newStaffId; s.staff_name = newName; s.color = newColor; }
+            close();
+            showToast(newName + ' remplace ' + shift.staff_name);
+            renderWeek();
+        } catch (err) {
+            showToast(err.message || 'Erreur', true);
+            btn.disabled    = false;
+            btn.textContent = 'Remplacer';
         }
     });
 }
@@ -1668,7 +1742,8 @@ function openRealHoursModal(shift, shiftEl) {
             '</div>' +
             '<div id="_rh-ecart" style="text-align:center;font-size:12px;color:#aaa;min-height:18px;margin-bottom:14px"></div>' +
             '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">' +
-                '<button id="_rh-copy"   style="padding:8px 16px;border-radius:8px;border:1.5px solid #6C63FF;background:white;font-size:13px;cursor:pointer;color:#6C63FF">Copier vers…</button>' +
+                '<button id="_rh-replace" style="padding:8px 16px;border-radius:8px;border:1.5px solid #27ae60;background:white;font-size:13px;cursor:pointer;color:#27ae60">Remplacer…</button>' +
+                '<button id="_rh-copy"   style="padding:8px 16px;border-radius:8px;border:1.5px solid #6C63FF;background:white;font-size:13px;cursor:pointer;color:#6C63FF">Transférer vers…</button>' +
                 '<button id="_rh-cancel" style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#555">Annuler</button>' +
                 '<button id="_rh-clear"  style="padding:8px 16px;border-radius:8px;border:1px solid #e0e0e0;background:white;font-size:13px;cursor:pointer;color:#e74c3c">Effacer</button>' +
                 '<button id="_rh-save"   style="padding:8px 16px;border-radius:8px;border:none;background:#1a1a2e;color:white;font-size:13px;font-weight:600;cursor:pointer">Enregistrer</button>' +
@@ -1760,9 +1835,11 @@ function openRealHoursModal(shift, shiftEl) {
     overlay.querySelector('#_rh-cancel').addEventListener('click', close);
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
 
+    overlay.querySelector('#_rh-replace').addEventListener('click', () => { close(); openReplaceStaffModal(shift); });
+
     const rhCopyBtn = overlay.querySelector('#_rh-copy');
     if (allEstablishments.length <= 1) rhCopyBtn.style.display = 'none';
-    rhCopyBtn.addEventListener('click', () => { close(); openCopyShiftModal(shift); });
+    rhCopyBtn.addEventListener('click', () => { close(); openTransferShiftModal(shift); });
 
     overlay.querySelector('#_rh-clear').addEventListener('click', async () => {
         try {
