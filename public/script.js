@@ -1622,21 +1622,19 @@ function openTransferShiftModal(shift) {
         btn.textContent = 'Transfert…';
 
         try {
-            const { _id, establishment_id, date, real_start, real_end, pointage_resp, extra, ...rest } = shift;
-            const res = await fetch('/api/shifts', {
-                method: 'POST', credentials: 'include',
+            const res = await fetch('/api/shifts/' + shift._id + '/transfer', {
+                method: 'PATCH', credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...rest, establishment_id: targetEstabId, date: targetDate }),
+                body: JSON.stringify({ establishment_id: targetEstabId, date: targetDate }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
-            // Supprimer le shift d'origine
-            await fetch('/api/shifts/' + shift._id, { method: 'DELETE', credentials: 'include' });
-            currentShifts = currentShifts.filter(s => String(s._id) !== String(shift._id));
+            const s = currentShifts.find(s => String(s._id) === String(shift._id));
+            if (s) { s.establishment_id = targetEstabId; s.date = targetDate; }
             const targetName = allEstablishments.find(e => e.id === targetEstabId)?.name || targetEstabId;
             close();
             showToast('Shift transféré vers ' + targetName);
-            renderWeek();
+            await refreshWeek();
         } catch (err) {
             showToast(err.message || 'Erreur', true);
             btn.disabled    = false;
@@ -1703,7 +1701,7 @@ function openReplaceStaffModal(shift) {
             if (s) { s.staff_id = newStaffId; s.staff_name = newName; s.color = newColor; }
             close();
             showToast(newName + ' remplace ' + shift.staff_name);
-            renderWeek();
+            await refreshWeek();
         } catch (err) {
             showToast(err.message || 'Erreur', true);
             btn.disabled    = false;

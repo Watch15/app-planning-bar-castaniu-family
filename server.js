@@ -1607,6 +1607,37 @@ app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Transférer un shift vers un autre établissement / une autre date
+app.patch('/api/shifts/:id/transfer', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    const { establishment_id, date } = req.body;
+    if (!establishment_id || !date) return res.status(400).json({ error: 'establishment_id et date requis' });
+    try {
+        const shift = await db.collection('shifts').findOne({ _id: new ObjectId(req.params.id) });
+        if (!shift) return res.status(404).json({ error: 'Shift introuvable' });
+
+        await db.collection('shifts').updateOne(
+            { _id: new ObjectId(req.params.id) },
+            { $set: { establishment_id, date } }
+        );
+
+        // Notification push au staff concerné
+        if (shift.staff_id && shift.staff_id !== '__joker__') {
+            const estabDoc  = await db.collection('establishments').findOne({ id: establishment_id }) || {};
+            const estabName = estabDoc.name || establishment_id;
+            await sendPushToStaff([shift.staff_id], {
+                title: '🔄 Shift transféré — ' + estabName,
+                body:  'Ton shift du ' + formatDateFR(date) + ' (' + formatShiftTime(shift.start_time) + ' → ' + formatShiftTime(shift.end_time) + ') a été transféré.',
+                tag:   'shift-transfere',
+                url:   '/planning.html',
+            });
+        }
+
+        touchLastUpdated();
+        res.json({ message: 'Shift transféré' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { start_time, end_time, staff_id, staff_name, color, is_joker, note } = req.body;
