@@ -1672,6 +1672,11 @@ app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
             if (is_joker === false) {
                 updateFields.is_joker = false;
             }
+            // Fermer les candidatures si le joker était ouvert
+            if (existing.is_joker) {
+                updateFields.joker_open       = false;
+                updateFields.joker_candidates = [];
+            }
         }
 
         // Détection de conflits (uniquement pour les vrais staffs)
@@ -2374,6 +2379,107 @@ app.patch('/api/shift-swaps/:id/reject', checkDB, requirePatron, async (req, res
                 });
             } catch {}
         })();
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Joker ouvert — système de candidature ────────────────────────────────────
+
+// GET — Jokers ouverts aux candidatures (staff connecté)
+app.get('/api/shifts/joker-ouverts', checkDB, requireAuth, async (req, res) => {
+    const { establishment_id } = req.query;
+    const staffId = req.session.user.staff_id || null;
+    try {
+        const query = { is_joker: true, joker_open: true };
+        if (establishment_id) query.establishment_id = establishment_id;
+        const shifts = await db.collection('shifts').find(query, {
+            projection: { _id: 1, date: 1, start_time: 1, end_time: 1, establishment_id: 1, joker_candidates: 1 }
+        }).toArray();
+        const result = shifts.map(s => ({
+            _id:              s._id,
+            date:             s.date,
+            start_time:       s.start_time,
+            end_time:         s.end_time,
+            establishment_id: s.establishment_id,
+            has_applied:      staffId ? (s.joker_candidates || []).some(c => c.staff_id === staffId) : false,
+        }));
+        res.json(result);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET — Patron : lire un shift complet (pour rafraîchir les candidatures)
+app.get('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    try {
+        const shift = await db.collection('shifts').findOne({ _id: new ObjectId(req.params.id) });
+        if (!shift) return res.status(404).json({ error: 'Shift introuvable' });
+        if (!canAccessEstablishment(req.session.user, shift.establishment_id)) return res.status(403).json({ error: 'Accès refusé' });
+        res.json(shift);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH — Patron : ouvrir/fermer un Joker aux candidatures
+app.patch('/api/shifts/:id/joker-open', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    const { open } = req.body;
+    if (typeof open !== 'boolean') return res.status(400).json({ error: 'open (boolean) requis' });
+    try {
+        const shift = await db.collection('shifts').findOne({ _id: new ObjectId(req.params.id) });
+        if (!shift) return res.status(404).json({ error: 'Shift introuvable' });
+        if (!shift.is_joker && shift.staff_id !== '__joker__') return res.status(400).json({ error: 'Ce shift n\'est pas un Joker' });
+        if (!canAccessEstablishment(req.session.user, shift.establishment_id)) return res.status(403).json({ error: 'Accès refusé' });
+
+        if (open) {
+            await db.collection('shifts').updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { $set: { joker_open: true } }
+            );
+            // Notifier le staff de l'établissement
+            const estabStaff = await db.collection('staff').find({ venues: shift.establishment_id }).toArray();
+            const staffIds   = estabStaff.map(s => String(s._id));
+            if (staffIds.length) {
+                const body = 'Un créneau est ouvert ' + formatDateFR(shift.date) + ' ' +
+                    formatShiftTime(shift.start_time) + '–' + formatShiftTime(shift.end_time) + '. Tu es disponible ?';
+                await sendPushToStaff(staffIds, {
+                    title: 'Templyo — Créneau disponible',
+                    body,
+                    tag:   'joker-ouvert-' + String(shift._id),
+                    url:   '/planning.html',
+                });
+            }
+        } else {
+            await db.collection('shifts').updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { $set: { joker_open: false, joker_candidates: [] } }
+            );
+        }
+        res.json({ message: 'Joker mis à jour' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST — Staff : postuler à un Joker ouvert
+app.post('/api/shifts/:id/joker-candidature', checkDB, requireAuth, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    const user = req.session.user;
+    if (!user.staff_id) return res.status(403).json({ error: 'Réservé au staff connecté' });
+    try {
+        const shift = await db.collection('shifts').findOne({ _id: new ObjectId(req.params.id) });
+        if (!shift)                                            return res.status(404).json({ error: 'Shift introuvable' });
+        if (!shift.is_joker && shift.staff_id !== '__joker__') return res.status(400).json({ error: 'Ce shift n\'est pas un Joker' });
+        if (!shift.joker_open)                                 return res.status(403).json({ error: 'Ce Joker n\'est pas ouvert aux candidatures' });
+        const candidates = shift.joker_candidates || [];
+        if (candidates.some(c => c.staff_id === user.staff_id)) return res.status(409).json({ error: 'Candidature déjà envoyée' });
+
+        const staffDoc = user.staff_id ? await db.collection('staff').findOne({ _id: new ObjectId(user.staff_id) }) : null;
+        await db.collection('shifts').updateOne(
+            { _id: new ObjectId(req.params.id) },
+            { $push: { joker_candidates: {
+                staff_id:     user.staff_id,
+                staff_name:   staffDoc ? staffDoc.name : (user.name || ''),
+                staff_color:  staffDoc ? staffDoc.color : '#3498db',
+                submitted_at: new Date(),
+            }}}
+        );
+        res.json({ message: 'Candidature envoyée' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

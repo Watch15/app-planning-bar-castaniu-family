@@ -1378,9 +1378,12 @@ function createShiftEl(shift) {
         ? `<button class="shift-resp-btn${shift.pointage_resp ? ' active' : ''}" title="Responsable pointage">👑</button>`
         : '';
 
-    const isJoker  = shift.is_joker || shift.staff_id === '__joker__';
-    const noteText = isJoker && shift.note
+    const isJoker       = shift.is_joker || shift.staff_id === '__joker__';
+    const noteText      = isJoker && shift.note
         ? `<span class="shift-note-text">${shift.note.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`
+        : '';
+    const jokerOpenBadge = isJoker && shift.joker_open
+        ? `<span class="joker-open-badge">📢 Ouvert</span>`
         : '';
     if (isJoker && shift.note) el.classList.add('has-note');
 
@@ -1390,17 +1393,18 @@ function createShiftEl(shift) {
         <span class="shift-hours">${fmt(displayStart)} – ${fmt(displayEnd)}</span>
         ${realBadge}
         ${noteText}
+        ${jokerOpenBadge}
         ${respBtn}
         <button class="shift-delete" onclick="deleteShift(event, '${shift._id}', '${shift.staff_id}')">×</button>
         <div class="resizer right"></div>`;
 
-    // Clic sur un Joker → modale note
+    // Clic sur un Joker → modale patron (note + toggle + candidatures)
     if (isJoker) {
         el.style.cursor = 'pointer';
         el.addEventListener('click', e => {
             if (e.target.closest('.resizer') || e.target.closest('.shift-delete')) return;
             if (_shiftWasDragged) { _shiftWasDragged = false; return; }
-            openJokerNoteModal(shift, el);
+            openJokerModal(shift, el);
         });
     }
 
@@ -2048,6 +2052,165 @@ async function assignStaffToJoker(staff, jokerEl) {
         renderStats();
         showToast(staff.name + ' assigné au shift Joker');
     } catch { showToast('Erreur réseau', true); }
+}
+
+// ── Modale patron Joker : note + toggle open + candidatures ──────────────────
+
+async function openJokerModal(shift, el) {
+    if (window._jokerPollTimer) { clearInterval(window._jokerPollTimer); window._jokerPollTimer = null; }
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:white;border-radius:14px;padding:20px;max-width:400px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.18);max-height:88vh;overflow-y:auto';
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    function close() {
+        if (window._jokerPollTimer) { clearInterval(window._jokerPollTimer); window._jokerPollTimer = null; }
+        overlay.remove();
+    }
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    const fmtH = h => {
+        const hh = Math.floor(h % 24).toString().padStart(2, '0');
+        const mm = Math.round((h % 1) * 60);
+        return hh + 'h' + (mm ? String(mm).padStart(2, '0') : '');
+    };
+
+    function renderCandidatesList() {
+        const cList = box.querySelector('#_jk-candidates');
+        if (!cList) return;
+        const candidates = (shift.joker_candidates || []).slice().sort((a, b) => new Date(a.submitted_at) - new Date(b.submitted_at));
+        if (candidates.length === 0) {
+            cList.innerHTML = '<p style="font-size:13px;color:#aaa;text-align:center;padding:8px 0">Aucune candidature pour l\'instant</p>';
+            return;
+        }
+        cList.innerHTML = candidates.map(c => {
+            const t = new Date(c.submitted_at);
+            const timeStr = String(t.getHours()).padStart(2, '0') + 'h' + String(t.getMinutes()).padStart(2, '0');
+            return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f5f5f5">' +
+                '<span style="width:10px;height:10px;border-radius:50%;background:' + escapeHtml(c.staff_color || '#888') + ';flex-shrink:0;display:inline-block"></span>' +
+                '<span style="flex:1;font-size:13px;font-weight:600;color:#1a1a2e">' + escapeHtml(c.staff_name || '?') + '</span>' +
+                '<span style="font-size:11px;color:#aaa">à ' + timeStr + '</span>' +
+                '<button class="btn-assign-cand" data-staff-id="' + escapeHtml(c.staff_id) + '" data-staff-name="' + escapeHtml(c.staff_name || '') + '" data-staff-color="' + escapeHtml(c.staff_color || '#888') + '" style="background:#534AB7;color:white;border:none;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">Assigner</button>' +
+                '</div>';
+        }).join('');
+        cList.querySelectorAll('.btn-assign-cand').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const fakeEl  = { dataset: { id: String(shift._id) } };
+                const staffObj = { _id: btn.dataset.staffId, name: btn.dataset.staffName, color: btn.dataset.staffColor };
+                await assignStaffToJoker(staffObj, fakeEl);
+                close();
+            });
+        });
+    }
+
+    function buildBox() {
+        const isOpen = !!shift.joker_open;
+        box.innerHTML =
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
+                '<span style="font-size:15px;font-weight:700;color:#1a1a2e">⚡ Créneau Joker</span>' +
+                '<button id="_jk-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa;line-height:1">&times;</button>' +
+            '</div>' +
+            '<div style="font-size:13px;color:#888;margin-bottom:16px">' + fmtH(shift.start_time) + ' – ' + fmtH(shift.end_time) + '</div>' +
+            '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px;background:' + (isOpen ? '#f0effe' : '#f8f8f8') + ';border-radius:10px;border:1.5px solid ' + (isOpen ? '#534AB7' : '#e0e0e0') + ';margin-bottom:14px;user-select:none">' +
+                '<input type="checkbox" id="_jk-toggle" ' + (isOpen ? 'checked' : '') + ' style="width:16px;height:16px;accent-color:#534AB7;cursor:pointer">' +
+                '<div><div style="font-size:13px;font-weight:600;color:#1a1a2e">📢 Proposer au staff</div>' +
+                '<div style="font-size:11px;color:#888;margin-top:2px">Notifie le staff et ouvre les candidatures</div></div>' +
+            '</label>' +
+            (isOpen
+                ? '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Candidatures</div><div id="_jk-candidates"></div></div>'
+                : '') +
+            '<div style="margin-bottom:14px">' +
+                '<div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Note</div>' +
+                '<textarea id="_jk-note" style="width:100%;height:72px;border:1.5px solid #e0e0e0;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box" placeholder="Note sur ce créneau…">' + escapeHtml(shift.note || '') + '</textarea>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:flex-end">' +
+                '<button id="_jk-save" style="background:#534AB7;color:white;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer">Enregistrer note</button>' +
+            '</div>';
+
+        box.querySelector('#_jk-close').addEventListener('click', close);
+
+        if (isOpen) renderCandidatesList();
+
+        box.querySelector('#_jk-toggle').addEventListener('change', async (ev) => {
+            const open = ev.target.checked;
+            ev.target.disabled = true;
+            try {
+                const r = await fetch('/api/shifts/' + shift._id + '/joker-open', {
+                    method: 'PATCH', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ open }),
+                });
+                if (!r.ok) throw new Error((await r.json()).error);
+                shift.joker_open = open;
+                if (!open) shift.joker_candidates = [];
+                // Mettre à jour le badge sur le bloc timeline
+                const shiftEl2 = document.querySelector('.shift[data-id="' + shift._id + '"]');
+                if (shiftEl2) {
+                    const badge = shiftEl2.querySelector('.joker-open-badge');
+                    if (open && !badge) {
+                        const b = document.createElement('span');
+                        b.className = 'joker-open-badge';
+                        b.textContent = '📢 Ouvert';
+                        shiftEl2.querySelector('.shift-hours').after(b);
+                    } else if (!open && badge) { badge.remove(); }
+                }
+                showToast(open ? 'Notification envoyée au staff !' : 'Propositions désactivées');
+                close();
+                openJokerModal(shift, el);
+            } catch (err) { showToast(err.message || 'Erreur', true); ev.target.checked = !open; ev.target.disabled = false; }
+        });
+
+        box.querySelector('#_jk-save').addEventListener('click', async () => {
+            const note = box.querySelector('#_jk-note').value;
+            try {
+                const r = await fetch('/api/shifts/' + shift._id, {
+                    method: 'PATCH', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ note }),
+                });
+                if (!r.ok) throw new Error((await r.json()).error);
+                shift.note = note;
+                const noteSpan = el.querySelector('.shift-note-text');
+                if (note) {
+                    const safe = note.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    if (noteSpan) noteSpan.innerHTML = safe;
+                    else {
+                        const span = document.createElement('span');
+                        span.className = 'shift-note-text';
+                        span.innerHTML = safe;
+                        el.querySelector('.shift-hours').after(span);
+                    }
+                    el.classList.add('has-note');
+                } else {
+                    if (noteSpan) noteSpan.remove();
+                    el.classList.remove('has-note');
+                }
+                showToast(note ? 'Note enregistrée' : 'Note effacée');
+            } catch (err) { showToast(err.message || 'Erreur', true); }
+        });
+    }
+
+    buildBox();
+
+    // Polling 30s si ouvert — rafraîchir la liste des candidatures
+    if (shift.joker_open) {
+        window._jokerPollTimer = setInterval(async () => {
+            if (!document.body.contains(overlay)) {
+                clearInterval(window._jokerPollTimer); window._jokerPollTimer = null; return;
+            }
+            try {
+                const r = await fetch('/api/shifts/' + shift._id, { credentials: 'include' });
+                if (r.ok) {
+                    const fresh = await r.json();
+                    shift.joker_candidates = fresh.joker_candidates || [];
+                    renderCandidatesList();
+                }
+            } catch { /* silencieux */ }
+        }, 30000);
+    }
 }
 
 // ── Note sur un shift Joker ───────────────────────────────────────────────────

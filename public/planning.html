@@ -432,6 +432,27 @@
             .estab-hours-bar { padding: 0 14px 8px; }
             .estab-hours-chip { font-size: 11px; padding: 3px 8px; }
         }
+        /* ── Joker ouvert — bloc candidature staff ── */
+        .open-joker-card {
+            background: linear-gradient(135deg, #f0effe 0%, #e8e4ff 100%);
+            border: 1.5px solid #c5beff;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin: 0 20px 8px;
+        }
+        .open-joker-header { font-size: 13px; font-weight: 700; color: #534AB7; margin-bottom: 4px; }
+        .open-joker-date   { font-size: 13px; color: #1a1a2e; margin-bottom: 12px; }
+        .btn-je-suis-dispo {
+            background: #534AB7; color: white; border: none; border-radius: 8px;
+            padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+            width: 100%; transition: background 0.15s;
+        }
+        .btn-je-suis-dispo:hover:not([disabled]) { background: #3d35a0; }
+        .btn-je-suis-dispo.applied, .btn-je-suis-dispo[disabled] {
+            background: #27ae60; cursor: default; opacity: 0.9;
+        }
+        @media (max-width: 480px) { .open-joker-card { margin: 0 14px 6px; } }
+
         /* ── Notifications in-app toasts ── */
         #notif-toast-container {
             position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
@@ -566,6 +587,7 @@
 
 <div id="view-planning">
 <div class="week-stats" id="week-stats"></div>
+<div id="open-jokers-section"></div>
 <div class="days-list" id="days-list">
     <div class="state-msg">Chargement…</div>
 </div>
@@ -834,15 +856,19 @@ async function init() {
                     viewNext.innerHTML = '';
                     const tempStats = document.createElement('div');
                     tempStats.className = 'week-stats';
+                    const tempJokers = document.createElement('div');
+                    tempJokers.id = 'open-jokers-section-next';
                     const tempList  = document.createElement('div');
                     tempList.className  = 'days-list';
                     viewNext.appendChild(tempStats);
+                    viewNext.appendChild(tempJokers);
                     viewNext.appendChild(tempList);
 
                     const myShifts2 = data.shifts.filter(s => !s.is_joker && s.staff_id !== '__joker__');
                     const jokers2   = data.shifts.filter(s =>  s.is_joker || s.staff_id === '__joker__');
                     renderStatsInto(myShifts2, tempStats);
                     renderDaysInto(nFrom, myShifts2, data.colleagues, tempList, jokers2);
+                    renderOpenJokers(nFrom, nTo, 'open-jokers-section-next');
                     viewNext.dataset.loaded = '1';
                 } catch (e) {
                     viewNext.innerHTML = '<div style="padding:20px;text-align:center;color:#e74c3c">' + e.message + '</div>';
@@ -856,6 +882,57 @@ async function init() {
             document.getElementById('view-planning').appendChild(msgEl);
         }
     } catch { }
+}
+
+// ── Jokers ouverts — affichage staff ─────────────────────────────────────────
+
+async function renderOpenJokers(from, to, containerId) {
+    const section = document.getElementById(containerId);
+    if (!section) return;
+    try {
+        const res = await fetch('/api/shifts/joker-ouverts', { credentials: 'include' });
+        if (!res.ok) return;
+        const jokers = await res.json();
+        // Filtrer à la plage de dates de la semaine visible
+        const weekJokers = jokers.filter(j => j.date >= from && j.date <= to);
+        if (weekJokers.length === 0) { section.innerHTML = ''; return; }
+
+        section.innerHTML = weekJokers.map(j => {
+            const d        = new Date(j.date + 'T12:00:00');
+            const dayLabel = DAY_NAMES[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()];
+            const startFmt = fmtHour(j.start_time);
+            const endFmt   = fmtHour(j.end_time);
+            const applied  = !!j.has_applied;
+            return '<div class="open-joker-card" data-joker-id="' + j._id + '">' +
+                '<div class="open-joker-header">📢 Créneau disponible</div>' +
+                '<div class="open-joker-date">' + dayLabel + ' — ' + startFmt + ' à ' + endFmt + '</div>' +
+                '<button class="btn-je-suis-dispo' + (applied ? ' applied' : '') + '" data-id="' + j._id + '"' + (applied ? ' disabled' : '') + '>' +
+                    (applied ? '✅ Candidature envoyée' : 'Je suis disponible') +
+                '</button>' +
+            '</div>';
+        }).join('');
+
+        section.querySelectorAll('.btn-je-suis-dispo:not([disabled])').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                btn.disabled = true;
+                try {
+                    const r = await fetch('/api/shifts/' + id + '/joker-candidature', {
+                        method: 'POST', credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                    });
+                    const data = await r.json();
+                    if (!r.ok) throw new Error(data.error);
+                    btn.textContent = '✅ Candidature envoyée';
+                    btn.classList.add('applied');
+                    showSwapToast('✅ Ta candidature a été envoyée !');
+                } catch (e) {
+                    btn.disabled = false;
+                    showSwapToast(e.message || 'Erreur', true);
+                }
+            });
+        });
+    } catch { /* silencieux */ }
 }
 
 // ── Chargement ────────────────────────────────────────────────────────────────
@@ -921,6 +998,7 @@ async function loadPlanning(from, to, user) {
         // await loadMyPendingSwaps(); // F-05 désactivé
         renderStats(myShifts, prevTotalH);
         renderDays(from, myShifts, data.colleagues, jokers);
+        renderOpenJokers(from, to, 'open-jokers-section');
 
     } catch (e) {
         list.innerHTML = '<div class="state-msg error">' + e.message + '</div>';
