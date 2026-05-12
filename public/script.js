@@ -47,9 +47,19 @@ let staffDisplayNames = new Map(); // _id → prénom court (avec initiale si do
 function buildStaffDisplayNames() {
     staffDisplayNames = new Map();
 
-    // Grouper par prénom
-    const byFirstName = new Map();
+    // Les membres avec un surnom l'utilisent directement
+    const withoutNickname = [];
     for (const s of allStaff) {
+        if (s.nickname) {
+            staffDisplayNames.set(s._id, s.nickname);
+        } else {
+            withoutNickname.push(s);
+        }
+    }
+
+    // Grouper par prénom pour les membres sans surnom
+    const byFirstName = new Map();
+    for (const s of withoutNickname) {
         const parts = s.name.trim().split(/\s+/);
         const fn = parts[0];
         if (!byFirstName.has(fn)) byFirstName.set(fn, []);
@@ -4989,7 +4999,8 @@ function renderStaffManageList() {
         row.innerHTML =
             '<input type="color" class="staff-manage-color" value="' + escapeHtml(staff.color) + '" title="Changer la couleur">' +
             '<div class="staff-manage-info">' +
-                '<input type="text"  class="staff-manage-name-input"  value="' + escapeHtml(staff.name) + '" placeholder="Nom">' +
+                '<input type="text"  class="staff-manage-name-input"     value="' + escapeHtml(staff.name) + '" placeholder="Nom">' +
+                '<input type="text"  class="staff-manage-nickname-input" value="' + escapeHtml(staff.nickname || '') + '" placeholder="Surnom affiché sur le planning (optionnel)">' +
                 '<input type="email" class="staff-manage-email-input" value="' + escapeHtml(staff.email || '') + '" placeholder="email (pour le login futur)">' +
                 '<div style="display:flex;align-items:center;gap:6px;margin-top:4px">' +
                     '<span style="font-size:11px;color:#aaa">Couleur nom :</span>' +
@@ -5064,6 +5075,7 @@ function renderStaffManageList() {
         // Enregistrer
         row.querySelector('.staff-manage-save').addEventListener('click', async () => {
             const newName       = row.querySelector('.staff-manage-name-input').value.trim();
+            const newNickname   = row.querySelector('.staff-manage-nickname-input').value.trim() || null;
             const newEmail      = row.querySelector('.staff-manage-email-input').value.trim();
             const newColor      = row.querySelector('.staff-manage-color').value;
             const newNameColor  = row.querySelector('.staff-manage-name-color')?.value || null;
@@ -5082,11 +5094,12 @@ function renderStaffManageList() {
                     method:      'PATCH',
                     credentials: 'include',
                     headers:     { 'Content-Type': 'application/json' },
-                    body:        JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups, name_color: effectiveNameColor }),
+                    body:        JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups, name_color: effectiveNameColor, nickname: newNickname }),
                 });
                 if (!res.ok) throw new Error((await res.json()).error);
 
                 staff.name              = newName;
+                staff.nickname          = newNickname;
                 staff.color             = newColor;
                 staff.email             = newEmail;
                 staff.venues            = newVenues;
@@ -5095,13 +5108,15 @@ function renderStaffManageList() {
                 staff.groups            = newGroups;
                 staff.name_color = effectiveNameColor;
 
+                buildStaffDisplayNames();
+
                 // Propager sur les shifts visibles
                 document.querySelectorAll('.shift').forEach(el => {
                     const sd = currentShifts.find(s => String(s._id) === el.dataset.id);
                     if (sd && sd.staff_id === staff._id) {
                         el.style.background = newColor;
                         el.style.color = textColorFor(newColor);
-                        el.querySelector('.shift-name').textContent = newName;
+                        el.querySelector('.shift-name').textContent = displayName(staff._id, newName);
                         sd.color = newColor; sd.staff_name = newName;
                     }
                 });
@@ -5420,15 +5435,15 @@ function openCsvImportModal() {
                 <!-- Instructions -->
                 <div style="background:#f8f8f8;border-radius:8px;padding:12px 14px;font-size:12px;color:#555;margin-bottom:14px;line-height:1.6">
                     <strong>Format CSV accepté :</strong> une ligne par personne, séparateur <code>,</code> ou <code>;</code><br>
-                    Colonnes : <code>nom</code> et <code>telephone</code> (et/ou <code>email</code>)<br>
-                    Exemple : <code>Marie Dupont;0612345678</code>
+                    Colonnes : <code>nom</code> ; <code>email ou téléphone</code> ; <code>surnom (optionnel)</code><br>
+                    Exemple : <code>Sébastien Garcia;s.garcia@mail.com;Seb G.</code>
                     <div style="margin-top:8px;display:flex;gap:8px">
                         <button id="_csv-dl-template" style="background:#1a1a2e;color:white;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer">⬇ Télécharger le modèle</button>
                     </div>
                 </div>
 
                 <!-- Zone de saisie / collage -->
-                <textarea id="_csv-input" placeholder="Colle ton CSV ici ou saisis les lignes manuellement&#10;Exemple :&#10;Marie Dupont;0612345678&#10;Jean Martin;jean@bar.fr&#10;Sophie Leroy;0698765432;sophie@email.fr"
+                <textarea id="_csv-input" placeholder="Colle ton CSV ici ou saisis les lignes manuellement&#10;Exemple :&#10;Sébastien Garcia;s.garcia@mail.com;Seb G.&#10;Louise Dupont;+33612345678;Loulou&#10;Thomas Martin;t.martin@mail.com"
                     style="width:100%;height:140px;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 12px;font-size:13px;font-family:monospace;resize:vertical;outline:none;box-sizing:border-box"></textarea>
 
                 <!-- Bouton charger un fichier -->
@@ -5460,7 +5475,7 @@ function openCsvImportModal() {
 
     // Télécharger le modèle
     overlay.querySelector('#_csv-dl-template').addEventListener('click', () => {
-        const content = 'nom;telephone;email\nMarie Dupont;0612345678;\nJean Martin;;jean@bar.fr\nSophie Leroy;0698765432;sophie@email.fr\n';
+        const content = 'nom;email ou telephone;surnom\nSébastien Garcia;s.garcia@mail.com;Seb G.\nLouise Dupont;+33612345678;Loulou\nThomas Martin;t.martin@mail.com;\n';
         const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement('a');
@@ -5506,15 +5521,20 @@ function openCsvImportModal() {
             if (!name) { errors.push('Ligne ' + (i + 1) + ' : nom manquant'); continue; }
 
             // col1 = téléphone ou email selon le contenu
+            // col2 = téléphone/email supplémentaire OU surnom si ce n'est pas un contact
             let phone = '', email = '';
+            const isContact = v => v && (v.includes('@') || /^[\d\s\+\-\.]{6,}$/.test(v));
             [col1, col2].forEach(v => {
                 if (!v) return;
                 if (v.includes('@')) email = v;
                 else if (/^[\d\s\+\-\.]{6,}$/.test(v)) phone = v;
             });
 
+            // Si col2 n'est pas un contact, c'est un surnom
+            const nickname = (col2 && !isContact(col2)) ? col2 : undefined;
+
             if (!phone && !email) { errors.push('Ligne ' + (i + 1) + ' (' + name + ') : téléphone ou email requis'); continue; }
-            parsedEntries.push({ name, phone: phone || undefined, email: email || undefined });
+            parsedEntries.push({ name, phone: phone || undefined, email: email || undefined, nickname });
         }
 
         // Afficher l'aperçu
@@ -5529,6 +5549,7 @@ function openCsvImportModal() {
                     '<span style="font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + e.name + '</span>' +
                     '<span style="color:#888;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (e.phone || '') + '</span>' +
                     '<span style="color:#888;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (e.email || '') + '</span>' +
+                    '<span style="color:#534AB7;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic">' + (e.nickname || '') + '</span>' +
                     '</div>';
             });
             html += '</div>';

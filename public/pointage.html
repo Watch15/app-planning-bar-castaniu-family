@@ -706,10 +706,13 @@ function buildShiftCard(shift) {
         return ecartLabel(plannedDur, realDur);
     })();
 
+    const _shiftSm          = allStaff.find(s => String(s._id) === String(shift.staff_id));
+    const _shiftDisplayName = _shiftSm ? (_shiftSm.nickname || (shift.staff_name || '').split(' ')[0]) : (shift.staff_name || '—');
+
     card.innerHTML =
         '<div class="shift-header">' +
             '<div class="shift-dot" style="background:' + (shift.color || '#888') + '"></div>' +
-            '<div class="shift-name">' + (shift.staff_name || '—') + '</div>' +
+            '<div class="shift-name">' + _shiftDisplayName + '</div>' +
             (shift.extra
                 ? '<span class="extra-badge">Hors planning</span>'
                 : '<span class="shift-planned">' + plannedLabel + '</span>') +

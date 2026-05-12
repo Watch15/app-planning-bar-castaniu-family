@@ -1095,8 +1095,9 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
                 const staffId = String(existingStaff._id);
 
                 const staffUpdate = {};
-                if (email           && !existingStaff.email) staffUpdate.email = email;
-                if (normalizedPhone && !existingStaff.phone) staffUpdate.phone = normalizedPhone;
+                if (email           && !existingStaff.email)    staffUpdate.email    = email;
+                if (normalizedPhone && !existingStaff.phone)    staffUpdate.phone    = normalizedPhone;
+                if (entry.nickname  && !existingStaff.nickname) staffUpdate.nickname = entry.nickname;
                 if (Object.keys(staffUpdate).length)
                     await db.collection('staff').updateOne({ _id: existingStaff._id }, { $set: staffUpdate });
 
@@ -1175,6 +1176,7 @@ app.post('/api/users/bulk', checkDB, requireAdmin, async (req, res) => {
             const color  = COLORS[Math.floor(Math.random() * COLORS.length)];
             const staffDoc = {
                 name,
+                nickname: entry.nickname || null,
                 color,
                 email: email || '',
                 phone: normalizedPhone || '',
@@ -1388,19 +1390,20 @@ app.post('/api/staff/bulk', checkDB, requirePatron, async (req, res) => {
 app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { color, name, email, venues, can_submit_dispos, groups, rest_days } = req.body;
-    if (!color && !name && email === undefined && venues === undefined && can_submit_dispos === undefined && req.body.roles === undefined && groups === undefined && req.body.name_color === undefined && rest_days === undefined)
-        return res.status(400).json({ error: 'color, name, email, venues, roles, groups, name_color, can_submit_dispos ou rest_days requis' });
+    if (!color && !name && email === undefined && venues === undefined && can_submit_dispos === undefined && req.body.roles === undefined && groups === undefined && req.body.name_color === undefined && rest_days === undefined && req.body.nickname === undefined)
+        return res.status(400).json({ error: 'color, name, email, venues, roles, groups, name_color, nickname, can_submit_dispos ou rest_days requis' });
     try {
         const update = {};
-        if (color)                           update.color             = color;
-        if (name)                            update.name              = name;
-        if (email !== undefined)             update.email             = email;
-        if (venues !== undefined)            update.venues            = venues;
-        if (req.body.roles !== undefined)    update.roles             = req.body.roles;
-        if (can_submit_dispos !== undefined) update.can_submit_dispos = !!can_submit_dispos;
-        if (groups !== undefined)            update.groups            = Array.isArray(groups) ? groups : [];
-        if (Array.isArray(rest_days))        update.rest_days         = rest_days.map(Number).filter(n => n >= 0 && n <= 6);
-        if (req.body.name_color !== undefined) update.name_color      = req.body.name_color || null;
+        if (color)                             update.color             = color;
+        if (name)                              update.name              = name;
+        if (email !== undefined)               update.email             = email;
+        if (venues !== undefined)              update.venues            = venues;
+        if (req.body.roles !== undefined)      update.roles             = req.body.roles;
+        if (can_submit_dispos !== undefined)   update.can_submit_dispos = !!can_submit_dispos;
+        if (groups !== undefined)              update.groups            = Array.isArray(groups) ? groups : [];
+        if (Array.isArray(rest_days))          update.rest_days         = rest_days.map(Number).filter(n => n >= 0 && n <= 6);
+        if (req.body.name_color !== undefined) update.name_color        = req.body.name_color || null;
+        if (req.body.nickname   !== undefined) update.nickname          = req.body.nickname   || null;
         const result = await db.collection('staff').updateOne(
             { _id: new ObjectId(req.params.id) }, { $set: update }
         );
