@@ -4303,9 +4303,9 @@ async function loadNonAffectees() {
     if (!list) return;
     list.innerHTML = '<div style="padding:16px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
     const { from, to } = _reassignDateRange();
-    const DAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    const DAY_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
     const MONTHS    = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sep.', 'oct.', 'nov.', 'déc.'];
-    const fmtH = h => String(Math.floor(h % 24)).padStart(2, '0') + 'h' + (Math.round((h % 1) * 60) > 0 ? String(Math.round((h % 1) * 60)).padStart(2, '0') : '00');
+    const fmtH = h => String(Math.floor(h % 24)).padStart(2, '0') + 'h' + (Math.round((h % 1) * 60) > 0 ? String(Math.round((h % 1) * 60)).padStart(2, '0') : '');
     try {
         const res = await fetch('/api/dispos/non-affectees?from=' + from + '&to=' + to, { credentials: 'include' });
         const data = await res.json();
@@ -4316,30 +4316,54 @@ async function loadNonAffectees() {
             return;
         }
         list.innerHTML = '';
-        data.forEach(dispo => {
-            const d          = parseDate(dispo.date);
-            const dateLabel  = DAY_NAMES[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
-            const dispoLabel = dispo.type === 'soir' ? 'Soir'
-                : dispo.type === 'midi' ? 'Midi'
-                : (fmtH(dispo.start_time) + ' – ' + fmtH(dispo.end_time));
 
+        // Grouper par staff_id (ordre d'apparition conservé)
+        const byStaff = {};
+        data.forEach(d => {
+            if (!byStaff[d.staff_id]) byStaff[d.staff_id] = { name: d.staff_name, color: d.staff_color, dispos: [] };
+            byStaff[d.staff_id].dispos.push(d);
+        });
+
+        Object.entries(byStaff).forEach(([, { name, color, dispos }]) => {
             const card = document.createElement('div');
-            card.style.cssText = 'background:#fff;border:1px solid #eee;border-radius:10px;margin:8px 16px;padding:12px 14px';
-            card.innerHTML =
-                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
-                    '<span style="width:10px;height:10px;border-radius:50%;background:' + dispo.staff_color + ';flex-shrink:0;display:inline-block"></span>' +
-                    '<span style="font-size:13px;font-weight:700;color:#333">' + escapeHtml(dispo.staff_name) + '</span>' +
-                    '<span style="font-size:13px;color:#555"> — ' + dateLabel + '</span>' +
-                '</div>' +
-                '<div style="font-size:12px;color:#888;margin-bottom:2px">Établissement : <strong>' + escapeHtml(dispo.establishment_name) + '</strong></div>' +
-                '<div style="font-size:12px;color:#888;margin-bottom:10px">Disponibilité : <strong>' + dispoLabel + '</strong></div>' +
-                '<div style="display:flex;gap:8px">' +
-                    '<button class="btn-na-recreate" style="flex:1;padding:7px 10px;border-radius:8px;border:1.5px solid var(--accent);background:#f0effe;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer">Recréer le shift</button>' +
-                    '<button class="btn-na-ignore" style="padding:7px 12px;border-radius:8px;border:1.5px solid #ddd;background:#f5f5f5;color:#888;font-size:12px;font-weight:600;cursor:pointer">Ignorer</button>' +
-                '</div>';
+            card.style.cssText = 'background:#fff;border:1px solid #eee;border-radius:10px;margin:8px 16px;overflow:hidden';
 
-            card.querySelector('.btn-na-recreate').addEventListener('click', () => _recreateShiftFromDispo(dispo, card));
-            card.querySelector('.btn-na-ignore').addEventListener('click', () => _ignoreNonAffectee(dispo._id, card));
+            // En-tête de la carte personne
+            const header = document.createElement('div');
+            header.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #f0f0f0';
+            header.innerHTML =
+                '<span style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0;display:inline-block"></span>' +
+                '<span style="font-size:13px;font-weight:700;color:#333;flex:1">' + escapeHtml(name) + '</span>' +
+                '<span class="na-card-count" style="font-size:11px;color:#aaa">' + dispos.length + ' à recréer</span>';
+            card.appendChild(header);
+
+            // Conteneur des lignes (une par shift)
+            const rows = document.createElement('div');
+            card.appendChild(rows);
+
+            dispos.forEach(dispo => {
+                const d          = parseDate(dispo.date);
+                const dateLabel  = DAY_SHORT[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
+                const dispoLabel = dispo.type === 'soir' ? 'Soir'
+                    : dispo.type === 'midi' ? 'Midi'
+                    : (fmtH(dispo.start_time) + '–' + fmtH(dispo.end_time));
+
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid #f9f9f9';
+                row.innerHTML =
+                    '<span style="font-size:12px;color:#555;flex-shrink:0;min-width:72px">' + dateLabel + '</span>' +
+                    '<span style="font-size:12px;color:#bbb;flex-shrink:0">·</span>' +
+                    '<span style="font-size:12px;color:#888;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(dispo.establishment_name) + '</span>' +
+                    '<span style="font-size:12px;color:#bbb;flex-shrink:0">·</span>' +
+                    '<span style="font-size:12px;font-weight:600;color:#444;flex-shrink:0">' + dispoLabel + '</span>' +
+                    '<button class="btn-na-recreate" style="padding:4px 10px;border-radius:6px;border:1.5px solid var(--accent);background:#f0effe;color:var(--accent);font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap">Recréer</button>' +
+                    '<button class="btn-na-ignore" style="width:24px;height:24px;border-radius:6px;border:1px solid #e0e0e0;background:#f5f5f5;color:#aaa;font-size:15px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;line-height:1;font-family:inherit">×</button>';
+
+                row.querySelector('.btn-na-recreate').addEventListener('click', () => _recreateShiftFromDispo(dispo, row, card));
+                row.querySelector('.btn-na-ignore').addEventListener('click', () => _ignoreNonAffectee(dispo._id, row, card));
+                rows.appendChild(row);
+            });
+
             list.appendChild(card);
         });
     } catch (e) {
@@ -4347,17 +4371,25 @@ async function loadNonAffectees() {
     }
 }
 
-function _nonAffecteesAfterRemove() {
+function _nonAffecteesAfterRemove(row, card) {
+    row.remove();
     _reassignCount = Math.max(0, _reassignCount - 1);
     _updateReassignBadge(_reassignCount);
-    if (_reassignCount === 0) {
+    // Mettre à jour ou supprimer la carte si plus aucune ligne
+    const remaining = card.querySelectorAll('.btn-na-recreate').length;
+    if (remaining === 0) {
+        card.remove();
         const list = document.getElementById('dispos-reassign-list');
-        if (list) list.innerHTML = '<div style="padding:32px;text-align:center;color:#aaa;font-size:13px">✅ Aucune disponibilité confirmée sans shift</div>';
+        if (list && list.children.length === 0)
+            list.innerHTML = '<div style="padding:32px;text-align:center;color:#aaa;font-size:13px">✅ Aucune disponibilité confirmée sans shift</div>';
+    } else {
+        const countEl = card.querySelector('.na-card-count');
+        if (countEl) countEl.textContent = remaining + ' à recréer';
     }
 }
 
-async function _recreateShiftFromDispo(dispo, card) {
-    const btn = card.querySelector('.btn-na-recreate');
+async function _recreateShiftFromDispo(dispo, row, card) {
+    const btn = row.querySelector('.btn-na-recreate');
     btn.disabled    = true;
     btn.textContent = 'Création…';
     try {
@@ -4377,22 +4409,20 @@ async function _recreateShiftFromDispo(dispo, card) {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        card.remove();
-        _nonAffecteesAfterRemove();
+        _nonAffecteesAfterRemove(row, card);
         showToast('Shift recréé pour ' + dispo.staff_name);
     } catch (e) {
         showToast(e.message || 'Erreur', true);
         btn.disabled    = false;
-        btn.textContent = 'Recréer le shift';
+        btn.textContent = 'Recréer';
     }
 }
 
-async function _ignoreNonAffectee(dispoId, card) {
+async function _ignoreNonAffectee(dispoId, row, card) {
     try {
         const res = await fetch('/api/dispos/' + dispoId + '/ignore', { method: 'PATCH', credentials: 'include' });
         if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
-        card.remove();
-        _nonAffecteesAfterRemove();
+        _nonAffecteesAfterRemove(row, card);
     } catch (e) {
         showToast(e.message || 'Erreur', true);
     }
