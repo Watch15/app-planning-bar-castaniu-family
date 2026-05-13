@@ -631,21 +631,21 @@ label[for], select, .tab-btn, .staff-card, .shift-card {
 .staff-manage-name-input:focus,
 .staff-manage-nickname-input:focus,
 .staff-manage-email-input:focus { border-bottom-color: var(--accent); }
-.staff-manage-color { width: 28px; height: 28px; border-radius: 50%; border: none; padding: 0; cursor: pointer; overflow: hidden; flex-shrink: 0; margin-top: 2px; }
+.staff-manage-color { width: 28px; height: 28px; border-radius: 50%; border: none; padding: 0; cursor: pointer; overflow: hidden; flex-shrink: 0; align-self: flex-start; margin-top: 2px; }
 .staff-manage-color::-webkit-color-swatch-wrapper { padding: 0; }
 .staff-manage-color::-webkit-color-swatch { border: none; border-radius: 50%; }
 .staff-manage-save {
   padding: 5px 12px; border-radius: var(--radius-sm); border: 1.5px solid var(--success);
   background: var(--success-bg); color: var(--success-text);
   font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap;
-  transition: all var(--transition); font-family: var(--font); flex-shrink: 0;
+  transition: all var(--transition); font-family: var(--font); flex-shrink: 0; align-self: center;
 }
 .staff-manage-save:hover { background: var(--success); color: white; }
 .staff-manage-delete {
   width: 28px; height: 28px; border-radius: var(--radius); border: 1px solid var(--light-border);
   background: var(--light-card); color: var(--text-muted); font-size: 16px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: all var(--transition); flex-shrink: 0; line-height: 1; font-family: var(--font); margin-top: 2px;
+  transition: all var(--transition); flex-shrink: 0; line-height: 1; font-family: var(--font); align-self: center;
 }
 .staff-manage-delete:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-bg); }
 

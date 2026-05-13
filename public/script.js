@@ -5339,9 +5339,8 @@ function renderStaffManageList() {
         row.innerHTML =
             '<input type="color" class="staff-manage-color" value="' + escapeHtml(staff.color) + '" title="Changer la couleur">' +
             '<div class="staff-manage-info">' +
-                '<input type="text"  class="staff-manage-name-input"     value="' + escapeHtml(staff.name) + '" placeholder="Nom">' +
-                '<input type="text"  class="staff-manage-nickname-input" value="' + escapeHtml(staff.nickname || '') + '" placeholder="Surnom affiché sur le planning (optionnel)">' +
-                '<input type="email" class="staff-manage-email-input" value="' + escapeHtml(staff.email || '') + '" placeholder="email (pour le login futur)">' +
+                '<input type="text" class="staff-manage-name-input"     value="' + escapeHtml(staff.name) + '" placeholder="Nom">' +
+                '<input type="text" class="staff-manage-nickname-input" value="' + escapeHtml(staff.nickname || '') + '" placeholder="Surnom affiché sur le planning (optionnel)">' +
                 '<div style="display:flex;align-items:center;gap:6px;margin-top:4px">' +
                     '<span style="font-size:11px;color:#aaa">Couleur nom :</span>' +
                     '<input type="color" class="staff-manage-name-color" value="' + escapeHtml(staff.name_color || staff.color) + '" title="Couleur du nom">' +
@@ -5355,9 +5354,6 @@ function renderStaffManageList() {
                     'Peut envoyer ses dispos' +
                 '</label>' +
             '</div>' +
-            '<span class="staff-login-badge ' + (hasLogin ? 'linked' : 'unlinked') + '">' +
-                (hasLogin ? 'Login lié' : 'Sans login') +
-            '</span>' +
             '<button class="staff-manage-save">Enregistrer</button>' +
             '<button class="staff-manage-delete" title="Supprimer">×</button>';
 
@@ -5416,7 +5412,6 @@ function renderStaffManageList() {
         row.querySelector('.staff-manage-save').addEventListener('click', async () => {
             const newName       = row.querySelector('.staff-manage-name-input').value.trim();
             const newNickname   = row.querySelector('.staff-manage-nickname-input').value.trim() || null;
-            const newEmail      = row.querySelector('.staff-manage-email-input').value.trim();
             const newColor      = row.querySelector('.staff-manage-color').value;
             const newNameColor  = row.querySelector('.staff-manage-name-color')?.value || null;
             const newVenues     = Array.from(row.querySelectorAll('.venue-pref-btn.active')).map(b => b.dataset.venue);
@@ -5434,14 +5429,13 @@ function renderStaffManageList() {
                     method:      'PATCH',
                     credentials: 'include',
                     headers:     { 'Content-Type': 'application/json' },
-                    body:        JSON.stringify({ name: newName, color: newColor, email: newEmail, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups, name_color: effectiveNameColor, nickname: newNickname }),
+                    body:        JSON.stringify({ name: newName, color: newColor, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups, name_color: effectiveNameColor, nickname: newNickname }),
                 });
                 if (!res.ok) throw new Error((await res.json()).error);
 
                 staff.name              = newName;
                 staff.nickname          = newNickname;
                 staff.color             = newColor;
-                staff.email             = newEmail;
                 staff.venues            = newVenues;
                 staff.roles             = newRoles;
                 staff.can_submit_dispos = newCanSubmit;
