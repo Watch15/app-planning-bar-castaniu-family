@@ -95,6 +95,14 @@ Ajouter les nouveaux éléments avec une description courte, un contexte et une 
 | D-39 | Stats « Moy. par personne » (vue jour + vue semaine) — jokers exclus du numérateur ET dénominateur | — |
 | D-40 | Rebranding Planning Bar → Templyo | — |      
 | D-41 | La normalisation des numero de telephone, pour que +33612345678 et 0612345678 matchent en base | — |
+| **Sprint mai 2026 — nouvelles features** ||
+| D-42 | **F-06 — Joker ouvert au staff** : toggle patron « 📢 Proposer au staff », push Web à tout le staff de l'établissement, candidatures horodatées dans `joker_candidates[]`, assignation 1 clic depuis la modale, bloc « 📢 Créneau disponible » dans `planning.html` | 0b47394 |
+| D-43 | **F-07 — Transfert de shift cross-établissement** : route `PATCH /api/shifts/:id/transfer`, notif push staff « 🔄 Shift transféré » | e416616 |
+| D-44 | **F-08 — Recherche insensible aux accents (NFD)** : helper `normalizeStr()` appliqué à la barre staff + modale notes (« emilie » matche « Émilie ») | 7cd9c22 |
+| D-45 | Hotfix — route `PATCH /api/shifts/:id/joker-open` déplacée avant `/api/shifts/:id` (la route générique l'aurait capturée, 404) + gestion d'erreur côté client robuste si réponse non-JSON | 17f1e5f |
+| D-46 | Hotfix — query `GET /api/shifts/joker-ouverts` utilise `$or` (`is_joker: true` OR `staff_id: '__joker__'`) pour matcher les Jokers historiques sans champ `is_joker` | 783464c |
+| D-47 | Hotfix critique — routes Joker accidentellement à l'intérieur du bloc `/* F-05 DÉSACTIVÉ */` lignes 2186→2550 → invisibles à Express, 404 silencieux. Bloc scindé en deux (2186→2422 et 2488→2550) pour libérer la section Joker | (à commit) |
+| D-48 | Création compte staff lie automatiquement le téléphone à un staff existant + greeting SMS/email trimé proprement | 0de5f7b ce7c0c2 2923718 |
 
 ---
 
@@ -102,9 +110,9 @@ Ajouter les nouveaux éléments avec une description courte, un contexte et une 
 
 - **Timezone** : ne jamais utiliser `toISOString()` — toujours `getFullYear()/getMonth()/getDate()`. Voir `docs/architecture.md` §3.1. Helper pur : `toDateStr()` dans `lib/utils.js`.
 - **script.js** : fichier monolithique (~4700 lignes) — modifications additives et ciblées uniquement, pas de refactoring sans décision explicite.
-- **server.js** : monolithique (~2400 lignes). Helpers purs dans `lib/utils.js` (testés). Split en routers = chantier futur (#10 backlog).
+- **server.js** : monolithique (~3200 lignes). Helpers purs dans `lib/utils.js` (testés). Split en routers = chantier futur (#10 backlog). ⚠️ **Deux blocs `/* F-05 DÉSACTIVÉ */` lignes 2186→2422 et 2488→2550** : ne JAMAIS y ajouter de nouvelles routes — elles seraient invisibles à Express (cf. D-47).
 - **Tests** : `npm test` (zéro dépendance, `node --test`). Ajouter un test quand on extrait un helper pur, change une règle de date/heure, ou fixe un bug qui pourrait régresser.
-- **Joker** : `staff_id === '__joker__'` et `is_joker: true`. F-03 ajoute un champ `note` uniquement sur ces shifts. **Les jokers sont exclus des stats « Moy. par personne »** (D-39).
+- **Joker** : `staff_id === '__joker__'` et `is_joker: true`. F-03 ajoute un champ `note`, F-06 (D-42) ajoute `joker_open: bool` + `joker_candidates[]` pour le système de candidatures staff. **Les jokers sont exclus des stats « Moy. par personne »** (D-39). Toujours tester l'identité Joker avec `is_joker || staff_id === '__joker__'` (anciens documents sans flag).
 - **Timeline** : tester drag, resize et snap sur desktop ET mobile 390px portrait après chaque modification.
 - **OPEN_TIME / CLOSE_TIME** : bornes métier décimales (ex. 9.5 = 09:30). `START_HOUR`/`END_HOUR` sont des entiers pour l'affichage uniquement.
 - **Heures ≥ 24h** : convention interne pour les shifts de nuit (25.5 = 01h30 du lendemain). Toujours wrap avec `((h % 24) + 24) % 24` avant affichage.

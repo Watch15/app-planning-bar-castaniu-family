@@ -160,13 +160,33 @@ Rate limiter en mémoire basé sur `Map` (aucune dépendance externe). Login : 1
   "staff_name": "string",
   "establishment_id": "string",
   "date": "YYYY-MM-DD",
-  "start_time": "HH:MM",
-  "end_time": "HH:MM",
+  "start_time": "number (heure décimale, ex. 18.5)",
+  "end_time": "number (peut être ≥ 24 pour shifts de nuit)",
   "color": "#hex",
-  "is_joker": false
+  "is_joker": false,
+  "note": "string ≤ 280 (Joker uniquement)",
+  "joker_open": false,
+  "joker_candidates": [
+    {
+      "staff_id": "string",
+      "staff_name": "string",
+      "staff_color": "#hex",
+      "submitted_at": "ISODate"
+    }
+  ],
+  "real_start": "number (pointage)",
+  "real_end": "number (pointage)",
+  "pointage_resp": true,
+  "extra": true
 }
 ```
-`is_joker: true` + `staff_id: '__joker__'` = créneau ouvert (pas de détection de conflit, visible par le staff de l'établissement).
+- `is_joker: true` ou `staff_id: '__joker__'` = créneau ouvert (pas de détection de conflit, visible par le staff de l'établissement)
+- `joker_open: true` = le patron a ouvert ce Joker aux candidatures staff (notif push envoyée, bloc « Créneau disponible » visible côté staff)
+- `joker_candidates[]` = liste horodatée des staff ayant cliqué « Je suis disponible » — vidée à l'assignation ou la fermeture
+- `note` = note libre saisie par le patron sur un Joker (visible aussi par le staff assigné après conversion)
+- `real_start` / `real_end` = heures réelles saisies au pointage
+- `pointage_resp: true` = ce shift désigne le responsable de soirée pour l'établissement/date (un seul par soirée)
+- `extra: true` = shift créé directement au pointage (non planifié à l'avance)
 
 ### `push_subscriptions`
 ```json
@@ -190,6 +210,38 @@ Les abonnements périmés (410/404 du service push) sont supprimés automatiquem
   "created_at": ISODate
 }
 ```
+Notifications in-app destinées au patron/directeur.
+
+### `staff_notifications`
+```json
+{
+  "_id": ObjectId,
+  "staff_id": "string",
+  "message": "string",
+  "read": false,
+  "created_at": ISODate
+}
+```
+Notifications in-app destinées au staff (max 20 dernières non lues retournées par `/api/notifications/mine`).
+
+### `shift_swaps` *(feature F-05 — actuellement désactivée dans server.js)*
+```json
+{
+  "_id": ObjectId,
+  "from_shift_id": "string",
+  "to_shift_id": "string",
+  "from_staff_id": "string",
+  "to_staff_id": "string",
+  "from_establishment_id": "string",
+  "to_establishment_id": "string",
+  "status": "pending | approved | rejected",
+  "note": "string",
+  "created_at": ISODate,
+  "decided_at": ISODate,
+  "decided_by": "string"
+}
+```
+> ⚠️ Toutes les routes `/api/shift-swaps/*` sont commentées via deux blocs `/* */` dans `server.js` (lignes 2186→2422 et 2488→2550). **Ne jamais insérer de nouvelles routes à l'intérieur de ces blocs** — c'est un piège qui a déjà coûté un debug long (les routes Joker s'y étaient retrouvées par erreur, ne se chargeaient pas, 404 silencieux).
 
 ---
 

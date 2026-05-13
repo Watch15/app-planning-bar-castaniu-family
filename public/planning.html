@@ -438,20 +438,37 @@
             border: 1.5px solid #c5beff;
             border-radius: 12px;
             padding: 14px 16px;
-            margin: 0 20px 8px;
+            margin: 0 20px 10px;
         }
-        .open-joker-header { font-size: 13px; font-weight: 700; color: #534AB7; margin-bottom: 4px; }
-        .open-joker-date   { font-size: 13px; color: #1a1a2e; margin-bottom: 12px; }
+        .open-joker-header {
+            font-size: 14px; font-weight: 700; color: #534AB7;
+            margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+        }
+        .open-joker-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 0;
+            border-top: 1px solid rgba(83,74,183,0.12);
+        }
+        .open-joker-item:first-of-type { border-top: none; padding-top: 4px; }
+        .open-joker-item:last-of-type { padding-bottom: 0; }
+        .open-joker-date {
+            flex: 1; font-size: 13px; color: #1a1a2e; line-height: 1.3;
+        }
+        .open-joker-date small { display: block; color: #6b6b8a; font-size: 11px; margin-top: 1px; }
         .btn-je-suis-dispo {
             background: #534AB7; color: white; border: none; border-radius: 8px;
-            padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
-            width: 100%; transition: background 0.15s;
+            padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+            transition: background 0.15s; white-space: nowrap; flex-shrink: 0;
         }
         .btn-je-suis-dispo:hover:not([disabled]) { background: #3d35a0; }
         .btn-je-suis-dispo.applied, .btn-je-suis-dispo[disabled] {
             background: #27ae60; cursor: default; opacity: 0.9;
         }
-        @media (max-width: 480px) { .open-joker-card { margin: 0 14px 6px; } }
+        @media (max-width: 480px) {
+            .open-joker-card { margin: 0 14px 8px; }
+            .open-joker-item { flex-wrap: wrap; }
+            .btn-je-suis-dispo { width: 100%; padding: 9px 14px; }
+        }
 
         /* ── Notifications in-app toasts ── */
         #notif-toast-container {
@@ -894,23 +911,32 @@ async function renderOpenJokers(from, to, containerId) {
         if (!res.ok) return;
         const jokers = await res.json();
         // Filtrer à la plage de dates de la semaine visible
-        const weekJokers = jokers.filter(j => j.date >= from && j.date <= to);
+        const weekJokers = jokers
+            .filter(j => j.date >= from && j.date <= to)
+            .sort((a, b) => a.date === b.date ? a.start_time - b.start_time : a.date.localeCompare(b.date));
         if (weekJokers.length === 0) { section.innerHTML = ''; return; }
 
-        section.innerHTML = weekJokers.map(j => {
+        const itemsHtml = weekJokers.map(j => {
             const d        = new Date(j.date + 'T12:00:00');
             const dayLabel = DAY_NAMES[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()];
             const startFmt = fmtHour(j.start_time);
             const endFmt   = fmtHour(j.end_time);
             const applied  = !!j.has_applied;
-            return '<div class="open-joker-card" data-joker-id="' + j._id + '">' +
-                '<div class="open-joker-header">📢 Créneau disponible</div>' +
-                '<div class="open-joker-date">' + dayLabel + ' — ' + startFmt + ' à ' + endFmt + '</div>' +
+            return '<div class="open-joker-item">' +
+                '<div class="open-joker-date">' + dayLabel +
+                    '<small>' + startFmt + ' à ' + endFmt + '</small>' +
+                '</div>' +
                 '<button class="btn-je-suis-dispo' + (applied ? ' applied' : '') + '" data-id="' + j._id + '"' + (applied ? ' disabled' : '') + '>' +
-                    (applied ? '✅ Candidature envoyée' : 'Je suis disponible') +
+                    (applied ? '✅ Envoyée' : 'Je suis dispo') +
                 '</button>' +
             '</div>';
         }).join('');
+
+        section.innerHTML =
+            '<div class="open-joker-card">' +
+                '<div class="open-joker-header">📢 Créneaux disponibles · ' + weekJokers.length + '</div>' +
+                itemsHtml +
+            '</div>';
 
         section.querySelectorAll('.btn-je-suis-dispo:not([disabled])').forEach(btn => {
             btn.addEventListener('click', async () => {

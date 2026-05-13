@@ -50,6 +50,8 @@ Inter uniquement. Échelle : 11px (labels caps) → 13px (corps) → 14–15px (
 | I-05 | Pas de panneau stats en vue Jour (seulement en vue Semaine) | Moyen | |
 | I-06 | Pas de confirmation visuelle après drag/drop | Faible | |
 | I-07 | Jokers sans légende — un nouveau patron ne comprend pas | Moyen | |
+| ~~I-08~~ | ~~Modale Joker — toggle « 📢 Proposer au staff », badge timeline « 📢 Ouvert », liste candidatures horodatées (`HHhMM`) avec bouton Assigner, polling 30s~~ | Moyen | ✅ Done (F-06 / D-42) |
+| I-09 | Transfert de shift cross-établissement — accessible depuis la modale shift (entrée discrète, à promouvoir si usage récurrent) | Faible | F-07 livré, UX à affiner |
 
 ### 2.4 planning.html (Staff)
 | # | Problème | Sévérité | Statut |
@@ -60,6 +62,8 @@ Inter uniquement. Échelle : 11px (labels caps) → 13px (corps) → 14–15px (
 | ~~P-04~~ | ~~Bouton fixe "Envoyer" dispos couvre le dernier jour sur petits écrans~~ | Moyen | ✅ Done — spacer 96px + safe-area-inset-bottom |
 | P-05 | Pas de confirmation visuelle post-envoi dispos au-delà du toast | Faible | |
 | P-06 | Aucun moyen pour le staff de voir les shifts des semaines passées | Moyen | |
+| ~~P-07~~ | ~~Bloc « 📢 Créneau disponible » en haut du planning + bouton « Je suis disponible » → POST candidature, désactivé après envoi avec « ✅ Candidature envoyée »~~ | Moyen | ✅ Done (F-06 / D-42) |
+| P-08 | Pas de rafraîchissement auto côté staff pour détecter de nouveaux Jokers ouverts — rechargement manuel nécessaire | Moyen | |
 
 ### 2.5 pointage.html
 | # | Problème | Sévérité | Statut |
@@ -122,6 +126,12 @@ Inter uniquement. Échelle : 11px (labels caps) → 13px (corps) → 14–15px (
 /* Nuit tardive */
 --night:            #E8A045;
 --night-bg:         rgba(232,160,69,0.10);
+
+/* Joker ouvert au staff (F-06) */
+--joker-open:        #534AB7;
+--joker-open-bg:     #f0effe;   /* dégradé : #f0effe 0% → #e8e4ff 100% */
+--joker-open-border: #c5beff;
+--joker-open-applied:#27ae60;   /* bouton "✅ Candidature envoyée" */
 ```
 
 Actions associées :

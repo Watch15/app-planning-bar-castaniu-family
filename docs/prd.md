@@ -67,6 +67,22 @@ Un **Joker** est un shift sans membre du personnel assigné (`staff_id: '__joker
 - Les jokers apparaissent dans la vue staff afin qu'ils voient les créneaux ouverts dans leur établissement
 - Un joker peut être converti en shift réel en assignant un membre du personnel (passe `is_joker: false`)
 - Les jokers sont filtrés des listes de collègues et des statistiques
+- Champ `note` libre (≤ 280 caractères) — visible par le staff une fois le joker assigné
+
+#### 3.3.bis Joker ouvert au staff (système de candidatures)
+Le patron peut choisir, shift par shift, d'**ouvrir un Joker aux candidatures du staff**.
+
+- **Côté patron** :
+  - Modale du Joker : toggle « 📢 Proposer au staff » (inactif par défaut)
+  - Activation → `joker_open: true`, badge « 📢 Ouvert » sur le bloc timeline, push Web envoyé à tout le staff de l'établissement abonné
+  - Liste des candidats horodatée (`HHhMM`), triée par ordre d'arrivée
+  - Bouton « Assigner » par candidat → le Joker devient un shift normal, `joker_open` repasse à `false`, candidatures vidées
+  - Désactivation manuelle → `joker_open: false`, candidatures vidées, pas de notification
+  - Polling toutes les 30s sur la modale ouverte pour rafraîchir la liste
+- **Côté staff** (planning.html, vues « Mon planning » et « Semaine prochaine »):
+  - Bloc dédié « 📢 Créneau disponible » au-dessus du planning
+  - Bouton « Je suis disponible » → POST candidature, désactivé immédiatement, devient « ✅ Candidature envoyée »
+  - Pas de retrait possible depuis l'app
 
 ### 3.4 Notifications Web Push
 - Push basé sur VAPID via la bibliothèque `web-push`
@@ -123,7 +139,20 @@ Un **Joker** est un shift sans membre du personnel assigné (`staff_id: '__joker
 - Lancement plein écran ; le Service Worker met en cache les assets statiques (chargement instantané, mode partiellement hors-ligne)
 - Les requêtes API/auth passent toujours par le réseau
 
-### 3.13 SMS (Twilio)
+### 3.13 Transfert de shift cross-établissement
+Le patron peut **transférer un shift** vers un autre établissement / une autre date depuis la modale du shift.
+
+- Route dédiée `PATCH /api/shifts/:id/transfer` ({ establishment_id, date })
+- Notification push automatique au staff concerné (« 🔄 Shift transféré »)
+- Conserve `staff_id`, `start_time`, `end_time` ; seuls `establishment_id` + `date` changent
+
+### 3.14 Recherche insensible aux accents
+La barre staff (sidebar patron) et la modale « Notes staff » ignorent désormais les accents et la casse.
+
+- Helper client `normalizeStr()` : `toLowerCase()` + `normalize('NFD')` + retrait des diacritiques `[̀-ͯ]`
+- « émilie » matche « emilie », « ÉMILIE », « Emilie », etc.
+
+### 3.15 SMS (Twilio)
 - Envoi SMS optionnel via l'API Twilio
 - Normalisation des numéros mobiles français (06/07 → +336/+337)
 - Nécessite les variables d'environnement `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`
@@ -144,6 +173,8 @@ Un **Joker** est un shift sans membre du personnel assigné (`staff_id: '__joker
 | `settings` | Paramètres (état d'ouverture des dispos, semaines publiées) |
 | `push_subscriptions` | Endpoints d'abonnements Web Push par utilisateur |
 | `notifications` | Notifications in-app pour patron/directeur |
+| `staff_notifications` | Notifications in-app pour staff (planning.html) |
+| `shift_swaps` | Demandes d'échange entre shifts (feature F-05 — désactivée dans `server.js`) |
 
 ---
 
