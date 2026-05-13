@@ -4464,7 +4464,7 @@ async function confirmAllForStaff(dispos, card) {
     const modal  = document.getElementById('confirm-dispo-modal');
     if (!modal) return;
     modal.style.display = 'flex';
-    buildEstablishmentSelect();
+    buildEstablishmentSelect(dispos[0]?.staff_id);
 
     document.getElementById('confirm-dispo-btn').onclick = async () => {
         const establishmentId = document.getElementById('confirm-dispo-establishment').value;
@@ -4508,7 +4508,7 @@ function openConfirmDispo(dispo, pill, card, staffId) {
     const modal = document.getElementById('confirm-dispo-modal');
     if (!modal) return;
     modal.style.display = 'flex';
-    buildEstablishmentSelect();
+    buildEstablishmentSelect(staffId || dispo.staff_id);
 
     const noteEl = document.getElementById('confirm-dispo-note');
     if (noteEl) {
@@ -4664,16 +4664,42 @@ function renderStaffNotesList() {
     });
 }
 
-function buildEstablishmentSelect() {
+function buildEstablishmentSelect(staffId) {
     const select = document.getElementById('confirm-dispo-establishment');
     select.innerHTML = '';
+
+    // Établissements préférés du staff (champ staff.venues)
+    const staff = staffId ? allStaff.find(s => String(s._id) === String(staffId)) : null;
+    const preferredIds = (staff && Array.isArray(staff.venues)) ? staff.venues : [];
+
+    const preferred = [];
+    const others    = [];
     allEstablishments.forEach(e => {
+        if (preferredIds.includes(e.id)) preferred.push(e);
+        else others.push(e);
+    });
+    const sortByName = (a, b) => a.name.localeCompare(b.name, 'fr');
+    preferred.sort(sortByName);
+    others.sort(sortByName);
+
+    const makeOpt = (e, star) => {
         const opt = document.createElement('option');
         opt.value       = e.id;
-        opt.textContent = e.name + (e.type ? ' (' + (e.type === 'pub' ? 'Pub' : 'Resto') + ')' : '');
-        select.appendChild(opt);
-    });
-    if (currentVenueId) select.value = currentVenueId;
+        opt.textContent = (star ? '★ ' : '') + e.name + (e.type ? ' (' + (e.type === 'pub' ? 'Pub' : 'Resto') + ')' : '');
+        return opt;
+    };
+    preferred.forEach(e => select.appendChild(makeOpt(e, true)));
+    if (preferred.length && others.length) {
+        const sep = document.createElement('option');
+        sep.disabled    = true;
+        sep.textContent = '──────────';
+        select.appendChild(sep);
+    }
+    others.forEach(e => select.appendChild(makeOpt(e, false)));
+
+    // Sélection par défaut : 1er préféré (ordre alpha), sinon établissement courant
+    if (preferred.length > 0)      select.value = preferred[0].id;
+    else if (currentVenueId)       select.value = currentVenueId;
 }
 
 async function loadDispoControl() {
