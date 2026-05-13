@@ -1064,7 +1064,11 @@
         </div>
         <div style="display:flex;gap:0;border-bottom:2px solid var(--light-border);padding:0 16px">
             <button id="dispos-tab-btn-list" style="background:none;border:none;border-bottom:2px solid var(--accent);margin-bottom:-2px;padding:8px 14px;font-size:13px;font-weight:600;color:var(--accent);cursor:pointer">📋 En attente</button>
+            <button id="dispos-tab-btn-reassign" style="background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;padding:8px 14px;font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;gap:6px">🔄 À réaffecter <span id="reassign-tab-badge" style="display:none;background:#ef4444;color:white;font-size:10px;font-weight:700;border-radius:10px;min-width:16px;height:16px;line-height:16px;padding:0 4px;text-align:center"></span></button>
             <button id="dispos-tab-btn-notes" style="background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;padding:8px 14px;font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer">📝 Notes</button>
+        </div>
+        <div id="dispos-tab-reassign" style="display:none">
+            <div id="dispos-reassign-list" style="max-height:60vh;overflow-y:auto;padding:4px 0"></div>
         </div>
         <div id="dispos-tab-list">
             <div id="dispos-list"></div>

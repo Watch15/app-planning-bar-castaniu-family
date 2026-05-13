@@ -312,12 +312,12 @@ async function init() {
     // });
 
     // Onglets dans la modale dispos
-    const disposTabList  = document.getElementById('dispos-tab-btn-list');
-    const disposTabNotes = document.getElementById('dispos-tab-btn-notes');
-    if (disposTabList && disposTabNotes) {
-        disposTabList.addEventListener('click', () => switchDisposTab('list'));
-        disposTabNotes.addEventListener('click', () => switchDisposTab('notes'));
-    }
+    const disposTabList     = document.getElementById('dispos-tab-btn-list');
+    const disposTabNotes    = document.getElementById('dispos-tab-btn-notes');
+    const disposTabReassign = document.getElementById('dispos-tab-btn-reassign');
+    if (disposTabList)     disposTabList.addEventListener('click', () => switchDisposTab('list'));
+    if (disposTabNotes)    disposTabNotes.addEventListener('click', () => switchDisposTab('notes'));
+    if (disposTabReassign) disposTabReassign.addEventListener('click', () => switchDisposTab('reassign'));
     const staffNotesPrev = document.getElementById('staff-notes-prev');
     if (staffNotesPrev) staffNotesPrev.addEventListener('click', () => {
         if (!staffNotesWeekStart) return;
@@ -4270,21 +4270,161 @@ async function loadDisposBadge() {
     } catch { }
 }
 
+let _reassignCount = 0;
+
+function _reassignDateRange() {
+    const today = new Date();
+    const from  = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+    const nextMonday = getMondayOf(addDays(new Date(), 7));
+    const to = toDateStr(addDays(nextMonday, 6));
+    return { from, to };
+}
+
+function _updateReassignBadge(count) {
+    _reassignCount = count;
+    const badge = document.getElementById('reassign-tab-badge');
+    if (!badge) return;
+    badge.textContent   = count;
+    badge.style.display = count > 0 ? 'inline-flex' : 'none';
+}
+
+async function loadReassignBadge() {
+    const { from, to } = _reassignDateRange();
+    try {
+        const res = await fetch('/api/dispos/non-affectees?from=' + from + '&to=' + to, { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        _updateReassignBadge(data.length);
+    } catch { }
+}
+
+async function loadNonAffectees() {
+    const list = document.getElementById('dispos-reassign-list');
+    if (!list) return;
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
+    const { from, to } = _reassignDateRange();
+    const DAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    const MONTHS    = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sep.', 'oct.', 'nov.', 'déc.'];
+    const fmtH = h => String(Math.floor(h % 24)).padStart(2, '0') + 'h' + (Math.round((h % 1) * 60) > 0 ? String(Math.round((h % 1) * 60)).padStart(2, '0') : '00');
+    try {
+        const res = await fetch('/api/dispos/non-affectees?from=' + from + '&to=' + to, { credentials: 'include' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        _updateReassignBadge(data.length);
+        if (data.length === 0) {
+            list.innerHTML = '<div style="padding:32px;text-align:center;color:#aaa;font-size:13px">✅ Aucune disponibilité confirmée sans shift</div>';
+            return;
+        }
+        list.innerHTML = '';
+        data.forEach(dispo => {
+            const d          = parseDate(dispo.date);
+            const dateLabel  = DAY_NAMES[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
+            const dispoLabel = dispo.type === 'soir' ? 'Soir'
+                : dispo.type === 'midi' ? 'Midi'
+                : (fmtH(dispo.start_time) + ' – ' + fmtH(dispo.end_time));
+
+            const card = document.createElement('div');
+            card.style.cssText = 'background:#fff;border:1px solid #eee;border-radius:10px;margin:8px 16px;padding:12px 14px';
+            card.innerHTML =
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+                    '<span style="width:10px;height:10px;border-radius:50%;background:' + dispo.staff_color + ';flex-shrink:0;display:inline-block"></span>' +
+                    '<span style="font-size:13px;font-weight:700;color:#333">' + escapeHtml(dispo.staff_name) + '</span>' +
+                    '<span style="font-size:13px;color:#555"> — ' + dateLabel + '</span>' +
+                '</div>' +
+                '<div style="font-size:12px;color:#888;margin-bottom:2px">Établissement : <strong>' + escapeHtml(dispo.establishment_name) + '</strong></div>' +
+                '<div style="font-size:12px;color:#888;margin-bottom:10px">Disponibilité : <strong>' + dispoLabel + '</strong></div>' +
+                '<div style="display:flex;gap:8px">' +
+                    '<button class="btn-na-recreate" style="flex:1;padding:7px 10px;border-radius:8px;border:1.5px solid var(--accent);background:#f0effe;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer">Recréer le shift</button>' +
+                    '<button class="btn-na-ignore" style="padding:7px 12px;border-radius:8px;border:1.5px solid #ddd;background:#f5f5f5;color:#888;font-size:12px;font-weight:600;cursor:pointer">Ignorer</button>' +
+                '</div>';
+
+            card.querySelector('.btn-na-recreate').addEventListener('click', () => _recreateShiftFromDispo(dispo, card));
+            card.querySelector('.btn-na-ignore').addEventListener('click', () => _ignoreNonAffectee(dispo._id, card));
+            list.appendChild(card);
+        });
+    } catch (e) {
+        list.innerHTML = '<div style="padding:16px;text-align:center;color:#e74c3c;font-size:13px">' + (e.message || 'Erreur') + '</div>';
+    }
+}
+
+function _nonAffecteesAfterRemove() {
+    _reassignCount = Math.max(0, _reassignCount - 1);
+    _updateReassignBadge(_reassignCount);
+    if (_reassignCount === 0) {
+        const list = document.getElementById('dispos-reassign-list');
+        if (list) list.innerHTML = '<div style="padding:32px;text-align:center;color:#aaa;font-size:13px">✅ Aucune disponibilité confirmée sans shift</div>';
+    }
+}
+
+async function _recreateShiftFromDispo(dispo, card) {
+    const btn = card.querySelector('.btn-na-recreate');
+    btn.disabled    = true;
+    btn.textContent = 'Création…';
+    try {
+        const res = await fetch('/api/shifts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                staff_id:         dispo.staff_id,
+                staff_name:       dispo.staff_name,
+                establishment_id: dispo.establishment_id,
+                date:             dispo.date,
+                start_time:       dispo.start_time,
+                end_time:         dispo.end_time,
+                color:            dispo.staff_color,
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        card.remove();
+        _nonAffecteesAfterRemove();
+        showToast('Shift recréé pour ' + dispo.staff_name);
+    } catch (e) {
+        showToast(e.message || 'Erreur', true);
+        btn.disabled    = false;
+        btn.textContent = 'Recréer le shift';
+    }
+}
+
+async function _ignoreNonAffectee(dispoId, card) {
+    try {
+        const res = await fetch('/api/dispos/' + dispoId + '/ignore', { method: 'PATCH', credentials: 'include' });
+        if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+        card.remove();
+        _nonAffecteesAfterRemove();
+    } catch (e) {
+        showToast(e.message || 'Erreur', true);
+    }
+}
+
 function switchDisposTab(tab) {
-    const isNotes = tab === 'notes';
-    document.getElementById('dispos-tab-list').style.display  = isNotes ? 'none' : '';
+    const isNotes    = tab === 'notes';
+    const isReassign = tab === 'reassign';
+    const isList     = !isNotes && !isReassign;
+
+    document.getElementById('dispos-tab-list').style.display  = isList ? '' : 'none';
     document.getElementById('dispos-tab-notes').style.display = isNotes ? '' : 'none';
-    const btnList  = document.getElementById('dispos-tab-btn-list');
-    const btnNotes = document.getElementById('dispos-tab-btn-notes');
+    const tabReassign = document.getElementById('dispos-tab-reassign');
+    if (tabReassign) tabReassign.style.display = isReassign ? '' : 'none';
+
+    const btnList     = document.getElementById('dispos-tab-btn-list');
+    const btnNotes    = document.getElementById('dispos-tab-btn-notes');
+    const btnReassign = document.getElementById('dispos-tab-btn-reassign');
     if (btnList) {
-        btnList.style.borderBottomColor = isNotes ? 'transparent' : 'var(--accent)';
-        btnList.style.color             = isNotes ? 'var(--text-secondary)' : 'var(--accent)';
-        btnList.style.fontWeight        = isNotes ? '500' : '600';
+        btnList.style.borderBottomColor = isList ? 'var(--accent)' : 'transparent';
+        btnList.style.color             = isList ? 'var(--accent)' : 'var(--text-secondary)';
+        btnList.style.fontWeight        = isList ? '600' : '500';
     }
     if (btnNotes) {
         btnNotes.style.borderBottomColor = isNotes ? 'var(--accent)' : 'transparent';
         btnNotes.style.color             = isNotes ? 'var(--accent)' : 'var(--text-secondary)';
         btnNotes.style.fontWeight        = isNotes ? '600' : '500';
+    }
+    if (btnReassign) {
+        btnReassign.style.borderBottomColor = isReassign ? 'var(--accent)' : 'transparent';
+        btnReassign.style.color             = isReassign ? 'var(--accent)' : 'var(--text-secondary)';
+        btnReassign.style.fontWeight        = isReassign ? '600' : '500';
     }
     if (isNotes) {
         staffNotesWeekStart = getMondayOf(addDays(new Date(), 7));
@@ -4293,6 +4433,7 @@ function switchDisposTab(tab) {
         renderStaffNotesWeekLabel();
         loadStaffNotesList(toDateStr(staffNotesWeekStart));
     }
+    if (isReassign) loadNonAffectees();
 }
 
 async function openDisposPanel() {
@@ -4301,6 +4442,7 @@ async function openDisposPanel() {
     switchDisposTab('list');
     modal.style.display = 'flex';
     await loadDisposList();
+    loadReassignBadge();
 }
 
 async function sendRappelDispos() {

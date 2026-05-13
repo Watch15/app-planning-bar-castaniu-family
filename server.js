@@ -2149,6 +2149,61 @@ app.get('/api/dispos/count', checkDB, requirePatron, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/dispos/non-affectees', checkDB, requirePatron, async (req, res) => {
+    const { from, to } = req.query;
+    if (!from || !to) return res.status(400).json({ error: 'from et to requis' });
+    try {
+        const dispos = await db.collection('availabilities').find({
+            date: { $gte: from, $lte: to },
+            status: 'confirmed',
+            type: { $ne: 'week_note' },
+        }).sort({ date: 1 }).toArray();
+
+        if (dispos.length === 0) return res.json([]);
+
+        // Récupérer les shifts correspondants en une passe
+        const staffIds = [...new Set(dispos.map(d => d.staff_id))];
+        const dates    = [...new Set(dispos.map(d => d.date))];
+        const existingShifts = await db.collection('shifts').find({
+            staff_id: { $in: staffIds },
+            date:     { $in: dates },
+        }).toArray();
+
+        // Enrichir : staff color + nom établissement
+        const validIds   = staffIds.filter(id => isValidObjectId(id));
+        const staffDocs  = validIds.length
+            ? await db.collection('staff').find({ _id: { $in: validIds.map(id => new ObjectId(id)) } }).toArray()
+            : [];
+        const staffMap   = {};
+        staffDocs.forEach(s => { staffMap[String(s._id)] = s; });
+
+        const estabIds  = [...new Set(dispos.map(d => d.establishment_id))];
+        const estabDocs = await db.collection('establishments').find({ id: { $in: estabIds } }).toArray();
+        const estabMap  = {};
+        estabDocs.forEach(e => { estabMap[e.id] = e; });
+
+        const results = [];
+        for (const dispo of dispos) {
+            const hasShift = existingShifts.some(s =>
+                s.staff_id === dispo.staff_id &&
+                s.date     === dispo.date &&
+                s.establishment_id === dispo.establishment_id
+            );
+            if (!hasShift) {
+                const staffDoc = staffMap[dispo.staff_id] || {};
+                const estabDoc = estabMap[dispo.establishment_id] || {};
+                results.push({
+                    ...dispo,
+                    staff_color:        staffDoc.color || '#888',
+                    staff_name:         staffDoc.name  || dispo.staff_name || '',
+                    establishment_name: estabDoc.name  || dispo.establishment_id,
+                });
+            }
+        }
+        res.json(results);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.patch('/api/dispos/:id/confirm', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { establishment_id, create_shift } = req.body;
@@ -2180,6 +2235,18 @@ app.patch('/api/dispos/:id/reject', checkDB, requirePatron, async (req, res) => 
         if (result.matchedCount === 0) return res.status(404).json({ error: 'Dispo introuvable' });
         res.json({ message: 'Dispo refusée' });
         touchLastUpdated();
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/dispos/:id/ignore', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    try {
+        const result = await db.collection('availabilities').updateOne(
+            { _id: new ObjectId(req.params.id) },
+            { $set: { status: 'ignored' } }
+        );
+        if (result.matchedCount === 0) return res.status(404).json({ error: 'Dispo introuvable' });
+        res.json({ message: 'Dispo ignorée' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
