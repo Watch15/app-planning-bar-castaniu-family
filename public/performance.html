@@ -793,14 +793,15 @@ function renderDetail(td, staff, totalWage) {
     }
     const rows = staff.map(s => {
         const rateLabel = s.hourly_rate == null
-            ? '<span class="missing-rate">⚠️ Taux manquant</span>'
+            ? ''
             : (s.hourly_rate.toFixed(2).replace('.', ',') + ' €/h');
+        const wageLabel = s.hourly_rate == null ? '' : fmtEUR(s.wage_gross);
         return (
             '<tr>' +
                 '<td>' + escapeHtml(s.staff_name) + '</td>' +
                 '<td class="num">' + fmtHours(s.hours_worked) + '</td>' +
                 '<td class="num">' + rateLabel + '</td>' +
-                '<td class="num">' + (s.hourly_rate == null ? '—' : fmtEUR(s.wage_gross)) + '</td>' +
+                '<td class="num">' + wageLabel + '</td>' +
             '</tr>'
         );
     }).join('');

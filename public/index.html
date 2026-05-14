@@ -819,7 +819,7 @@
             -->
             <button class="btn-manage-staff" id="btn-recap" style="background:rgba(16,185,129,0.12);border-color:#10b981;color:#10b981">📊 Récap</button>
             <a href="/performance.html" class="btn-manage-staff" id="btn-performance" style="background:rgba(108,99,255,0.12);border-color:#6C63FF;color:#6C63FF;text-decoration:none;display:inline-flex;align-items:center" title="Pilotage économique (CA + masse salariale)">📈 Performance</a>
-            <button class="btn-manage-staff" id="btn-revenue" style="background:rgba(108,99,255,0.12);border-color:#6C63FF;color:#6C63FF" title="Saisir / corriger un CA passé">💶 CA</button>
+            <button id="btn-revenue" style="display:none" aria-hidden="true"></button>
             <a href="/pointage.html" class="btn-manage-staff" id="btn-pointage" style="background:rgba(245,158,11,0.12);border-color:#f59e0b;color:#f59e0b;text-decoration:none;display:inline-flex;align-items:center" title="Saisie heures réelles (pointage)">⏱ Pointage</a>
             <div class="header-sep"></div>
             <!-- Groupe 3 : toggle dispos + paramètres -->
@@ -955,9 +955,12 @@
         <div id="staff-tab-staff">
             <div class="staff-manage-list" id="staff-manage-list"></div>
             <div class="staff-add-form">
-                <div class="staff-add-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                <div class="staff-add-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
                     <span>Ajouter un membre</span>
-                    <button id="btn-bulk-staff-names" title="Créer plusieurs profils depuis une liste de noms" style="background:var(--success-bg);border:1.5px solid var(--success);color:var(--success-text);font-size:11px;font-weight:600;padding:4px 10px;border-radius:var(--radius);cursor:pointer;font-family:var(--font)">＋ Import liste</button>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        <button id="btn-bulk-staff-rates" title="Importer les taux horaires depuis une liste prenom nom;taux" style="background:rgba(108,99,255,0.10);border:1.5px solid var(--accent);color:var(--accent);font-size:11px;font-weight:600;padding:4px 10px;border-radius:var(--radius);cursor:pointer;font-family:var(--font)">💶 Import taux</button>
+                        <button id="btn-bulk-staff-names" title="Créer plusieurs profils depuis une liste de noms" style="background:var(--success-bg);border:1.5px solid var(--success);color:var(--success-text);font-size:11px;font-weight:600;padding:4px 10px;border-radius:var(--radius);cursor:pointer;font-family:var(--font)">＋ Import liste</button>
+                    </div>
                 </div>
                 <div class="staff-add-fields">
                     <input type="text"  id="new-staff-name"  class="staff-input" placeholder="Pr&eacute;nom Nom">

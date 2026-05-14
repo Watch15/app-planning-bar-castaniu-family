@@ -430,6 +430,9 @@ async function init() {
 
     const btnBulkNames = document.getElementById('btn-bulk-staff-names');
     if (btnBulkNames) btnBulkNames.addEventListener('click', openBulkStaffNamesModal);
+
+    const btnBulkRates = document.getElementById('btn-bulk-staff-rates');
+    if (btnBulkRates) btnBulkRates.addEventListener('click', openBulkStaffRatesModal);
 }
 
 async function checkAuth() {
@@ -6016,6 +6019,130 @@ function openBulkStaffNamesModal() {
             btn.disabled = false;
             btn.textContent = 'Créer les profils';
         }
+    });
+}
+
+// ── Import taux horaires (CSV : prenom nom;taux) ─────────────────────────────
+
+function openBulkStaffRatesModal() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+    overlay.innerHTML = `
+        <div style="background:white;border-radius:14px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 0">
+                <span style="font-size:16px;font-weight:700;color:#1a1a2e">💶 Importer les taux horaires</span>
+                <button id="_br-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa;line-height:1">&times;</button>
+            </div>
+            <div style="padding:16px 20px">
+                <div style="background:#f0effe;border:1px solid #c5beff;border-radius:8px;padding:12px 14px;font-size:12px;color:#534AB7;margin-bottom:14px;line-height:1.6">
+                    Format : <strong>Prénom Nom;taux</strong> — une ligne par staff.<br>
+                    Le séparateur peut être <code style="background:#fff;padding:1px 4px;border-radius:3px">;</code> ou <code style="background:#fff;padding:1px 4px;border-radius:3px">,</code>. Le taux accepte le point ou la virgule (<code style="background:#fff;padding:1px 4px;border-radius:3px">12.50</code> ou <code style="background:#fff;padding:1px 4px;border-radius:3px">12,50</code>).<br>
+                    Les lignes sans taux sont ignorées. Insensible aux accents / casse.
+                </div>
+                <textarea id="_br-input" placeholder="Marie Dupont;12.50&#10;Jean Martin;11&#10;Sophie Leroy;13,75"
+                    style="width:100%;height:200px;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 12px;font-size:13px;font-family:monospace;resize:vertical;outline:none;box-sizing:border-box"></textarea>
+                <div id="_br-preview" style="margin-top:14px"></div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+                    <button id="_br-confirm" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer">Appliquer les taux</button>
+                </div>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#_br-close').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+    overlay.querySelector('#_br-confirm').addEventListener('click', async () => {
+        const raw   = overlay.querySelector('#_br-input').value;
+        const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+        if (!lines.length) { showToast('Saisis au moins une ligne', true); return; }
+
+        // Index des staff par nom normalisé
+        const byNormName = {};
+        allStaff.forEach(s => { byNormName[normalizeStr(s.name).trim()] = s; });
+
+        const updates = [];   // { staff, rate, name }
+        const skipped = [];   // { line, reason }
+
+        lines.forEach(line => {
+            // Accepter ; ou , comme séparateur principal (mais , peut aussi être un décimal)
+            // → on coupe sur le PREMIER ; ; si absent, sur la dernière virgule
+            let sep = line.indexOf(';');
+            let rawName, rawRate;
+            if (sep >= 0) {
+                rawName = line.slice(0, sep).trim();
+                rawRate = line.slice(sep + 1).trim();
+            } else {
+                const lastComma = line.lastIndexOf(',');
+                if (lastComma < 0) { skipped.push({ line, reason: 'pas de taux' }); return; }
+                rawName = line.slice(0, lastComma).trim();
+                rawRate = line.slice(lastComma + 1).trim();
+            }
+            if (!rawName)           { skipped.push({ line, reason: 'nom vide' });        return; }
+            if (!rawRate)           { skipped.push({ line, reason: 'pas de taux' });     return; }
+            const rate = parseFloat(rawRate.replace(',', '.'));
+            if (Number.isNaN(rate) || rate < 0) { skipped.push({ line, reason: 'taux invalide' }); return; }
+
+            const staff = byNormName[normalizeStr(rawName).trim()];
+            if (!staff) { skipped.push({ line, reason: 'staff introuvable' }); return; }
+            updates.push({ staff, rate, name: staff.name });
+        });
+
+        if (updates.length === 0) {
+            const prev = overlay.querySelector('#_br-preview');
+            prev.innerHTML = '<div style="background:#fff5f5;border:1px solid #f5c6c6;border-radius:8px;padding:10px 12px;font-size:11px;color:#c0392b">' +
+                '<strong>Aucune ligne exploitable.</strong><br>' +
+                skipped.map(s => s.line + ' — ' + s.reason).join('<br>') + '</div>';
+            return;
+        }
+
+        const btn = overlay.querySelector('#_br-confirm');
+        btn.disabled = true;
+        btn.textContent = 'Application…';
+
+        const applied = []; const failed = [];
+        for (const u of updates) {
+            try {
+                const res = await fetch('/api/staff/' + u.staff._id, {
+                    method: 'PATCH', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ hourly_rate: u.rate }),
+                });
+                if (!res.ok) throw new Error((await res.json()).error || 'Erreur');
+                u.staff.hourly_rate = u.rate;
+                applied.push(u);
+            } catch (e) {
+                failed.push({ name: u.name, reason: e.message });
+            }
+        }
+
+        // Rafraîchir la liste staff
+        renderStaffManageList();
+
+        const preview = overlay.querySelector('#_br-preview');
+        let html = '';
+        if (applied.length) {
+            html += '<div style="background:#f0fdf4;border:1.5px solid #27ae60;border-radius:10px;padding:12px;margin-bottom:8px;font-size:12px;color:#1a5e3c">' +
+                '<strong>✅ ' + applied.length + ' taux appliqué(s)</strong><br>' +
+                applied.map(u => u.name + ' → ' + u.rate.toFixed(2).replace('.', ',') + ' €/h').join('<br>') + '</div>';
+        }
+        if (skipped.length) {
+            html += '<div style="background:#fff9e6;border:1px solid #f0c040;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:11px;color:#7d6000">' +
+                '<strong>' + skipped.length + ' ligne(s) ignorée(s) :</strong><br>' +
+                skipped.map(s => s.line + ' — ' + s.reason).join('<br>') + '</div>';
+        }
+        if (failed.length) {
+            html += '<div style="background:#fff5f5;border:1px solid #f5c6c6;border-radius:8px;padding:10px 12px;font-size:11px;color:#c0392b">' +
+                '<strong>' + failed.length + ' erreur(s) :</strong><br>' +
+                failed.map(f => f.name + ' — ' + f.reason).join('<br>') + '</div>';
+        }
+        preview.innerHTML = html;
+        overlay.querySelector('#_br-input').value = '';
+        btn.textContent = 'Fermer';
+        btn.disabled = false;
+        btn.onclick = () => overlay.remove();
+
+        showToast(applied.length + ' taux mis à jour');
     });
 }
 
