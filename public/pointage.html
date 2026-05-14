@@ -269,6 +269,32 @@
         .session-banner-icon { font-size: 14px; }
 
         /* ── Footer total heures (PT-03) ── */
+        /* ── CA de la soirée ── */
+        .revenue-section {
+            background: var(--light-card); border: 1px solid var(--light-border); border-radius: 12px;
+            padding: 14px 16px; margin-top: 16px;
+        }
+        .revenue-title { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; }
+        .revenue-form { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
+        .revenue-input-wrap { position: relative; flex: 1; min-width: 140px; }
+        .revenue-input-wrap input {
+            width: 100%; padding: 9px 30px 9px 12px; border: 1.5px solid var(--light-border);
+            border-radius: 8px; font-size: 14px; font-family: var(--font); color: var(--text-primary); outline: none; background: var(--light-bg);
+            transition: border-color 0.15s;
+        }
+        .revenue-input-wrap input:focus { border-color: var(--accent); }
+        .revenue-currency { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--text-muted); pointer-events: none; }
+        .btn-save-revenue {
+            padding: 9px 18px; border-radius: 8px; border: none;
+            background: var(--accent); color: white; font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: background 0.15s; font-family: var(--font); white-space: nowrap;
+        }
+        .btn-save-revenue:hover:not(:disabled) { background: var(--accent-soft); }
+        .btn-save-revenue:disabled { opacity: 0.6; cursor: wait; }
+        .revenue-feedback { font-size: 12px; color: var(--success-text); margin-top: 8px; display: none; }
+        .revenue-feedback.error { color: var(--danger); display: block; }
+        .revenue-feedback.ok    { color: var(--success-text); display: block; }
+
         .total-footer {
             background: var(--light-card);
             border: 1px solid var(--light-border); border-radius: 14px;
@@ -401,6 +427,19 @@
             </div>
             <button class="btn-add-extra" id="btn-add-extra">Enregistrer le service</button>
         </div>
+    </div>
+
+    <!-- Chiffre d'affaires -->
+    <div class="revenue-section" id="revenue-section">
+        <div class="revenue-title">💶 CA de la soirée</div>
+        <div class="revenue-form">
+            <div class="revenue-input-wrap">
+                <input type="number" id="revenue-input" min="0" step="0.01" placeholder="0.00" autocomplete="off">
+                <span class="revenue-currency">€</span>
+            </div>
+            <button class="btn-save-revenue" id="btn-save-revenue">Enregistrer le CA</button>
+        </div>
+        <div class="revenue-feedback" id="revenue-feedback"></div>
     </div>
 </div>
 
@@ -604,12 +643,70 @@ async function init() {
                 currentEstabId  = sel.value;
                 document.getElementById('header-title').textContent = 'Pointage — ' + (chosen ? chosen.name : sel.value);
                 loadShifts();
+                loadRevenue();
             });
         }
     }
 
     await loadShifts();
     initExtraForm();
+    initRevenueForm();
+    await loadRevenue();
+}
+
+// ── CA de la soirée ───────────────────────────────────────────────────────────
+
+async function loadRevenue() {
+    if (!currentEstabId) return;
+    const input = document.getElementById('revenue-input');
+    const fb    = document.getElementById('revenue-feedback');
+    if (!input) return;
+    try {
+        const res  = await fetch('/api/revenue/' + encodeURIComponent(currentEstabId) + '/' + today, { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.revenue != null) {
+            input.value = data.revenue;
+            if (fb) { fb.className = 'revenue-feedback ok'; fb.textContent = '✅ CA déjà enregistré'; }
+        } else {
+            input.value = '';
+            if (fb) { fb.className = 'revenue-feedback'; fb.textContent = ''; }
+        }
+    } catch { /* silencieux */ }
+}
+
+function initRevenueForm() {
+    const btn   = document.getElementById('btn-save-revenue');
+    const input = document.getElementById('revenue-input');
+    const fb    = document.getElementById('revenue-feedback');
+    if (!btn || !input) return;
+    btn.addEventListener('click', async () => {
+        const v = parseFloat(input.value);
+        if (Number.isNaN(v) || v < 0) {
+            fb.className = 'revenue-feedback error'; fb.textContent = 'Montant invalide';
+            return;
+        }
+        btn.disabled = true;
+        const oldLabel = btn.textContent;
+        btn.textContent = 'Enregistrement…';
+        try {
+            const body = { date: today, revenue: v };
+            if (currentUser.role !== 'etablissement') body.establishment_id = currentEstabId;
+            const res = await fetch('/api/revenue', {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            fb.className = 'revenue-feedback ok'; fb.textContent = '✅ CA enregistré';
+        } catch (e) {
+            fb.className = 'revenue-feedback error'; fb.textContent = e.message || 'Erreur';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = oldLabel;
+        }
+    });
 }
 
 // ── Chargement des shifts ─────────────────────────────────────────────────────

@@ -818,6 +818,7 @@
             </div>
             -->
             <button class="btn-manage-staff" id="btn-recap" style="background:rgba(16,185,129,0.12);border-color:#10b981;color:#10b981">📊 Récap</button>
+            <a href="/performance.html" class="btn-manage-staff" id="btn-performance" style="background:rgba(108,99,255,0.12);border-color:#6C63FF;color:#6C63FF;text-decoration:none;display:inline-flex;align-items:center" title="Pilotage économique (CA + masse salariale)">📈 Performance</a>
             <a href="/pointage.html" class="btn-manage-staff" id="btn-pointage" style="background:rgba(245,158,11,0.12);border-color:#f59e0b;color:#f59e0b;text-decoration:none;display:inline-flex;align-items:center" title="Saisie heures réelles (pointage)">⏱ Pointage</a>
             <div class="header-sep"></div>
             <!-- Groupe 3 : toggle dispos + paramètres -->
@@ -1229,6 +1230,7 @@
     </button>
     -->
     <a class="drawer-btn drawer-btn-pointage" href="/pointage.html" onclick="closeMobileDrawer()">⏱ Pointage</a>
+    <a class="drawer-btn" href="/performance.html" onclick="closeMobileDrawer()">📈 Performance</a>
     <button class="drawer-btn" onclick="closeMobileDrawer();document.getElementById('btn-recap').click()">📊 Récap mensuel</button>
     <div class="drawer-section-label">Disponibilités</div>
     <div class="drawer-btn" id="drawer-dispo-row" style="justify-content:space-between;cursor:default">

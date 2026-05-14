@@ -117,6 +117,11 @@ async function connectDB() {
         await client.connect();
         db = client.db('gestion_bar');
         console.log('✅ Connecté à MongoDB Atlas');
+        // Index unique pour daily_revenue (un CA par établissement et par date)
+        db.collection('daily_revenue').createIndex(
+            { establishment_id: 1, date: 1 },
+            { unique: true }
+        ).catch(e => console.warn('⚠️ Index daily_revenue:', e.message));
         scheduleDailyAt10();
         cleanupOldJokers();
     } catch (e) {
@@ -1399,9 +1404,9 @@ app.post('/api/staff/bulk', checkDB, requirePatron, async (req, res) => {
 
 app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
-    const { color, name, email, venues, can_submit_dispos, groups, rest_days } = req.body;
-    if (!color && !name && email === undefined && venues === undefined && can_submit_dispos === undefined && req.body.roles === undefined && groups === undefined && req.body.name_color === undefined && rest_days === undefined && req.body.nickname === undefined)
-        return res.status(400).json({ error: 'color, name, email, venues, roles, groups, name_color, nickname, can_submit_dispos ou rest_days requis' });
+    const { color, name, email, venues, can_submit_dispos, groups, rest_days, hourly_rate } = req.body;
+    if (!color && !name && email === undefined && venues === undefined && can_submit_dispos === undefined && req.body.roles === undefined && groups === undefined && req.body.name_color === undefined && rest_days === undefined && req.body.nickname === undefined && hourly_rate === undefined)
+        return res.status(400).json({ error: 'color, name, email, venues, roles, groups, name_color, nickname, can_submit_dispos, hourly_rate ou rest_days requis' });
     try {
         const update = {};
         if (color)                             update.color             = color;
@@ -1414,6 +1419,14 @@ app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
         if (Array.isArray(rest_days))          update.rest_days         = rest_days.map(Number).filter(n => n >= 0 && n <= 6);
         if (req.body.name_color !== undefined) update.name_color        = req.body.name_color || null;
         if (req.body.nickname   !== undefined) update.nickname          = req.body.nickname   || null;
+        if (hourly_rate !== undefined) {
+            if (hourly_rate === null || hourly_rate === '') update.hourly_rate = null;
+            else {
+                const n = parseFloat(hourly_rate);
+                if (Number.isNaN(n) || n < 0) return res.status(400).json({ error: 'hourly_rate doit être un nombre positif' });
+                update.hourly_rate = n;
+            }
+        }
         const result = await db.collection('staff').updateOne(
             { _id: new ObjectId(req.params.id) }, { $set: update }
         );
@@ -2971,6 +2984,150 @@ app.get('/api/me/responsable-tonight', checkDB, requireAuth, async (req, res) =>
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Pilotage économique : CA + performance ───────────────────────────────────
+
+// POST CA d'une soirée (établissement, directeur, patron)
+app.post('/api/revenue', checkDB, requireAuth, async (req, res) => {
+    const user = req.session.user;
+    const { date, revenue } = req.body;
+    const establishment_id = user.role === 'etablissement' ? user.establishment_id : req.body.establishment_id;
+    if (!date || !establishment_id) return res.status(400).json({ error: 'date et establishment_id requis' });
+    const rev = parseFloat(revenue);
+    if (Number.isNaN(rev) || rev < 0) return res.status(400).json({ error: 'revenue doit être un nombre positif' });
+    if (user.role !== 'etablissement' && !canAccessEstablishment(user, establishment_id))
+        return res.status(403).json({ error: 'Accès refusé' });
+    try {
+        await db.collection('daily_revenue').updateOne(
+            { establishment_id, date },
+            {
+                $set:         { revenue: rev, created_by: String(user._id), updated_at: new Date() },
+                $setOnInsert: { establishment_id, date, created_at: new Date() },
+            },
+            { upsert: true }
+        );
+        res.json({ message: 'CA enregistré' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET le CA d'un établissement à une date (pour pré-remplir le champ)
+app.get('/api/revenue/:establishmentId/:date', checkDB, requireAuth, async (req, res) => {
+    const user = req.session.user;
+    const { establishmentId, date } = req.params;
+    if (user.role === 'etablissement' && user.establishment_id !== establishmentId)
+        return res.status(403).json({ error: 'Accès refusé' });
+    if (user.role !== 'etablissement' && !canAccessEstablishment(user, establishmentId))
+        return res.status(403).json({ error: 'Accès refusé' });
+    try {
+        const doc = await db.collection('daily_revenue').findOne({ establishment_id: establishmentId, date });
+        res.json({ revenue: doc ? doc.revenue : null });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET performance (CA + masse salariale + coeff) — patron/directeur
+app.get('/api/performance', checkDB, requirePatron, async (req, res) => {
+    const { establishment_id, from, to } = req.query;
+    if (!establishment_id) return res.status(400).json({ error: 'establishment_id requis' });
+    if (!canAccessEstablishment(req.session.user, establishment_id))
+        return res.status(403).json({ error: 'Accès refusé' });
+    try {
+        const revQuery = { establishment_id };
+        if (from || to) {
+            revQuery.date = {};
+            if (from) revQuery.date.$gte = from;
+            if (to)   revQuery.date.$lte = to;
+        }
+        const revenues = await db.collection('daily_revenue').find(revQuery).toArray();
+        if (revenues.length === 0) return res.json([]);
+
+        const dates = revenues.map(r => r.date);
+        const shifts = await db.collection('shifts').find({
+            establishment_id,
+            date: { $in: dates },
+            real_start: { $ne: null },
+            real_end:   { $ne: null },
+        }).toArray();
+
+        // Charger les staff pour fallback taux horaire si snapshot absent
+        const staffIds = [...new Set(shifts.map(s => s.staff_id).filter(id => id && id !== '__joker__' && isValidObjectId(id)))];
+        const staffDocs = staffIds.length
+            ? await db.collection('staff').find({ _id: { $in: staffIds.map(id => new ObjectId(id)) } }).toArray()
+            : [];
+        const staffMap = {};
+        staffDocs.forEach(s => { staffMap[String(s._id)] = s; });
+
+        // Grouper shifts par date
+        const shiftsByDate = {};
+        shifts.forEach(s => {
+            if (!shiftsByDate[s.date]) shiftsByDate[s.date] = [];
+            shiftsByDate[s.date].push(s);
+        });
+
+        const results = revenues.map(r => {
+            const dayShifts = shiftsByDate[r.date] || [];
+            let wage_bill_gross = 0;
+            const staff_detail = [];
+
+            dayShifts.forEach(s => {
+                const hours = (s.real_end - s.real_start);
+                const staffDoc = staffMap[String(s.staff_id)];
+                let rate = null;
+                if (s.hourly_rate_snapshot != null) rate = s.hourly_rate_snapshot;
+                else if (staffDoc && staffDoc.hourly_rate != null) rate = staffDoc.hourly_rate;
+                const wage = rate != null ? hours * rate : 0;
+                wage_bill_gross += wage;
+                staff_detail.push({
+                    staff_name:   s.staff_name || (staffDoc && staffDoc.name) || 'Inconnu',
+                    hours_worked: Math.round(hours * 100) / 100,
+                    hourly_rate:  rate,
+                    wage_gross:   Math.round(wage * 100) / 100,
+                });
+            });
+
+            const wage_bill_charged = wage_bill_gross * 1.45;
+            const coeff_gross   = r.revenue > 0 ? (wage_bill_gross   / r.revenue) * 100 : 0;
+            const coeff_charged = r.revenue > 0 ? (wage_bill_charged / r.revenue) * 100 : 0;
+
+            return {
+                date:              r.date,
+                revenue:           r.revenue,
+                wage_bill_gross:   Math.round(wage_bill_gross   * 100) / 100,
+                wage_bill_charged: Math.round(wage_bill_charged * 100) / 100,
+                coeff_gross:       Math.round(coeff_gross   * 10) / 10,
+                coeff_charged:     Math.round(coeff_charged * 10) / 10,
+                staff_detail,
+            };
+        }).sort((a, b) => a.date < b.date ? 1 : -1);
+
+        res.json(results);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET/PATCH objectifs performance (coefficient cible)
+app.get('/api/performance-settings', checkDB, requireAuth, async (req, res) => {
+    try {
+        const s = await db.collection('settings').findOne({ key: 'performance' }) || {};
+        res.json({
+            target_gross:   s.target_gross   ?? 30,
+            target_charged: s.target_charged ?? 43,
+        });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/performance-settings', checkDB, requirePatron, async (req, res) => {
+    const { target_gross, target_charged } = req.body;
+    const update = { key: 'performance' };
+    if (target_gross   != null) update.target_gross   = parseFloat(target_gross);
+    if (target_charged != null) update.target_charged = parseFloat(target_charged);
+    try {
+        await db.collection('settings').updateOne(
+            { key: 'performance' },
+            { $set: update },
+            { upsert: true }
+        );
+        res.json({ message: 'Objectifs mis à jour' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET/PATCH paramètres pointage (heure de bascule jour)
 app.get('/api/pointage-settings', checkDB, requireAuth, async (req, res) => {
     try {
@@ -3063,6 +3220,13 @@ app.patch('/api/shifts/:id/pointage', checkDB, requireAuth, async (req, res) => 
         const update = {};
         if (hasStart) update.real_start = real_start != null ? parseFloat(real_start) : null;
         if (hasEnd)   update.real_end   = real_end   != null ? parseFloat(real_end)   : null;
+
+        // Snapshot du taux horaire au premier pointage (si pas encore figé)
+        if (existing.hourly_rate_snapshot === undefined && existing.staff_id && existing.staff_id !== '__joker__' && isValidObjectId(existing.staff_id)) {
+            const staffDoc = await db.collection('staff').findOne({ _id: new ObjectId(existing.staff_id) });
+            update.hourly_rate_snapshot = (staffDoc && staffDoc.hourly_rate != null) ? staffDoc.hourly_rate : null;
+        }
+
         await db.collection('shifts').updateOne({ _id: new ObjectId(req.params.id) }, { $set: update });
         res.json({ message: 'Heures réelles enregistrées' });
     } catch (e) { res.status(500).json({ error: e.message }); }

@@ -5498,6 +5498,11 @@ function renderStaffManageList() {
                     '<input type="color" class="staff-manage-name-color" value="' + escapeHtml(staff.name_color || staff.color) + '" title="Couleur du nom">' +
                     '<button type="button" class="staff-name-color-reset" style="font-size:10px;color:#bbb;border:1px solid #e0e0e0;background:white;border-radius:4px;padding:2px 6px;cursor:pointer" title="Utiliser la couleur du shift">Reset</button>' +
                 '</div>' +
+                '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">' +
+                    '<span style="font-size:11px;color:#aaa">Taux horaire :</span>' +
+                    '<input type="number" step="0.01" min="0" class="staff-manage-hourly-rate" value="' + (staff.hourly_rate != null ? staff.hourly_rate : '') + '" placeholder="12.50" style="width:80px;padding:3px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-family:inherit">' +
+                    '<span style="font-size:11px;color:#aaa">€/h brut</span>' +
+                '</div>' +
                 '<div class="venue-pref-row">' + venueButtons + '</div>' +
                 '<div class="role-assign-section">' + rolesHTML + '</div>' +
                 groupChips +
@@ -5570,6 +5575,8 @@ function renderStaffManageList() {
             const newRoles      = Array.from(row.querySelectorAll('.role-assign-btn.active')).map(b => b.dataset.role);
             const newCanSubmit  = row.querySelector('.staff-can-submit').checked;
             const newGroups     = Array.from(row.querySelectorAll('.staff-group-btn.active')).map(b => b.dataset.group);
+            const rateRaw       = row.querySelector('.staff-manage-hourly-rate')?.value;
+            const newHourlyRate = (rateRaw === '' || rateRaw == null) ? null : parseFloat(rateRaw);
 
             if (!newName) { showToast('Le nom ne peut pas être vide', true); return; }
 
@@ -5581,7 +5588,7 @@ function renderStaffManageList() {
                     method:      'PATCH',
                     credentials: 'include',
                     headers:     { 'Content-Type': 'application/json' },
-                    body:        JSON.stringify({ name: newName, color: newColor, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups, name_color: effectiveNameColor, nickname: newNickname }),
+                    body:        JSON.stringify({ name: newName, color: newColor, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups, name_color: effectiveNameColor, nickname: newNickname, hourly_rate: newHourlyRate }),
                 });
                 if (!res.ok) throw new Error((await res.json()).error);
 
@@ -5593,6 +5600,7 @@ function renderStaffManageList() {
                 staff.can_submit_dispos = newCanSubmit;
                 staff.groups            = newGroups;
                 staff.name_color = effectiveNameColor;
+                staff.hourly_rate = newHourlyRate;
 
                 buildStaffDisplayNames();
 

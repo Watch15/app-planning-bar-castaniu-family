@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f0f1a">
+    <title>Performance — Templyo</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --dark-bg:      #0f0f1a;
+            --dark-surface: #1a1a2e;
+            --dark-border:  #2a2a42;
+            --accent:       #6C63FF;
+            --accent-soft:  #534AB7;
+            --accent-glow:  rgba(108,99,255,0.18);
+            --light-bg:     #f4f5f8;
+            --light-card:   #ffffff;
+            --light-border: #e8eaed;
+            --text-primary: #1a1a2e;
+            --text-secondary:#8892a4;
+            --text-muted:   #8892a4;
+            --success:      #10b981;
+            --success-bg:   #d1fae5;
+            --success-text: #065f46;
+            --warning:      #f59e0b;
+            --warning-bg:   #fef3c7;
+            --danger:       #ef4444;
+            --danger-bg:    #fee2e2;
+            --danger-text:  #991b1b;
+            --font: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--light-bg);
+            min-height: 100vh;
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .header {
+            background: var(--dark-bg); border-bottom: 1px solid var(--dark-border);
+            padding: 0 20px; height: 56px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 10;
+        }
+        .header-logo-tile {
+            width: 28px; height: 28px; background: var(--accent); border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 13px; font-weight: 700; flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(108,99,255,.35);
+        }
+        .header-title { font-size: 15px; font-weight: 700; color: #fff; }
+        .header-sub   { font-size: 11px; color: rgba(255,255,255,0.40); margin-top: 2px; }
+        .btn-back {
+            background: transparent; border: 1px solid rgba(255,255,255,0.20);
+            color: rgba(255,255,255,0.70); font-size: 12px; padding: 6px 12px;
+            border-radius: 8px; cursor: pointer; text-decoration: none;
+            font-family: var(--font); transition: all 0.15s;
+        }
+        .btn-back:hover { border-color: rgba(255,255,255,0.40); color: #fff; }
+        .btn-logout {
+            background: transparent; border: 1px solid rgba(239,68,68,0.45);
+            color: rgba(239,68,68,0.80); font-size: 12px; padding: 6px 12px;
+            border-radius: 8px; cursor: pointer; font-family: var(--font);
+        }
+        .btn-logout:hover { background: rgba(239,68,68,0.10); color: var(--danger); }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
+
+        /* ── Barre filtres ── */
+        .filters {
+            background: var(--light-card); border: 1px solid var(--light-border);
+            border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;
+            display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; }
+        .filter-label {
+            font-size: 10px; font-weight: 700; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: .5px;
+        }
+        .filter-select {
+            min-width: 180px; padding: 8px 12px;
+            border: 1.5px solid var(--light-border); border-radius: 8px;
+            font-size: 13px; font-family: var(--font); color: var(--text-primary);
+            background: var(--light-bg); outline: none; cursor: pointer;
+        }
+        .filter-select:focus { border-color: var(--accent); }
+
+        /* ── KPI cards ── */
+        .kpis {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px; margin-bottom: 16px;
+        }
+        .kpi-card {
+            background: var(--light-card); border: 1px solid var(--light-border);
+            border-radius: 12px; padding: 14px 16px;
+        }
+        .kpi-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; font-weight: 600; }
+        .kpi-value { font-size: 22px; font-weight: 700; color: var(--text-primary); }
+        .kpi-sub   { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+        /* ── Tableau ── */
+        .table-wrap {
+            background: var(--light-card); border: 1px solid var(--light-border);
+            border-radius: 12px; overflow: hidden; margin-bottom: 16px;
+        }
+        table.perf {
+            width: 100%; border-collapse: collapse; font-size: 13px;
+        }
+        table.perf th, table.perf td {
+            padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--light-border);
+        }
+        table.perf th {
+            background: var(--light-bg); font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .4px; color: var(--text-muted);
+        }
+        table.perf tbody tr.perf-row { cursor: pointer; transition: background 0.1s; }
+        table.perf tbody tr.perf-row:hover { background: #fafbfc; }
+        table.perf tr.perf-detail { background: #fafbfc; }
+        table.perf tr.perf-detail td { padding: 0; }
+        table.perf tfoot td {
+            background: var(--light-bg); font-weight: 700;
+            border-top: 2px solid var(--light-border); border-bottom: none;
+        }
+        .coeff-pill {
+            display: inline-block; padding: 3px 9px; border-radius: 20px;
+            font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+        }
+        .coeff-pill.ok  { background: var(--success-bg); color: var(--success-text); }
+        .coeff-pill.bad { background: var(--danger-bg);  color: var(--danger-text);  }
+        .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .date-cell { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+        .expand-icon { display: inline-block; transition: transform 0.15s; color: var(--text-muted); margin-right: 6px; }
+        .perf-row.expanded .expand-icon { transform: rotate(90deg); }
+
+        /* ── Détail staff ── */
+        .detail-wrap { padding: 12px 18px 16px 32px; }
+        .detail-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .detail-table th, .detail-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--light-border); }
+        .detail-table th { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; }
+        .detail-table tr:last-child td { border-bottom: none; }
+        .detail-table .total-row td { font-weight: 700; border-top: 1.5px solid var(--light-border); padding-top: 8px; }
+        .missing-rate { color: var(--warning-text); background: var(--warning-bg); padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+
+        /* ── Objectifs ── */
+        .targets {
+            background: var(--light-card); border: 1px solid var(--light-border);
+            border-radius: 12px; padding: 16px;
+        }
+        .targets-title { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
+        .targets-form { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+        .targets-form input {
+            width: 80px; padding: 8px 10px; border: 1.5px solid var(--light-border);
+            border-radius: 8px; font-size: 13px; font-family: var(--font); background: var(--light-bg);
+            color: var(--text-primary); outline: none;
+        }
+        .targets-form input:focus { border-color: var(--accent); }
+        .btn-save-targets {
+            padding: 8px 16px; background: var(--accent); color: white; border: none;
+            border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+            font-family: var(--font); transition: background 0.15s;
+        }
+        .btn-save-targets:hover:not(:disabled) { background: var(--accent-soft); }
+        .btn-save-targets:disabled { opacity: 0.6; cursor: wait; }
+
+        .empty-msg, .loading-msg {
+            padding: 40px 16px; text-align: center; color: var(--text-muted); font-size: 13px;
+        }
+
+        @media (max-width: 640px) {
+            .container { padding: 12px 10px 60px; }
+            table.perf { font-size: 12px; }
+            table.perf th, table.perf td { padding: 8px 6px; }
+            .filter-select { min-width: 140px; font-size: 12px; }
+            .header-title { font-size: 13px; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <div style="display:flex;align-items:center;gap:10px">
+        <div class="header-logo-tile">T</div>
+        <div>
+            <div class="header-title">Performance</div>
+            <div class="header-sub" id="header-sub">Pilotage économique</div>
+        </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+        <a href="/index.html" class="btn-back">← Dashboard</a>
+        <button class="btn-logout" onclick="logout()">⎋ Sortir</button>
+    </div>
+</header>
+
+<div class="container">
+    <!-- Filtres -->
+    <div class="filters">
+        <div class="filter-group" id="estab-filter-group">
+            <span class="filter-label">Établissement</span>
+            <select class="filter-select" id="estab-select"></select>
+        </div>
+        <div class="filter-group">
+            <span class="filter-label">Période</span>
+            <select class="filter-select" id="period-select">
+                <option value="all">Tout l'historique</option>
+                <option value="week">Cette semaine</option>
+                <option value="month">Ce mois</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- KPI ── -->
+    <div class="kpis" id="kpis"></div>
+
+    <!-- Tableau ── -->
+    <div class="table-wrap" id="table-wrap">
+        <div class="loading-msg">Chargement…</div>
+    </div>
+
+    <!-- Objectifs -->
+    <div class="targets">
+        <div class="targets-title">⚙️ Objectifs coefficient</div>
+        <div class="targets-form">
+            <div class="filter-group">
+                <span class="filter-label">Objectif brut</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                    <input type="number" min="0" max="100" step="0.1" id="target-gross"><span style="font-size:12px;color:var(--text-muted)">%</span>
+                </div>
+            </div>
+            <div class="filter-group">
+                <span class="filter-label">Objectif chargé</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                    <input type="number" min="0" max="100" step="0.1" id="target-charged"><span style="font-size:12px;color:var(--text-muted)">%</span>
+                </div>
+            </div>
+            <button class="btn-save-targets" id="btn-save-targets">Enregistrer</button>
+            <span id="targets-feedback" style="font-size:12px;color:var(--success-text);align-self:center"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Utilitaires ───────────────────────────────────────────────────────────────
+
+function toDateStr(d) {
+    return d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+}
+
+function getMondayOf(d) {
+    const r = new Date(d);
+    const day = r.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    r.setDate(r.getDate() + diff);
+    return r;
+}
+
+function escapeHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function fmtEUR(n) {
+    if (n == null || Number.isNaN(n)) return '—';
+    return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Math.round(n)) + ' €';
+}
+
+function fmtPct(n) {
+    if (n == null || Number.isNaN(n)) return '—';
+    return n.toFixed(1).replace('.', ',') + ' %';
+}
+
+function fmtHours(h) {
+    if (h == null) return '—';
+    const hh = Math.floor(h);
+    const mm = Math.round((h - hh) * 60);
+    return hh + 'h' + (mm > 0 ? String(mm).padStart(2, '0') : '00');
+}
+
+function parseDate(s) { return new Date(s + 'T12:00:00'); }
+
+function dateLabel(s) {
+    const d = parseDate(s);
+    const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+    const months = ['janv.', 'févr.', 'mars', 'avril', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    return days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()];
+}
+
+// ── État ──────────────────────────────────────────────────────────────────────
+
+let currentUser   = null;
+let allEstabs     = [];
+let currentEstab  = null;
+let targets       = { target_gross: 30, target_charged: 43 };
+let currentData   = [];
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+async function checkAuth() {
+    try {
+        const res = await fetch('/auth/me', { credentials: 'include' });
+        if (!res.ok) { window.location.href = '/login.html'; return null; }
+        const data = await res.json();
+        if (!['patron', 'directeur'].includes(data.user?.role)) {
+            window.location.href = '/index.html'; return null;
+        }
+        return data.user;
+    } catch { window.location.href = '/login.html'; return null; }
+}
+
+async function logout() {
+    await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+    window.location.href = '/login.html';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+async function init() {
+    currentUser = await checkAuth();
+    if (!currentUser) return;
+
+    // Charger établissements + objectifs en parallèle
+    const [estabRes, targetsRes] = await Promise.all([
+        fetch('/api/establishments', { credentials: 'include' }),
+        fetch('/api/performance-settings', { credentials: 'include' }),
+    ]);
+    if (!estabRes.ok) { document.getElementById('table-wrap').innerHTML = '<div class="empty-msg">Erreur chargement</div>'; return; }
+    allEstabs = await estabRes.json();
+
+    // Filtrer selon les établissements assignés (directeur)
+    if (currentUser.role === 'directeur') {
+        const assigned = currentUser.assigned_establishments || [];
+        allEstabs = allEstabs.filter(e => assigned.includes(e.id));
+    }
+
+    if (allEstabs.length === 0) {
+        document.getElementById('table-wrap').innerHTML = '<div class="empty-msg">Aucun établissement accessible</div>';
+        return;
+    }
+
+    if (targetsRes.ok) targets = await targetsRes.json();
+    document.getElementById('target-gross').value   = targets.target_gross;
+    document.getElementById('target-charged').value = targets.target_charged;
+
+    // Sélecteur établissement
+    const sel = document.getElementById('estab-select');
+    allEstabs.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.id; opt.textContent = e.name;
+        sel.appendChild(opt);
+    });
+    if (allEstabs.length === 1) document.getElementById('estab-filter-group').style.display = 'none';
+    currentEstab = allEstabs[0].id;
+    sel.value = currentEstab;
+    sel.addEventListener('change', () => { currentEstab = sel.value; loadData(); });
+
+    // Sélecteur période
+    document.getElementById('period-select').addEventListener('change', loadData);
+
+    // Sauvegarde objectifs
+    document.getElementById('btn-save-targets').addEventListener('click', saveTargets);
+
+    await loadData();
+}
+
+// ── Chargement données ──────────────────────────────────────────────────────────
+
+function _periodRange() {
+    const period = document.getElementById('period-select').value;
+    const today = new Date();
+    if (period === 'week') {
+        const monday = getMondayOf(today);
+        const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+        return { from: toDateStr(monday), to: toDateStr(sunday) };
+    }
+    if (period === 'month') {
+        const first = new Date(today.getFullYear(), today.getMonth(), 1);
+        const last  = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        return { from: toDateStr(first), to: toDateStr(last) };
+    }
+    return { from: null, to: null };
+}
+
+async function loadData() {
+    const wrap = document.getElementById('table-wrap');
+    wrap.innerHTML = '<div class="loading-msg">Chargement…</div>';
+    const kpis = document.getElementById('kpis'); kpis.innerHTML = '';
+
+    const { from, to } = _periodRange();
+    const params = new URLSearchParams({ establishment_id: currentEstab });
+    if (from) params.set('from', from);
+    if (to)   params.set('to', to);
+
+    try {
+        const res = await fetch('/api/performance?' + params.toString(), { credentials: 'include' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        currentData = data;
+        renderKpis(data);
+        renderTable(data);
+    } catch (e) {
+        wrap.innerHTML = '<div class="empty-msg" style="color:var(--danger)">' + escapeHtml(e.message || 'Erreur') + '</div>';
+    }
+}
+
+function renderKpis(data) {
+    const wrap = document.getElementById('kpis');
+    if (data.length === 0) { wrap.innerHTML = ''; return; }
+
+    const totalRevenue = data.reduce((a, r) => a + (r.revenue || 0), 0);
+    const totalWage    = data.reduce((a, r) => a + (r.wage_bill_gross || 0), 0);
+    const totalWageCh  = data.reduce((a, r) => a + (r.wage_bill_charged || 0), 0);
+    const coeffG = totalRevenue > 0 ? (totalWage   / totalRevenue) * 100 : 0;
+    const coeffC = totalRevenue > 0 ? (totalWageCh / totalRevenue) * 100 : 0;
+
+    wrap.innerHTML =
+        '<div class="kpi-card"><div class="kpi-label">CA total</div><div class="kpi-value num">' + fmtEUR(totalRevenue) + '</div><div class="kpi-sub">' + data.length + ' soirée' + (data.length > 1 ? 's' : '') + '</div></div>' +
+        '<div class="kpi-card"><div class="kpi-label">Masse sal. brute</div><div class="kpi-value num">' + fmtEUR(totalWage) + '</div><div class="kpi-sub">Coeff. ' + fmtPct(coeffG) + '</div></div>' +
+        '<div class="kpi-card"><div class="kpi-label">Masse sal. chargée</div><div class="kpi-value num">' + fmtEUR(totalWageCh) + '</div><div class="kpi-sub">Coeff. ' + fmtPct(coeffC) + '</div></div>';
+}
+
+function renderTable(data) {
+    const wrap = document.getElementById('table-wrap');
+    if (data.length === 0) {
+        wrap.innerHTML = '<div class="empty-msg">Aucune soirée avec CA saisi sur cette période</div>';
+        return;
+    }
+
+    let totalRevenue = 0, totalWage = 0, totalWageCh = 0;
+    const rows = data.map((r, idx) => {
+        totalRevenue += r.revenue || 0;
+        totalWage    += r.wage_bill_gross || 0;
+        totalWageCh  += r.wage_bill_charged || 0;
+        const okG = r.coeff_gross   < targets.target_gross;
+        const okC = r.coeff_charged < targets.target_charged;
+        return (
+            '<tr class="perf-row" data-idx="' + idx + '">' +
+                '<td class="date-cell"><span class="expand-icon">▸</span>' + dateLabel(r.date) + '</td>' +
+                '<td class="num">' + fmtEUR(r.revenue) + '</td>' +
+                '<td class="num">' + fmtEUR(r.wage_bill_gross) + '</td>' +
+                '<td><span class="coeff-pill ' + (okG ? 'ok' : 'bad') + '">' + fmtPct(r.coeff_gross) + '</span></td>' +
+                '<td class="num">' + fmtEUR(r.wage_bill_charged) + '</td>' +
+                '<td><span class="coeff-pill ' + (okC ? 'ok' : 'bad') + '">' + fmtPct(r.coeff_charged) + '</span></td>' +
+            '</tr>' +
+            '<tr class="perf-detail" data-detail-for="' + idx + '" style="display:none"><td colspan="6"></td></tr>'
+        );
+    }).join('');
+
+    const totalCoeffG = totalRevenue > 0 ? (totalWage   / totalRevenue) * 100 : 0;
+    const totalCoeffC = totalRevenue > 0 ? (totalWageCh / totalRevenue) * 100 : 0;
+    const okTG = totalCoeffG < targets.target_gross;
+    const okTC = totalCoeffC < targets.target_charged;
+
+    wrap.innerHTML =
+        '<table class="perf">' +
+            '<thead><tr>' +
+                '<th>Date</th>' +
+                '<th>CA</th>' +
+                '<th>Masse sal. brute</th>' +
+                '<th>Coeff. brut</th>' +
+                '<th>Masse sal. chargée</th>' +
+                '<th>Coeff. chargé</th>' +
+            '</tr></thead>' +
+            '<tbody>' + rows + '</tbody>' +
+            '<tfoot><tr>' +
+                '<td>Total période</td>' +
+                '<td class="num">' + fmtEUR(totalRevenue) + '</td>' +
+                '<td class="num">' + fmtEUR(totalWage) + '</td>' +
+                '<td><span class="coeff-pill ' + (okTG ? 'ok' : 'bad') + '">' + fmtPct(totalCoeffG) + '</span></td>' +
+                '<td class="num">' + fmtEUR(totalWageCh) + '</td>' +
+                '<td><span class="coeff-pill ' + (okTC ? 'ok' : 'bad') + '">' + fmtPct(totalCoeffC) + '</span></td>' +
+            '</tr></tfoot>' +
+        '</table>';
+
+    // Lignes cliquables → toggle détail
+    wrap.querySelectorAll('.perf-row').forEach(row => {
+        row.addEventListener('click', () => {
+            const idx = row.dataset.idx;
+            const detail = wrap.querySelector('tr.perf-detail[data-detail-for="' + idx + '"]');
+            if (!detail) return;
+            const wasOpen = detail.style.display !== 'none';
+            // Fermer les autres
+            wrap.querySelectorAll('.perf-detail').forEach(t => t.style.display = 'none');
+            wrap.querySelectorAll('.perf-row').forEach(r => r.classList.remove('expanded'));
+            if (!wasOpen) {
+                detail.style.display = '';
+                row.classList.add('expanded');
+                renderDetail(detail.querySelector('td'), currentData[idx].staff_detail, currentData[idx].wage_bill_gross);
+            }
+        });
+    });
+}
+
+function renderDetail(td, staff, totalWage) {
+    if (!staff || staff.length === 0) {
+        td.innerHTML = '<div class="detail-wrap" style="color:var(--text-muted)">Aucun shift pointé ce soir-là</div>';
+        return;
+    }
+    const rows = staff.map(s => {
+        const rateLabel = s.hourly_rate == null
+            ? '<span class="missing-rate">⚠️ Taux manquant</span>'
+            : (s.hourly_rate.toFixed(2).replace('.', ',') + ' €/h');
+        return (
+            '<tr>' +
+                '<td>' + escapeHtml(s.staff_name) + '</td>' +
+                '<td class="num">' + fmtHours(s.hours_worked) + '</td>' +
+                '<td class="num">' + rateLabel + '</td>' +
+                '<td class="num">' + (s.hourly_rate == null ? '—' : fmtEUR(s.wage_gross)) + '</td>' +
+            '</tr>'
+        );
+    }).join('');
+
+    td.innerHTML =
+        '<div class="detail-wrap">' +
+            '<table class="detail-table">' +
+                '<thead><tr><th>Staff</th><th>Heures</th><th>Taux</th><th>Salaire brut</th></tr></thead>' +
+                '<tbody>' + rows +
+                    '<tr class="total-row"><td colspan="3">Total</td><td class="num">' + fmtEUR(totalWage) + '</td></tr>' +
+                '</tbody>' +
+            '</table>' +
+        '</div>';
+}
+
+// ── Objectifs ─────────────────────────────────────────────────────────────────
+
+async function saveTargets() {
+    const btn = document.getElementById('btn-save-targets');
+    const fb  = document.getElementById('targets-feedback');
+    const tg  = parseFloat(document.getElementById('target-gross').value);
+    const tc  = parseFloat(document.getElementById('target-charged').value);
+    if (Number.isNaN(tg) || Number.isNaN(tc)) {
+        fb.style.color = 'var(--danger)'; fb.textContent = 'Valeurs invalides';
+        return;
+    }
+    btn.disabled = true;
+    try {
+        const res = await fetch('/api/performance-settings', {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_gross: tg, target_charged: tc }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error);
+        targets = { target_gross: tg, target_charged: tc };
+        fb.style.color = 'var(--success-text)';
+        fb.textContent = '✅ Objectifs enregistrés';
+        setTimeout(() => { fb.textContent = ''; }, 2500);
+        // Rerender pour appliquer les nouveaux seuils
+        renderTable(currentData);
+        renderKpis(currentData);
+    } catch (e) {
+        fb.style.color = 'var(--danger)'; fb.textContent = e.message || 'Erreur';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>
