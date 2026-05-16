@@ -320,10 +320,6 @@ async function init() {
     if (disposTabNotes)    disposTabNotes.addEventListener('click', () => switchDisposTab('notes'));
     if (disposTabReassign) disposTabReassign.addEventListener('click', () => switchDisposTab('reassign'));
     if (disposTabReminder) disposTabReminder.addEventListener('click', () => switchDisposTab('reminder'));
-    const reminderPrev = document.getElementById('reminder-week-prev');
-    const reminderNext = document.getElementById('reminder-week-next');
-    if (reminderPrev) reminderPrev.addEventListener('click', () => { _reminderWeekStart = addDays(_reminderWeekStart, -7); loadReminderTab(); });
-    if (reminderNext) reminderNext.addEventListener('click', () => { _reminderWeekStart = addDays(_reminderWeekStart, 7); loadReminderTab(); });
     const staffNotesPrev = document.getElementById('staff-notes-prev');
     if (staffNotesPrev) staffNotesPrev.addEventListener('click', () => {
         if (!staffNotesWeekStart) return;
@@ -4434,29 +4430,36 @@ async function _ignoreNonAffectee(dispoId, row, card) {
     }
 }
 
-let _reminderWeekStart = null;
-
-function _reminderDateRange() {
-    if (!_reminderWeekStart) _reminderWeekStart = getMondayOf(addDays(new Date(), 7));
-    const from = toDateStr(_reminderWeekStart);
-    const to   = toDateStr(addDays(_reminderWeekStart, 6));
-    return { from, to };
+async function _isWeekPublished(weekStartStr) {
+    const res = await fetch('/api/publish/' + weekStartStr, { credentials: 'include' });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return !!(data.published || data.auto);
 }
 
-function _renderReminderWeekLabel() {
+// Détermine la semaine pertinente : semaine suivante si publiée, sinon semaine en cours
+async function _reminderResolveWeek() {
+    const nextMonday = getMondayOf(addDays(new Date(), 7));
+    const nextStr    = toDateStr(nextMonday);
+    const published  = await _isWeekPublished(nextStr);
+    return published ? nextMonday : getMondayOf(new Date());
+}
+
+function _renderReminderWeekLabel(weekStart) {
     const label = document.getElementById('reminder-week-label');
-    if (!label || !_reminderWeekStart) return;
+    if (!label || !weekStart) return;
     const MONTHS = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'];
-    const end = addDays(_reminderWeekStart, 6);
-    const startStr = _reminderWeekStart.getDate() + ' ' + MONTHS[_reminderWeekStart.getMonth()];
+    const end = addDays(weekStart, 6);
+    const startStr = weekStart.getDate() + ' ' + MONTHS[weekStart.getMonth()];
     const endStr   = end.getDate() + ' ' + MONTHS[end.getMonth()] + ' ' + end.getFullYear();
-    label.textContent = startStr + ' – ' + endStr;
+    label.textContent = 'Semaine du ' + startStr + ' au ' + endStr;
 }
 
 async function loadReminderBadge() {
-    if (!_reminderWeekStart) _reminderWeekStart = getMondayOf(new Date());
-    const { from, to } = _reminderDateRange();
     try {
+        const weekStart = await _reminderResolveWeek();
+        const from = toDateStr(weekStart);
+        const to   = toDateStr(addDays(weekStart, 6));
         const res = await fetch('/api/dispos/sans-dispo?from=' + from + '&to=' + to, { credentials: 'include' });
         if (!res.ok) return;
         const data = await res.json();
@@ -4467,32 +4470,15 @@ async function loadReminderBadge() {
     } catch { }
 }
 
-async function _isWeekPublished(weekStartStr) {
-    const res = await fetch('/api/publish/' + weekStartStr, { credentials: 'include' });
-    if (!res.ok) return false;
-    const data = await res.json();
-    return !!(data.published || data.auto);
-}
-
 async function loadReminderTab() {
-    if (!_reminderWeekStart) _reminderWeekStart = getMondayOf(new Date());
-    _renderReminderWeekLabel();
     const list = document.getElementById('dispos-reminder-list');
     if (!list) return;
     list.innerHTML = '<div style="padding:16px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
-    const { from, to } = _reminderDateRange();
     try {
-        // Vérifier si la semaine est publiée (semaine courante = auto-publiée)
-        const currentMonday = toDateStr(getMondayOf(new Date()));
-        if (from > currentMonday) {
-            const published = await _isWeekPublished(from);
-            if (!published) {
-                list.innerHTML = '<div style="padding:32px;text-align:center;color:#aaa;font-size:13px">📅 Planning non publié pour cette semaine — aucun rappel à envoyer</div>';
-                const badge = document.getElementById('reminder-tab-badge');
-                if (badge) badge.style.display = 'none';
-                return;
-            }
-        }
+        const weekStart = await _reminderResolveWeek();
+        _renderReminderWeekLabel(weekStart);
+        const from = toDateStr(weekStart);
+        const to   = toDateStr(addDays(weekStart, 6));
         const res = await fetch('/api/dispos/sans-dispo?from=' + from + '&to=' + to, { credentials: 'include' });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
