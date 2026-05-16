@@ -4556,12 +4556,9 @@ async function _isWeekPublished(weekStartStr) {
     return !!(data.published || data.auto);
 }
 
-// Lundi→dim en cours ; autres jours→sem suivante.
-// Le lundi (service dom soir finissant lun matin), la semaine vient de commencer.
+// Même logique que _disposWeekStart côté serveur : semaine suivante.
 function _reminderResolveWeek() {
-    const today = new Date();
-    if (today.getDay() === 1) return getMondayOf(today);
-    return getMondayOf(addDays(today, 7));
+    return getMondayOf(addDays(new Date(), 7));
 }
 
 function _renderReminderWeekLabel(weekStart) {
