@@ -2203,6 +2203,33 @@ app.get('/api/dispos/non-affectees', checkDB, requirePatron, async (req, res) =>
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Staff actifs sans dispo soumise pour une période donnée
+app.get('/api/dispos/sans-dispo', checkDB, requirePatron, async (req, res) => {
+    const { establishment_id, from, to } = req.query;
+    if (!from || !to) return res.status(400).json({ error: 'from et to requis' });
+    try {
+        const staffQuery = { can_submit_dispos: true };
+        if (establishment_id) staffQuery.venues = establishment_id;
+        const allStaff = await db.collection('staff').find(staffQuery, {
+            projection: { name: 1, color: 1, phone: 1 }
+        }).toArray();
+        if (allStaff.length === 0) return res.json([]);
+
+        const staffIds = allStaff.map(s => String(s._id));
+        const dispos = await db.collection('availabilities').find({
+            staff_id: { $in: staffIds },
+            date: { $gte: from, $lte: to },
+            type: { $ne: 'week_note' },
+        }, { projection: { staff_id: 1 } }).toArray();
+
+        const withDispo = new Set(dispos.map(d => d.staff_id));
+        const result = allStaff
+            .filter(s => !withDispo.has(String(s._id)))
+            .map(s => ({ id: String(s._id), name: s.name, color: s.color || '#888', phone: s.phone || '' }));
+        res.json(result);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.patch('/api/dispos/:id/confirm', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { establishment_id, create_shift } = req.body;

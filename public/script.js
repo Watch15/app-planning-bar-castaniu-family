@@ -315,9 +315,15 @@ async function init() {
     const disposTabList     = document.getElementById('dispos-tab-btn-list');
     const disposTabNotes    = document.getElementById('dispos-tab-btn-notes');
     const disposTabReassign = document.getElementById('dispos-tab-btn-reassign');
+    const disposTabReminder = document.getElementById('dispos-tab-btn-reminder');
     if (disposTabList)     disposTabList.addEventListener('click', () => switchDisposTab('list'));
     if (disposTabNotes)    disposTabNotes.addEventListener('click', () => switchDisposTab('notes'));
     if (disposTabReassign) disposTabReassign.addEventListener('click', () => switchDisposTab('reassign'));
+    if (disposTabReminder) disposTabReminder.addEventListener('click', () => switchDisposTab('reminder'));
+    const reminderPrev = document.getElementById('reminder-week-prev');
+    const reminderNext = document.getElementById('reminder-week-next');
+    if (reminderPrev) reminderPrev.addEventListener('click', () => { _reminderWeekStart = addDays(_reminderWeekStart, -7); loadReminderTab(); });
+    if (reminderNext) reminderNext.addEventListener('click', () => { _reminderWeekStart = addDays(_reminderWeekStart, 7); loadReminderTab(); });
     const staffNotesPrev = document.getElementById('staff-notes-prev');
     if (staffNotesPrev) staffNotesPrev.addEventListener('click', () => {
         if (!staffNotesWeekStart) return;
@@ -4428,19 +4434,124 @@ async function _ignoreNonAffectee(dispoId, row, card) {
     }
 }
 
+let _reminderWeekStart = null;
+
+function _reminderDateRange() {
+    if (!_reminderWeekStart) _reminderWeekStart = getMondayOf(addDays(new Date(), 7));
+    const from = toDateStr(_reminderWeekStart);
+    const to   = toDateStr(addDays(_reminderWeekStart, 6));
+    return { from, to };
+}
+
+function _renderReminderWeekLabel() {
+    const label = document.getElementById('reminder-week-label');
+    if (!label || !_reminderWeekStart) return;
+    const MONTHS = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'];
+    const end = addDays(_reminderWeekStart, 6);
+    const startStr = _reminderWeekStart.getDate() + ' ' + MONTHS[_reminderWeekStart.getMonth()];
+    const endStr   = end.getDate() + ' ' + MONTHS[end.getMonth()] + ' ' + end.getFullYear();
+    label.textContent = startStr + ' – ' + endStr;
+}
+
+async function loadReminderBadge() {
+    if (!_reminderWeekStart) _reminderWeekStart = getMondayOf(addDays(new Date(), 7));
+    const { from, to } = _reminderDateRange();
+    try {
+        const res = await fetch('/api/dispos/sans-dispo?from=' + from + '&to=' + to, { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const badge = document.getElementById('reminder-tab-badge');
+        if (!badge) return;
+        badge.textContent   = data.length;
+        badge.style.display = data.length > 0 ? 'inline-flex' : 'none';
+    } catch { }
+}
+
+async function loadReminderTab() {
+    if (!_reminderWeekStart) _reminderWeekStart = getMondayOf(addDays(new Date(), 7));
+    _renderReminderWeekLabel();
+    const list = document.getElementById('dispos-reminder-list');
+    if (!list) return;
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
+    const { from, to } = _reminderDateRange();
+    try {
+        const res = await fetch('/api/dispos/sans-dispo?from=' + from + '&to=' + to, { credentials: 'include' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        const badge = document.getElementById('reminder-tab-badge');
+        if (badge) { badge.textContent = data.length; badge.style.display = data.length > 0 ? 'inline-flex' : 'none'; }
+
+        if (data.length === 0) {
+            list.innerHTML = '<div style="padding:32px;text-align:center;color:#aaa;font-size:13px">✅ Tout le monde a envoyé ses dispos pour cette semaine</div>';
+            return;
+        }
+
+        list.innerHTML = '';
+        // Compteur
+        const counter = document.createElement('div');
+        counter.style.cssText = 'padding:8px 16px;font-size:12px;color:var(--text-secondary);border-bottom:1px solid var(--light-border)';
+        counter.textContent = data.length + ' personne' + (data.length > 1 ? 's' : '') + ' sans disponibilité';
+        list.appendChild(counter);
+
+        // Une ligne par staff
+        const _reminderChecked = {};
+        data.forEach(staff => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--light-border)';
+
+            const dot = '<span style="width:10px;height:10px;border-radius:50%;background:' + escapeHtml(staff.color) + ';flex-shrink:0;display:inline-block"></span>';
+            const name = '<span style="flex:1;font-size:13px;font-weight:600;color:var(--text-primary)">' + escapeHtml(staff.name) + '</span>';
+
+            let phoneHtml = '';
+            if (staff.phone) {
+                phoneHtml =
+                    '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap">' + escapeHtml(staff.phone) + '</span>' +
+                    '<button title="Copier" style="background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--text-secondary);font-size:14px;flex-shrink:0" ' +
+                    'onclick="navigator.clipboard.writeText(\'' + escapeHtml(staff.phone).replace(/'/g, "\\'") + '\').then(()=>showToast(\'Copié\'))">📋</button>';
+            } else {
+                phoneHtml = '<span style="font-size:11px;color:#ccc;font-style:italic">pas de tél.</span>';
+            }
+
+            const cbId = 'reminder-cb-' + staff.id;
+            const cbHtml =
+                '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap;flex-shrink:0">' +
+                '<input type="checkbox" id="' + cbId + '" style="width:15px;height:15px;accent-color:var(--success);cursor:pointer">' +
+                '<span style="font-size:11px;color:var(--text-secondary)">rappelé</span></label>';
+
+            row.innerHTML = dot + name + phoneHtml + cbHtml;
+
+            // Barrer le nom quand coché
+            row.querySelector('#' + cbId).addEventListener('change', function() {
+                const nameEl = row.querySelector('span[style*="font-weight:600"]');
+                if (nameEl) nameEl.style.textDecoration = this.checked ? 'line-through' : '';
+                row.style.opacity = this.checked ? '0.45' : '1';
+            });
+
+            list.appendChild(row);
+        });
+    } catch (e) {
+        list.innerHTML = '<div style="padding:16px;text-align:center;color:#e74c3c;font-size:13px">' + escapeHtml(e.message || 'Erreur') + '</div>';
+    }
+}
+
 function switchDisposTab(tab) {
     const isNotes    = tab === 'notes';
     const isReassign = tab === 'reassign';
-    const isList     = !isNotes && !isReassign;
+    const isReminder = tab === 'reminder';
+    const isList     = !isNotes && !isReassign && !isReminder;
 
     document.getElementById('dispos-tab-list').style.display  = isList ? '' : 'none';
     document.getElementById('dispos-tab-notes').style.display = isNotes ? '' : 'none';
     const tabReassign = document.getElementById('dispos-tab-reassign');
     if (tabReassign) tabReassign.style.display = isReassign ? '' : 'none';
+    const tabReminder = document.getElementById('dispos-tab-reminder');
+    if (tabReminder) tabReminder.style.display = isReminder ? '' : 'none';
 
     const btnList     = document.getElementById('dispos-tab-btn-list');
     const btnNotes    = document.getElementById('dispos-tab-btn-notes');
     const btnReassign = document.getElementById('dispos-tab-btn-reassign');
+    const btnReminder = document.getElementById('dispos-tab-btn-reminder');
     if (btnList) {
         btnList.style.borderBottomColor = isList ? 'var(--accent)' : 'transparent';
         btnList.style.color             = isList ? 'var(--accent)' : 'var(--text-secondary)';
@@ -4456,6 +4567,11 @@ function switchDisposTab(tab) {
         btnReassign.style.color             = isReassign ? 'var(--accent)' : 'var(--text-secondary)';
         btnReassign.style.fontWeight        = isReassign ? '600' : '500';
     }
+    if (btnReminder) {
+        btnReminder.style.borderBottomColor = isReminder ? 'var(--accent)' : 'transparent';
+        btnReminder.style.color             = isReminder ? 'var(--accent)' : 'var(--text-secondary)';
+        btnReminder.style.fontWeight        = isReminder ? '600' : '500';
+    }
     if (isNotes) {
         staffNotesWeekStart = getMondayOf(addDays(new Date(), 7));
         const srch = document.getElementById('staff-notes-search');
@@ -4464,6 +4580,7 @@ function switchDisposTab(tab) {
         loadStaffNotesList(toDateStr(staffNotesWeekStart));
     }
     if (isReassign) loadNonAffectees();
+    if (isReminder) loadReminderTab();
 }
 
 async function openDisposPanel() {
@@ -4473,6 +4590,7 @@ async function openDisposPanel() {
     modal.style.display = 'flex';
     await loadDisposList();
     loadReassignBadge();
+    loadReminderBadge();
 }
 
 async function sendRappelDispos() {
