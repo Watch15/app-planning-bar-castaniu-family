@@ -2208,8 +2208,21 @@ app.get('/api/dispos/sans-dispo', checkDB, requirePatron, async (req, res) => {
     const { establishment_id, from, to } = req.query;
     if (!from || !to) return res.status(400).json({ error: 'from et to requis' });
     try {
-        const staffQuery = { can_submit_dispos: true };
+        // Uniquement les comptes staff avec login actif (mot de passe défini)
+        const activeUsers = await db.collection('users').find(
+            { role: 'staff', active: true, staff_id: { $ne: null } },
+            { projection: { staff_id: 1 } }
+        ).toArray();
+        const activeStaffIds = activeUsers.map(u => u.staff_id).filter(Boolean);
+        if (activeStaffIds.length === 0) return res.json([]);
+
+        const validActiveIds = activeStaffIds.filter(id => isValidObjectId(id));
+        const staffQuery = {
+            _id: { $in: validActiveIds.map(id => new ObjectId(id)) },
+            can_submit_dispos: true,
+        };
         if (establishment_id) staffQuery.venues = establishment_id;
+
         const allStaff = await db.collection('staff').find(staffQuery, {
             projection: { name: 1, color: 1, phone: 1 }
         }).toArray();
