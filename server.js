@@ -2186,8 +2186,7 @@ app.get('/api/dispos/non-affectees', checkDB, requirePatron, async (req, res) =>
         for (const dispo of dispos) {
             const hasShift = existingShifts.some(s =>
                 s.staff_id === dispo.staff_id &&
-                s.date     === dispo.date &&
-                s.establishment_id === dispo.establishment_id
+                s.date     === dispo.date
             );
             if (!hasShift) {
                 const staffDoc = staffMap[dispo.staff_id] || {};
