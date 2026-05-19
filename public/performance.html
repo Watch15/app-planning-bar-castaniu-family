@@ -365,7 +365,7 @@
     </div>
 
     <div class="targets">
-        <div class="targets-title">⚙️ Objectifs coefficient</div>
+        <div class="targets-title">⚙️ Paramètres</div>
         <div class="targets-form">
             <div class="filter-group">
                 <span class="filter-label">Objectif brut</span>
@@ -377,6 +377,12 @@
                 <span class="filter-label">Objectif chargé</span>
                 <div style="display:flex;align-items:center;gap:6px">
                     <input type="number" min="0" max="100" step="0.1" id="target-charged"><span style="font-size:12px;color:var(--text-muted)">%</span>
+                </div>
+            </div>
+            <div class="filter-group">
+                <span class="filter-label">Taux de charges</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                    <input type="number" min="0" max="200" step="0.1" id="charge-rate" title="Taux de charges patronales appliqué sur la masse salariale brute (ex : 45 = ×1,45)"><span style="font-size:12px;color:var(--text-muted)">%</span>
                 </div>
             </div>
             <button class="btn-save-targets" id="btn-save-targets">Enregistrer</button>
@@ -441,7 +447,7 @@ function dateLabel(s) {
 let currentUser   = null;
 let allEstabs     = [];
 let currentEstab  = null;
-let targets       = { target_gross: 30, target_charged: 43 };
+let targets       = { target_gross: 30, target_charged: 43, charge_rate: 45 };
 let currentData   = [];
 let calendarWeekStart = null; // Lundi de la semaine affichée dans le calendrier
 
@@ -492,6 +498,7 @@ async function init() {
     if (targetsRes.ok) targets = await targetsRes.json();
     document.getElementById('target-gross').value   = targets.target_gross;
     document.getElementById('target-charged').value = targets.target_charged;
+    document.getElementById('charge-rate').value    = targets.charge_rate ?? 45;
 
     // Sélecteur établissement
     const sel = document.getElementById('estab-select');
@@ -836,7 +843,8 @@ async function saveTargets() {
     const fb  = document.getElementById('targets-feedback');
     const tg  = parseFloat(document.getElementById('target-gross').value);
     const tc  = parseFloat(document.getElementById('target-charged').value);
-    if (Number.isNaN(tg) || Number.isNaN(tc)) {
+    const cr  = parseFloat(document.getElementById('charge-rate').value);
+    if (Number.isNaN(tg) || Number.isNaN(tc) || Number.isNaN(cr)) {
         fb.style.color = 'var(--danger)'; fb.textContent = 'Valeurs invalides';
         return;
     }
@@ -845,12 +853,12 @@ async function saveTargets() {
         const res = await fetch('/api/performance-settings', {
             method: 'PATCH', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target_gross: tg, target_charged: tc }),
+            body: JSON.stringify({ target_gross: tg, target_charged: tc, charge_rate: cr }),
         });
         if (!res.ok) throw new Error((await res.json()).error);
-        targets = { target_gross: tg, target_charged: tc };
+        targets = { target_gross: tg, target_charged: tc, charge_rate: cr };
         fb.style.color = 'var(--success-text)';
-        fb.textContent = '✅ Objectifs enregistrés';
+        fb.textContent = '✅ Paramètres enregistrés';
         setTimeout(() => { fb.textContent = ''; }, 2500);
         // Rerender pour appliquer les nouveaux seuils
         renderTable(currentData);

@@ -3064,6 +3064,9 @@ app.get('/api/performance', checkDB, requirePatron, async (req, res) => {
         const revenues = await db.collection('daily_revenue').find(revQuery).toArray();
         if (revenues.length === 0) return res.json([]);
 
+        const perfSettings = await db.collection('settings').findOne({ key: 'performance' }) || {};
+        const chargeMultiplier = 1 + ((perfSettings.charge_rate ?? 45) / 100);
+
         const dates = revenues.map(r => r.date);
         const shifts = await db.collection('shifts').find({
             establishment_id,
@@ -3108,7 +3111,7 @@ app.get('/api/performance', checkDB, requirePatron, async (req, res) => {
                 });
             });
 
-            const wage_bill_charged = wage_bill_gross * 1.45;
+            const wage_bill_charged = wage_bill_gross * chargeMultiplier;
             const coeff_gross   = r.revenue > 0 ? (wage_bill_gross   / r.revenue) * 100 : 0;
             const coeff_charged = r.revenue > 0 ? (wage_bill_charged / r.revenue) * 100 : 0;
 
@@ -3134,22 +3137,24 @@ app.get('/api/performance-settings', checkDB, requireAuth, async (req, res) => {
         res.json({
             target_gross:   s.target_gross   ?? 30,
             target_charged: s.target_charged ?? 43,
+            charge_rate:    s.charge_rate    ?? 45,
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/performance-settings', checkDB, requirePatron, async (req, res) => {
-    const { target_gross, target_charged } = req.body;
+    const { target_gross, target_charged, charge_rate } = req.body;
     const update = { key: 'performance' };
     if (target_gross   != null) update.target_gross   = parseFloat(target_gross);
     if (target_charged != null) update.target_charged = parseFloat(target_charged);
+    if (charge_rate    != null) update.charge_rate    = parseFloat(charge_rate);
     try {
         await db.collection('settings').updateOne(
             { key: 'performance' },
             { $set: update },
             { upsert: true }
         );
-        res.json({ message: 'Objectifs mis à jour' });
+        res.json({ message: 'Paramètres mis à jour' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
