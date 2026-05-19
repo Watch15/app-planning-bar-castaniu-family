@@ -247,7 +247,7 @@ Collection polymorphe (clé `key` discriminante) :
 - `{ key: 'publish_<YYYY-MM-DD>', published: true }` — une entrée par semaine publiée par le patron (clé = lundi de la semaine)
 - `{ key: 'lock_dispos_<YYYY-MM-DD>' }` — verrouillage de la saisie dispos pour une semaine
 
-### `shift_swaps` *(feature F-05 — actuellement désactivée dans server.js)*
+### `shift_swaps` *(feature F-05 — code livré mais désactivée en attente validation client)*
 ```json
 {
   "_id": ObjectId,

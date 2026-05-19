@@ -207,7 +207,7 @@ Page dédiée au patron / directeur pour suivre la masse salariale vs CA par soi
 | `push_subscriptions` | Endpoints d'abonnements Web Push par utilisateur |
 | `notifications` | Notifications in-app pour patron/directeur |
 | `staff_notifications` | Notifications in-app pour staff (planning.html) |
-| `shift_swaps` | Demandes d'échange entre shifts (feature F-05 — désactivée dans `server.js`) |
+| `shift_swaps` | Demandes d'échange entre shifts (feature F-05 — **désactivée en attente validation client**, code conservé dans `server.js`) |
 | `daily_revenue` | CA quotidien saisi par établissement (`{ establishment_id, date, revenue }`) — module Performance |
 
 ---

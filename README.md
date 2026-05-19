@@ -147,7 +147,7 @@ PORT=3000
 - Le Joker — shift non attribué avec note, visible du staff
 - Copie d'un jour vers d'autres jours de la semaine
 - Publication / dépublication de la semaine
-- Échange de shifts — demande staff à staff, validation patron avec raison
+- ~~Échange de shifts — demande staff à staff, validation patron avec raison~~ *(code livré mais désactivé en attente validation client — réactivable par retrait des `/* */` dans server.js)*
 - Gestion staff : couleur, email, téléphone, rôles, établissements préférentiels
 - Import en masse via CSV/tableau (nom + email ou téléphone)
 - Gestion établissements dans l'app (modale CRUD)
@@ -210,7 +210,7 @@ PORT=3000
 | `push_subscriptions` | Endpoints VAPID par utilisateur |
 | `notifications` | Notifications in-app patron/directeur |
 | `staff_notifications` | Notifications in-app staff (max 20 dernières non lues) |
-| `shift_swaps` | Demandes d'échange de shifts *(routes désactivées dans server.js — collection conservée)* |
+| `shift_swaps` | Demandes d'échange de shifts *(routes désactivées en attente validation client — collection conservée)* |
 | `daily_revenue` | CA quotidien saisi pour le module Performance |
 
 ---
@@ -288,7 +288,7 @@ PORT=3000
 | GET | `/api/performance` | Patron — agrégats par soirée (CA, masse sal., coeff, breakdown staff) |
 | GET/PATCH | `/api/performance-settings` | Authentifié / Patron — `target_gross`, `target_charged`, `charge_rate` |
 
-### Échanges de shifts *(routes désactivées dans server.js mais conservées)*
+### Échanges de shifts *(routes désactivées en attente validation client — code conservé, commenté dans server.js)*
 | Méthode | Route | Accès |
 |---|---|---|
 | POST | `/api/shift-swaps` | Authentifié |

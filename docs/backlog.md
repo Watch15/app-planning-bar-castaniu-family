@@ -32,7 +32,7 @@ Ajouter les nouveaux éléments avec une description courte, un contexte et une 
 |---|---|---|---|
 | ~~F-03~~ | ~~**Note sur Joker**~~ | Joker / UX | ✅ Done — champ `note` sur shifts Joker, saisie modale patron, affichage staff si Joker attribué |
 | ~~F-04~~ | ~~**Récap mensuel heures (export CSV)**~~ | Dashboard / Export | ✅ Done — bouton `⬇ Export CSV` ajouté à la modale Récap (UTF-8 BOM, séparateur `;`) |
-| ~~F-05~~ | ~~**Échange de shifts avec validation patron**~~ | Shifts / Notifications | ✅ Done — collection `shift_swaps`, cross-établissement autorisé, modale patron + modale staff |
+| F-05 | **Échange de shifts avec validation patron** | Shifts / Notifications | ⏸️ Code livré (D-18) mais **désactivé en attente validation client** — collection `shift_swaps` conservée, 7 routes commentées via `/* */` dans `server.js` lignes 2186→2422 et 2488→2550. Modales front/back fonctionnelles, à réactiver d'un seul retrait de commentaires |
 
 ---
 
@@ -67,7 +67,7 @@ Ajouter les nouveaux éléments avec une description courte, un contexte et une 
 | D-15 | E-03 — onglet Pointage pour directeur dans planning.html + sélecteur établissement dans pointage.html | — |
 | D-16 | B-03 — `touch-action: manipulation` global sur boutons/liens | — |
 | D-17 | F-04 — Export CSV du récap mensuel (UTF-8 BOM, séparateur `;`, compatible Excel FR) | — |
-| D-18 | F-05 — Échange de shifts : collection `shift_swaps`, 7 routes backend, modale patron (✓/✗ + raison), modale staff (4 semaines glissantes, cross-établissement) | — |
+| D-18 | F-05 — Échange de shifts : collection `shift_swaps`, 7 routes backend, modale patron (✓/✗ + raison), modale staff (4 semaines glissantes, cross-établissement). **Routes désactivées depuis mai 2026 en attente validation client** — code conservé, à réactiver par retrait des `/* */` blocs (lignes 2186→2422 et 2488→2550 server.js) | — |
 | D-19 | F-03 — Note sur Joker : champ `note` sur shifts Joker, saisie patron dans modale Joker, affichage staff si Joker attribué | — |
 | D-20 | UX — refonte header patron (I-01/02/03) : brand mobile + ⏱ Pointage ambre + drawer restructuré | — |
 | D-21 | UX — pointage (PT-01/02/03/04/05/06) : validated-card, édition heures réelles, total-footer, gap coloré, session-banner, mobile layout | — |
