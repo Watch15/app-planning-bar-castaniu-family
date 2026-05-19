@@ -6,6 +6,10 @@ const {
     normalizePhone,
     computeActiveDate,
     toDateStr,
+    weekStart,
+    disposWeekStart,
+    isAutoPublished,
+    chargeMultiplier,
 } = require('../lib/utils');
 
 // ── isValidObjectId ──────────────────────────────────────────────────────────
@@ -172,4 +176,91 @@ test('toDateStr utilise l\'heure locale (pas UTC)', () => {
     // 23h59 local ne doit PAS basculer au lendemain UTC
     const d = new Date(2026, 3, 12, 23, 59, 59);
     assert.equal(toDateStr(d), '2026-04-12');
+});
+
+// ── weekStart ────────────────────────────────────────────────────────────────
+
+test('weekStart : un lundi retourne lui-même (à minuit local)', () => {
+    // 11 mai 2026 = lundi
+    const monday = weekStart(new Date(2026, 4, 11, 15, 30));
+    assert.equal(toDateStr(monday), '2026-05-11');
+    assert.equal(monday.getHours(), 0);
+});
+
+test('weekStart : un dimanche recule au lundi précédent (cas piège)', () => {
+    // 17 mai 2026 = dimanche → lundi de la semaine = 11 mai
+    const monday = weekStart(new Date(2026, 4, 17, 23, 59));
+    assert.equal(toDateStr(monday), '2026-05-11');
+});
+
+test('weekStart : un mercredi recule de 2 jours', () => {
+    // 13 mai 2026 = mercredi → lundi = 11 mai
+    const monday = weekStart(new Date(2026, 4, 13, 10, 0));
+    assert.equal(toDateStr(monday), '2026-05-11');
+});
+
+test('weekStart : bascule entre mois fonctionne', () => {
+    // 2 juin 2026 = mardi → lundi = 1er juin
+    assert.equal(toDateStr(weekStart(new Date(2026, 5, 2))), '2026-06-01');
+    // 1er janvier 2026 = jeudi → lundi = 29 décembre 2025
+    assert.equal(toDateStr(weekStart(new Date(2026, 0, 1))), '2025-12-29');
+});
+
+// ── disposWeekStart ──────────────────────────────────────────────────────────
+
+test('disposWeekStart : un mercredi → lundi de la semaine suivante', () => {
+    // 13 mai 2026 mercredi → +7j = 20 mai mercredi → lundi semaine = 18 mai
+    const target = disposWeekStart(new Date(2026, 4, 13, 10, 0));
+    assert.equal(toDateStr(target), '2026-05-18');
+});
+
+test('disposWeekStart : un lundi → lundi de la semaine N+1 (pas N)', () => {
+    // 11 mai 2026 lundi → +7j = 18 mai lundi → lundi semaine = 18 mai (N+1)
+    const target = disposWeekStart(new Date(2026, 4, 11, 9, 0));
+    assert.equal(toDateStr(target), '2026-05-18');
+});
+
+test('disposWeekStart : un dimanche → lundi de la semaine N+1', () => {
+    // 17 mai 2026 dimanche → +7j = 24 mai dimanche → lundi semaine = 18 mai
+    const target = disposWeekStart(new Date(2026, 4, 17, 23, 0));
+    assert.equal(toDateStr(target), '2026-05-18');
+});
+
+// ── isAutoPublished ──────────────────────────────────────────────────────────
+
+test('isAutoPublished : semaine en cours = true', () => {
+    const now = new Date(2026, 4, 13);  // mercredi 13 mai
+    assert.equal(isAutoPublished('2026-05-15', now), true); // vendredi même semaine
+    assert.equal(isAutoPublished('2026-05-11', now), true); // lundi même semaine
+});
+
+test('isAutoPublished : semaine passée = true', () => {
+    const now = new Date(2026, 4, 13);
+    assert.equal(isAutoPublished('2026-05-04', now), true);  // semaine précédente
+    assert.equal(isAutoPublished('2025-12-31', now), true);  // bien plus ancien
+});
+
+test('isAutoPublished : semaine future = false', () => {
+    const now = new Date(2026, 4, 13);
+    assert.equal(isAutoPublished('2026-05-18', now), false); // lundi semaine suivante
+    assert.equal(isAutoPublished('2026-06-01', now), false); // mois suivant
+});
+
+// ── chargeMultiplier ─────────────────────────────────────────────────────────
+
+test('chargeMultiplier : taux 45 % → 1.45', () => {
+    assert.equal(chargeMultiplier(45), 1.45);
+});
+
+test('chargeMultiplier : taux 0 % → 1 (pas de markup)', () => {
+    assert.equal(chargeMultiplier(0), 1);
+});
+
+test('chargeMultiplier : null/undefined → défaut 45 %', () => {
+    assert.equal(chargeMultiplier(null), 1.45);
+    assert.equal(chargeMultiplier(undefined), 1.45);
+});
+
+test('chargeMultiplier : taux 100 % → 2', () => {
+    assert.equal(chargeMultiplier(100), 2);
 });

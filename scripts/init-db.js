@@ -68,6 +68,15 @@ async function main() {
             { unique: true }
         );
         await db.collection('staff_notifications').createIndex({ staff_id: 1, created_at: -1 });
+        // TTL 30 jours : cleanup auto des vieilles notifications
+        await db.collection('notifications').createIndex(
+            { created_at: 1 },
+            { expireAfterSeconds: 30 * 24 * 60 * 60 }
+        );
+        await db.collection('staff_notifications').createIndex(
+            { created_at: 1 },
+            { expireAfterSeconds: 30 * 24 * 60 * 60 }
+        );
         console.log('✅ Index créés');
         // Paramètres par défaut : saisie ouverte
         await db.collection('settings').updateOne(

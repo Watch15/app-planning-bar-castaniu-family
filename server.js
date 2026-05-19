@@ -9,7 +9,10 @@ const crypto  = require('crypto');
 const webpush = require('web-push');
 const helmet  = require('helmet');
 const morgan  = require('morgan');
-const { isValidObjectId, hashToken, normalizePhone } = require('./lib/utils');
+const {
+    isValidObjectId, hashToken, normalizePhone,
+    weekStart, disposWeekStart, isAutoPublished, chargeMultiplier,
+} = require('./lib/utils');
 
 // Sentry — initialisation conditionnelle (ne se charge que si SENTRY_DSN fourni).
 // Doit être importé AVANT de créer l'app Express pour que l'auto-instrumentation
@@ -72,6 +75,14 @@ if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
     process.exit(1);
 }
 
+// Dev local : génère un secret aléatoire au boot si non défini, plutôt qu'une
+// constante connue. Les sessions ne survivent pas au restart — comportement
+// volontaire pour forcer la définition d'un .env en dev sérieux.
+const SESSION_SECRET = process.env.SESSION_SECRET || require('crypto').randomBytes(32).toString('hex');
+if (!process.env.SESSION_SECRET) {
+    console.warn('⚠️  SESSION_SECRET non défini — clé aléatoire générée. Les sessions seront perdues au prochain restart.');
+}
+
 // ── VAPID — Web Push ──────────────────────────────────────────────────────────
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
@@ -126,6 +137,15 @@ async function connectDB() {
         db.collection('staff_notifications').createIndex(
             { staff_id: 1, created_at: -1 }
         ).catch(e => console.warn('⚠️ Index staff_notifications:', e.message));
+        // TTL 30 jours sur notifications + staff_notifications (évite collection qui grossit infiniment)
+        db.collection('notifications').createIndex(
+            { created_at: 1 },
+            { expireAfterSeconds: 30 * 24 * 60 * 60 }
+        ).catch(e => console.warn('⚠️ TTL notifications:', e.message));
+        db.collection('staff_notifications').createIndex(
+            { created_at: 1 },
+            { expireAfterSeconds: 30 * 24 * 60 * 60 }
+        ).catch(e => console.warn('⚠️ TTL staff_notifications:', e.message));
         scheduleDailyAt10();
         cleanupOldJokers();
     } catch (e) {
@@ -262,35 +282,15 @@ async function sendPushToStaff(staffIds, payload) {
 
 
 // ── Helpers semaine ───────────────────────────────────────────────────────────
+// Wrappers vers lib/utils.js (testés). Conservés pour compatibilité avec les
+// nombreux callsites historiques (`_weekStart`, `_disposWeekStart`, `_isAutoPublished`).
 
-// Retourne le lundi de la semaine contenant `date`
-function _weekStart(date) {
-    const d   = new Date(date);
-    const day = d.getDay();
-    d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
-    d.setHours(0, 0, 0, 0);
-    return d;
-}
-
-// La semaine en cours (et toutes les semaines passées) est considérée publiée automatiquement
-function _isAutoPublished(shiftDateStr) {
-    const shiftWeek   = _weekStart(new Date(shiftDateStr + 'T12:00:00'));
-    const currentWeek = _weekStart(new Date());
-    return shiftWeek <= currentWeek;
-}
+const _weekStart       = weekStart;
+const _isAutoPublished = isAutoPublished;
 
 // ── Rappels automatiques dispos ───────────────────────────────────────────────
 
-function _disposWeekStart(now) {
-    // Reproduit getMondayOf(addDays(now, 7)) du client
-    const d7 = new Date(now);
-    d7.setDate(now.getDate() + 7);
-    const day  = d7.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    d7.setDate(d7.getDate() + diff);
-    d7.setHours(0, 0, 0, 0);
-    return d7;
-}
+const _disposWeekStart = disposWeekStart;
 
 async function checkDispoRappels() {
     if (!db) return;
@@ -560,7 +560,7 @@ function setupSession() {
     }
 
     app.use(session({
-        secret:            process.env.SESSION_SECRET || 'dev-only-insecure-secret',
+        secret:            SESSION_SECRET,
         resave:            false,
         saveUninitialized: false,
         store:             new CustomMongoStore(),
@@ -1624,6 +1624,7 @@ app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
         // Notifier les patrons/directeurs si la semaine est déjà publiée
         if (!is_joker && staff_id !== '__joker__') {
             (async () => {
+                try {
                     let isPublished = _isAutoPublished(date);
                     if (!isPublished) {
                         const allPubs = await db.collection('settings').find({
@@ -1654,7 +1655,8 @@ app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
                             { date, shift_id: String(result.insertedId) }
                         );
                     }
-                })();
+                } catch (e) { console.error('[POST /api/shifts notif]', e); }
+            })();
         }
 
         res.status(201).json({ ...shift, _id: result.insertedId, warnings });
@@ -1893,7 +1895,7 @@ app.delete('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
                         '❌ ' + (existing.staff_name || 'Un membre') + ' — ' + formatDateShortFR(existing.date) + ' · shift supprimé',
                         { date: existing.date }
                     );
-                } catch { /* silencieux */ }
+                } catch (e) { console.error('[DELETE /api/shifts/:id notif]', e); }
             })();
         }
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
@@ -3093,7 +3095,7 @@ app.get('/api/performance', checkDB, requirePatron, async (req, res) => {
         if (revenues.length === 0) return res.json([]);
 
         const perfSettings = await db.collection('settings').findOne({ key: 'performance' }) || {};
-        const chargeMultiplier = 1 + ((perfSettings.charge_rate ?? 45) / 100);
+        const chargeMult = chargeMultiplier(perfSettings.charge_rate);
 
         const dates = revenues.map(r => r.date);
         const shifts = await db.collection('shifts').find({
@@ -3142,7 +3144,7 @@ app.get('/api/performance', checkDB, requirePatron, async (req, res) => {
                 });
             });
 
-            const wage_bill_charged = wage_bill_gross * chargeMultiplier;
+            const wage_bill_charged = wage_bill_gross * chargeMult;
             const coeff_gross   = r.revenue > 0 ? (wage_bill_gross   / r.revenue) * 100 : 0;
             const coeff_charged = r.revenue > 0 ? (wage_bill_charged / r.revenue) * 100 : 0;
 
@@ -3176,9 +3178,22 @@ app.get('/api/performance-settings', checkDB, requireAuth, async (req, res) => {
 app.patch('/api/performance-settings', checkDB, requirePatron, async (req, res) => {
     const { target_gross, target_charged, charge_rate } = req.body;
     const update = { key: 'performance' };
-    if (target_gross   != null) update.target_gross   = parseFloat(target_gross);
-    if (target_charged != null) update.target_charged = parseFloat(target_charged);
-    if (charge_rate    != null) update.charge_rate    = parseFloat(charge_rate);
+    // Bornes raisonnables : 0–100 % pour les objectifs coeff, 0–200 % pour le taux de charges
+    if (target_gross != null) {
+        const v = parseFloat(target_gross);
+        if (Number.isNaN(v) || v < 0 || v > 100) return res.status(400).json({ error: 'target_gross doit être entre 0 et 100' });
+        update.target_gross = v;
+    }
+    if (target_charged != null) {
+        const v = parseFloat(target_charged);
+        if (Number.isNaN(v) || v < 0 || v > 100) return res.status(400).json({ error: 'target_charged doit être entre 0 et 100' });
+        update.target_charged = v;
+    }
+    if (charge_rate != null) {
+        const v = parseFloat(charge_rate);
+        if (Number.isNaN(v) || v < 0 || v > 200) return res.status(400).json({ error: 'charge_rate doit être entre 0 et 200' });
+        update.charge_rate = v;
+    }
     try {
         await db.collection('settings').updateOne(
             { key: 'performance' },
