@@ -705,11 +705,13 @@ function renderKpis(data) {
     const totalRevenue = data.reduce((a, r) => a + (r.revenue || 0), 0);
     const totalWage    = data.reduce((a, r) => a + (r.wage_bill_gross || 0), 0);
     const totalWageCh  = data.reduce((a, r) => a + (r.wage_bill_charged || 0), 0);
+    const totalHours   = data.reduce((a, r) => a + r.staff_detail.reduce((b, s) => b + (s.hours_worked || 0), 0), 0);
     const coeffG = totalRevenue > 0 ? (totalWage   / totalRevenue) * 100 : 0;
     const coeffC = totalRevenue > 0 ? (totalWageCh / totalRevenue) * 100 : 0;
 
     wrap.innerHTML =
         '<div class="kpi-card"><div class="kpi-label">CA total</div><div class="kpi-value num">' + fmtEUR(totalRevenue) + '</div><div class="kpi-sub">' + data.length + ' soirée' + (data.length > 1 ? 's' : '') + '</div></div>' +
+        '<div class="kpi-card"><div class="kpi-label">Heures travaillées</div><div class="kpi-value num">' + fmtHours(totalHours) + '</div><div class="kpi-sub">heures réelles</div></div>' +
         '<div class="kpi-card"><div class="kpi-label">Masse sal. brute</div><div class="kpi-value num">' + fmtEUR(totalWage) + '</div><div class="kpi-sub">Coeff. ' + fmtPct(coeffG) + '</div></div>' +
         '<div class="kpi-card"><div class="kpi-label">Masse sal. chargée</div><div class="kpi-value num">' + fmtEUR(totalWageCh) + '</div><div class="kpi-sub">Coeff. ' + fmtPct(coeffC) + '</div></div>';
 }
@@ -721,23 +723,26 @@ function renderTable(data) {
         return;
     }
 
-    let totalRevenue = 0, totalWage = 0, totalWageCh = 0;
+    let totalRevenue = 0, totalWage = 0, totalWageCh = 0, totalHoursTable = 0;
     const rows = data.map((r, idx) => {
         totalRevenue += r.revenue || 0;
         totalWage    += r.wage_bill_gross || 0;
         totalWageCh  += r.wage_bill_charged || 0;
+        const rowHours = r.staff_detail.reduce((a, s) => a + (s.hours_worked || 0), 0);
+        totalHoursTable += rowHours;
         const okG = r.coeff_gross   < targets.target_gross;
         const okC = r.coeff_charged < targets.target_charged;
         return (
             '<tr class="perf-row" data-idx="' + idx + '">' +
                 '<td class="date-cell"><span class="expand-icon">▸</span>' + dateLabel(r.date) + '</td>' +
                 '<td class="num">' + fmtEUR(r.revenue) + '</td>' +
+                '<td class="num">' + (rowHours > 0 ? fmtHours(rowHours) : '—') + '</td>' +
                 '<td class="num">' + fmtEUR(r.wage_bill_gross) + '</td>' +
                 '<td><span class="coeff-pill ' + (okG ? 'ok' : 'bad') + '">' + fmtPct(r.coeff_gross) + '</span></td>' +
                 '<td class="num">' + fmtEUR(r.wage_bill_charged) + '</td>' +
                 '<td><span class="coeff-pill ' + (okC ? 'ok' : 'bad') + '">' + fmtPct(r.coeff_charged) + '</span></td>' +
             '</tr>' +
-            '<tr class="perf-detail" data-detail-for="' + idx + '" style="display:none"><td colspan="6"></td></tr>'
+            '<tr class="perf-detail" data-detail-for="' + idx + '" style="display:none"><td colspan="7"></td></tr>'
         );
     }).join('');
 
@@ -751,6 +756,7 @@ function renderTable(data) {
             '<thead><tr>' +
                 '<th>Date</th>' +
                 '<th>CA</th>' +
+                '<th>Heures</th>' +
                 '<th>Masse sal. brute</th>' +
                 '<th>Coeff. brut</th>' +
                 '<th>Masse sal. chargée</th>' +
@@ -760,6 +766,7 @@ function renderTable(data) {
             '<tfoot><tr>' +
                 '<td>Total période</td>' +
                 '<td class="num">' + fmtEUR(totalRevenue) + '</td>' +
+                '<td class="num">' + (totalHoursTable > 0 ? fmtHours(totalHoursTable) : '—') + '</td>' +
                 '<td class="num">' + fmtEUR(totalWage) + '</td>' +
                 '<td><span class="coeff-pill ' + (okTG ? 'ok' : 'bad') + '">' + fmtPct(totalCoeffG) + '</span></td>' +
                 '<td class="num">' + fmtEUR(totalWageCh) + '</td>' +
@@ -791,6 +798,7 @@ function renderDetail(td, staff, totalWage) {
         td.innerHTML = '<div class="detail-wrap" style="color:var(--text-muted)">Aucun shift pointé ce soir-là</div>';
         return;
     }
+    const totalHoursDetail = staff.reduce((a, s) => a + (s.hours_worked || 0), 0);
     const rows = staff.map(s => {
         const rateLabel = s.hourly_rate == null
             ? ''
@@ -811,7 +819,7 @@ function renderDetail(td, staff, totalWage) {
             '<table class="detail-table">' +
                 '<thead><tr><th>Staff</th><th>Heures</th><th>Taux</th><th>Salaire brut</th></tr></thead>' +
                 '<tbody>' + rows +
-                    '<tr class="total-row"><td colspan="3">Total</td><td class="num">' + fmtEUR(totalWage) + '</td></tr>' +
+                    '<tr class="total-row"><td>Total</td><td class="num">' + fmtHours(totalHoursDetail) + '</td><td></td><td class="num">' + fmtEUR(totalWage) + '</td></tr>' +
                 '</tbody>' +
             '</table>' +
         '</div>';

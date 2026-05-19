@@ -2914,6 +2914,7 @@ function renderDashboard() {
         const mm = Math.round((v % 1) * 60);
         return hh + 'h' + (mm > 0 ? String(mm).padStart(2,'0') : '');
     };
+    const dayTotals = {};
     let accTotalH = 0;
     let accNbStaff = 0;
     staffMap.forEach(staff => {
@@ -2936,6 +2937,7 @@ function renderDashboard() {
                     dayH += de - ds;
                 });
                 totalH += dayH;
+                dayTotals[date] = (dayTotals[date] || 0) + dayH;
 
                 const pillsHtml = dayShifts.map(shift => {
                     const dispStart = shift.real_start != null ? shift.real_start : shift.start_time;
@@ -2972,6 +2974,24 @@ function renderDashboard() {
         if (staff._id !== '__joker__') accTotalH += totalH;
     });
     table.appendChild(tbody);
+
+    // Ligne total heures par soirée
+    const _fmtDayH = h => {
+        const totalMins = Math.round(h * 60);
+        const hrs = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
+        return hrs + 'h' + (mins > 0 ? String(mins).padStart(2,'0') : '');
+    };
+    const tfoot = document.createElement('tfoot');
+    let tfRow = '<tr><td class="col-staff" style="font-size:11px;font-weight:700;color:var(--text-secondary);border-top:2px solid var(--light-border)">Total soirée</td>';
+    days.forEach(({ date }) => {
+        const h = dayTotals[date] || 0;
+        tfRow += '<td style="font-weight:700;font-size:12px;color:var(--accent);border-top:2px solid var(--light-border)">' + (h > 0 ? _fmtDayH(h) : '—') + '</td>';
+    });
+    tfRow += '<td style="border-top:2px solid var(--light-border)"></td></tr>';
+    tfoot.innerHTML = tfRow;
+    table.appendChild(tfoot);
+
     container.appendChild(table);
 
     // totalHSemaine et nbStaff sont accumulés pendant le rendu du tableau
