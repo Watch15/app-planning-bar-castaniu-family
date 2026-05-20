@@ -4444,9 +4444,14 @@ async function loadNonAffectees() {
     if (!list) return;
     list.innerHTML = '<div style="padding:16px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
     const { from, to } = _reassignDateRange();
-    const DAY_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-    const MONTHS    = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sep.', 'oct.', 'nov.', 'déc.'];
+    const DAY_LONG = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    const MONTHS   = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sep.', 'oct.', 'nov.', 'déc.'];
     const fmtH = h => String(Math.floor(h % 24)).padStart(2, '0') + 'h' + (Math.round((h % 1) * 60) > 0 ? String(Math.round((h % 1) * 60)).padStart(2, '0') : '');
+    const slotOrder = dispo => {
+        if (dispo.type === 'midi') return [0, 0];
+        if (dispo.type === 'soir') return [1, 0];
+        return [2, Number(dispo.start_time) || 0];
+    };
     try {
         const res = await fetch('/api/dispos/non-affectees?from=' + from + '&to=' + to, { credentials: 'include' });
         const data = await res.json();
@@ -4458,33 +4463,48 @@ async function loadNonAffectees() {
         }
         list.innerHTML = '';
 
-        // Grouper par staff_id (ordre d'apparition conservé)
-        const byStaff = {};
+        // Grouper par date
+        const byDate = {};
         data.forEach(d => {
-            if (!byStaff[d.staff_id]) byStaff[d.staff_id] = { name: d.staff_name, color: d.staff_color, dispos: [] };
-            byStaff[d.staff_id].dispos.push(d);
+            if (!byDate[d.date]) byDate[d.date] = [];
+            byDate[d.date].push(d);
         });
 
-        Object.entries(byStaff).forEach(([, { name, color, dispos }]) => {
+        // Trier les dates croissantes, puis les dispos midi → soir → custom (par start_time)
+        const sortedDates = Object.keys(byDate).sort();
+        sortedDates.forEach(dateStr => {
+            const dispos = byDate[dateStr].sort((a, b) => {
+                const oa = slotOrder(a), ob = slotOrder(b);
+                return oa[0] - ob[0] || oa[1] - ob[1];
+            });
+            const d         = parseDate(dateStr);
+            const dateLabel = DAY_LONG[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
+
             const card = document.createElement('div');
             card.style.cssText = 'background:#fff;border:1px solid #eee;border-radius:10px;margin:8px 16px;overflow:hidden';
 
-            // En-tête de la carte personne
+            // En-tête repliable
             const header = document.createElement('div');
-            header.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #f0f0f0';
+            header.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #f0f0f0;cursor:pointer;user-select:none';
             header.innerHTML =
-                '<span style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0;display:inline-block"></span>' +
-                '<span style="font-size:13px;font-weight:700;color:#333;flex:1">' + escapeHtml(name) + '</span>' +
+                '<span class="na-card-chevron" style="font-size:11px;color:#888;flex-shrink:0;transition:transform 0.15s;display:inline-block;width:12px;text-align:center">▾</span>' +
+                '<span style="font-size:13px;font-weight:700;color:#333;flex:1;text-transform:capitalize">' + dateLabel + '</span>' +
                 '<span class="na-card-count" style="font-size:11px;color:#aaa">' + dispos.length + ' à recréer</span>';
             card.appendChild(header);
 
             // Conteneur des lignes (une par shift)
             const rows = document.createElement('div');
+            rows.className = 'na-card-body';
             card.appendChild(rows);
 
+            header.addEventListener('click', () => {
+                const collapsed     = rows.style.display === 'none';
+                rows.style.display  = collapsed ? '' : 'none';
+                const chev          = header.querySelector('.na-card-chevron');
+                if (chev) chev.style.transform = collapsed ? '' : 'rotate(-90deg)';
+            });
+
             dispos.forEach(dispo => {
-                const d          = parseDate(dispo.date);
-                const dateLabel  = DAY_SHORT[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
                 const dispoLabel = dispo.type === 'soir' ? 'Soir'
                     : dispo.type === 'midi' ? 'Midi'
                     : (fmtH(dispo.start_time) + '–' + fmtH(dispo.end_time));
@@ -4492,7 +4512,8 @@ async function loadNonAffectees() {
                 const row = document.createElement('div');
                 row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid #f9f9f9';
                 row.innerHTML =
-                    '<span style="font-size:12px;color:#555;flex-shrink:0;min-width:72px">' + dateLabel + '</span>' +
+                    '<span style="width:10px;height:10px;border-radius:50%;background:' + dispo.staff_color + ';flex-shrink:0;display:inline-block"></span>' +
+                    '<span style="font-size:12px;font-weight:600;color:#444;flex-shrink:0;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(dispo.staff_name) + '</span>' +
                     '<span style="font-size:12px;color:#bbb;flex-shrink:0">·</span>' +
                     '<span style="font-size:12px;color:#888;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(dispo.establishment_name) + '</span>' +
                     '<span style="font-size:12px;color:#bbb;flex-shrink:0">·</span>' +
