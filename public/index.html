@@ -1040,7 +1040,12 @@
             <button id="btn-import-csv" title="Importer un CSV nom + téléphone" style="margin-left:auto;margin-right:8px;background:var(--success-bg);border:1.5px solid var(--success);color:var(--success-text);font-size:12px;font-weight:600;padding:5px 12px;border-radius:var(--radius);cursor:pointer;font-family:var(--font)">⬆ Import CSV</button>
             <button class="modal-close" id="accounts-modal-close">&times;</button>
         </div>
-        <div id="accounts-list"></div>
+        <div style="display:flex;gap:0;border-bottom:2px solid var(--light-border);padding:0 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none">
+            <button id="accounts-tab-btn-active"  style="background:none;border:none;border-bottom:2px solid var(--accent);margin-bottom:-2px;padding:12px 14px;min-height:44px;font-size:13px;font-weight:600;color:var(--accent);cursor:pointer;white-space:nowrap;flex-shrink:0">✅ Actifs</button>
+            <button id="accounts-tab-btn-pending" style="background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;padding:12px 14px;min-height:44px;font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer;white-space:nowrap;flex-shrink:0">🔔 Invitations en attente <span id="pending-tab-badge" style="display:none;background:#ef4444;color:white;font-size:10px;font-weight:700;border-radius:10px;min-width:16px;height:16px;line-height:16px;padding:0 5px;text-align:center;vertical-align:middle;margin-left:2px"></span></button>
+        </div>
+        <div id="accounts-tab-active"><div id="accounts-list"></div></div>
+        <div id="accounts-tab-pending" style="display:none"><div id="accounts-pending-list" style="max-height:60vh;overflow-y:auto;padding:4px 0"></div></div>
         <div class="staff-add-form">
             <div class="staff-add-title">Inviter</div>
             <div class="staff-add-fields">

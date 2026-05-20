@@ -1075,6 +1075,23 @@ app.patch('/api/users/:id/reset-password', checkDB, requirePatron, async (req, r
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
+// Régénère un lien d'activation pour un compte non activé (sans envoi automatique)
+app.post('/api/users/:id/invite-link', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    try {
+        const user = await db.collection('users').findOne({ _id: new ObjectId(req.params.id) });
+        if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+        if (user.active) return res.status(400).json({ error: 'Compte déjà activé' });
+        const token   = crypto.randomBytes(32).toString('hex');
+        const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        await db.collection('users').updateOne(
+            { _id: user._id },
+            { $set: { invite_token: hashToken(token), invite_expires: expires } }
+        );
+        res.json({ link: appUrl() + '/set-password.html?token=' + token, expires_at: expires });
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
 app.delete('/api/users/:id', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     try {

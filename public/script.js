@@ -420,6 +420,11 @@ async function init() {
     const btnAccounts = document.getElementById('btn-manage-accounts');
     if (btnAccounts) btnAccounts.addEventListener('click', openAccountsModal);
 
+    const accountsTabActive  = document.getElementById('accounts-tab-btn-active');
+    const accountsTabPending = document.getElementById('accounts-tab-btn-pending');
+    if (accountsTabActive)  accountsTabActive.addEventListener('click',  () => switchAccountsTab('active'));
+    if (accountsTabPending) accountsTabPending.addEventListener('click', () => switchAccountsTab('pending'));
+
     const accountsClose = document.getElementById('accounts-modal-close');
     if (accountsClose) accountsClose.addEventListener('click', () => {
         document.getElementById('accounts-modal').style.display = 'none';
@@ -3566,6 +3571,7 @@ async function addEstablishment() {
 // ── Modale gestion des comptes ────────────────────────────────────────────────
 
 async function openAccountsModal() {
+    switchAccountsTab('active');
     await renderAccountsList();
     populateStaffSelect();
     populateBarsCheckboxes();
@@ -3573,6 +3579,35 @@ async function openAccountsModal() {
     const barsRow = document.getElementById('new-account-bars-row');
     if (barsRow) barsRow.style.display = 'none';
     document.getElementById('accounts-modal').style.display = 'flex';
+}
+
+function switchAccountsTab(tab) {
+    const isPending = tab === 'pending';
+    const tabActive  = document.getElementById('accounts-tab-active');
+    const tabPending = document.getElementById('accounts-tab-pending');
+    if (tabActive)  tabActive.style.display  = isPending ? 'none' : '';
+    if (tabPending) tabPending.style.display = isPending ? '' : 'none';
+
+    const btnActive  = document.getElementById('accounts-tab-btn-active');
+    const btnPending = document.getElementById('accounts-tab-btn-pending');
+    if (btnActive) {
+        btnActive.style.borderBottomColor = isPending ? 'transparent' : 'var(--accent)';
+        btnActive.style.color             = isPending ? 'var(--text-secondary)' : 'var(--accent)';
+        btnActive.style.fontWeight        = isPending ? '500' : '600';
+    }
+    if (btnPending) {
+        btnPending.style.borderBottomColor = isPending ? 'var(--accent)' : 'transparent';
+        btnPending.style.color             = isPending ? 'var(--accent)' : 'var(--text-secondary)';
+        btnPending.style.fontWeight        = isPending ? '600' : '500';
+    }
+    if (isPending) renderPendingInvites();
+}
+
+function _updatePendingBadge(count) {
+    const badge = document.getElementById('pending-tab-badge');
+    if (!badge) return;
+    badge.textContent   = count;
+    badge.style.display = count > 0 ? 'inline-flex' : 'none';
 }
 
 function populateBarsCheckboxes() {
@@ -3601,11 +3636,14 @@ async function renderAccountsList() {
     const list = document.getElementById('accounts-list');
     list.innerHTML = '<div style="padding:12px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
     try {
-        const res   = await fetch('/api/users', { credentials: 'include' });
-        const users = await res.json();
-        if (!res.ok) throw new Error(users.error);
+        const res       = await fetch('/api/users', { credentials: 'include' });
+        const allUsers  = await res.json();
+        if (!res.ok) throw new Error(allUsers.error);
+        const pending = allUsers.filter(u => u.active === false);
+        const users   = allUsers.filter(u => u.active !== false);
+        _updatePendingBadge(pending.length);
         if (users.length === 0) {
-            list.innerHTML = '<div style="padding:16px;text-align:center;color:#ccc;font-size:13px">Aucun compte</div>';
+            list.innerHTML = '<div style="padding:16px;text-align:center;color:#ccc;font-size:13px">Aucun compte actif</div>';
             return;
         }
         list.innerHTML = '';
@@ -3661,8 +3699,121 @@ async function renderAccountsList() {
             }
             list.appendChild(row);
         });
+        // Garder la liste des invitations en attente synchronisée si l'onglet est ouvert
+        const pendingTab = document.getElementById('accounts-tab-pending');
+        if (pendingTab && pendingTab.style.display !== 'none') renderPendingInvites();
     } catch (e) {
         list.innerHTML = '<div style="padding:16px;text-align:center;color:#e74c3c;font-size:13px">' + e.message + '</div>';
+    }
+}
+
+async function renderPendingInvites() {
+    const list = document.getElementById('accounts-pending-list');
+    if (!list) return;
+    list.innerHTML = '<div style="padding:12px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
+    try {
+        const res      = await fetch('/api/users', { credentials: 'include' });
+        const allUsers = await res.json();
+        if (!res.ok) throw new Error(allUsers.error);
+        const pending  = allUsers.filter(u => u.active === false);
+        _updatePendingBadge(pending.length);
+        if (pending.length === 0) {
+            list.innerHTML = '<div style="padding:32px;text-align:center;color:#aaa;font-size:13px">✅ Aucune invitation en attente</div>';
+            return;
+        }
+        list.innerHTML = '';
+
+        const counter = document.createElement('div');
+        counter.style.cssText = 'padding:8px 16px;font-size:12px;color:var(--text-secondary);border-bottom:1px solid var(--light-border)';
+        counter.textContent = pending.length + ' invitation' + (pending.length > 1 ? 's' : '') + ' non activée' + (pending.length > 1 ? 's' : '');
+        list.appendChild(counter);
+
+        const MONTHS = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'];
+        pending.forEach(user => {
+            const sm    = allStaff.find(s => String(s._id) === user.staff_id);
+            const color = sm ? sm.color : '#888';
+
+            const phoneRaw = user.phone || '';
+            const phoneDisplay = (() => {
+                if (!phoneRaw) return '';
+                if (/^\+33\d{9}$/.test(phoneRaw))
+                    return '+33 ' + phoneRaw[3] + ' ' + phoneRaw.slice(4).replace(/(\d{2})(?=\d)/g, '$1 ');
+                return phoneRaw;
+            })();
+
+            const createdLabel = (() => {
+                if (!user.created_at) return '';
+                const d = new Date(user.created_at);
+                if (isNaN(d.getTime())) return '';
+                return 'invité le ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
+            })();
+
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--light-border);flex-wrap:wrap';
+
+            const dot = '<span style="width:10px;height:10px;border-radius:50%;background:' + escapeHtml(color) + ';flex-shrink:0;display:inline-block"></span>';
+
+            const nameBlock =
+                '<div style="flex:1;min-width:140px">' +
+                    '<div style="font-size:13px;font-weight:600;color:var(--text-primary)">' + escapeHtml(user.name || '—') + '</div>' +
+                    (createdLabel ? '<div style="font-size:11px;color:#aaa;margin-top:2px">' + createdLabel + '</div>' : '') +
+                '</div>';
+
+            const contactBits = [];
+            if (user.email) {
+                contactBits.push(
+                    '<div style="display:flex;align-items:center;gap:4px">' +
+                    '<span style="font-size:12px;color:var(--text-secondary)">📧 ' + escapeHtml(user.email) + '</span>' +
+                    '<button class="btn-copy-email" title="Copier l\'email" style="background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--text-secondary);font-size:13px">📋</button>' +
+                    '</div>'
+                );
+            }
+            if (phoneDisplay) {
+                contactBits.push(
+                    '<div style="display:flex;align-items:center;gap:4px">' +
+                    '<span style="font-size:12px;color:var(--text-secondary)">📱 ' + escapeHtml(phoneDisplay) + '</span>' +
+                    '<button class="btn-copy-phone" title="Copier le numéro" style="background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--text-secondary);font-size:13px">📋</button>' +
+                    '</div>'
+                );
+            }
+            const contactBlock = '<div style="display:flex;flex-direction:column;gap:3px;min-width:0">' + (contactBits.join('') || '<span style="font-size:11px;color:#ccc;font-style:italic">pas de contact</span>') + '</div>';
+
+            const linkBtn =
+                '<button class="btn-copy-invite-link" style="padding:6px 12px;border-radius:6px;border:1.5px solid var(--accent);background:#f0effe;color:var(--accent);font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap">🔗 Copier le lien</button>';
+
+            row.innerHTML = dot + nameBlock + contactBlock + linkBtn;
+
+            const emailBtn = row.querySelector('.btn-copy-email');
+            if (emailBtn) emailBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(user.email).then(() => showToast('Email copié'));
+            });
+            const phoneBtn = row.querySelector('.btn-copy-phone');
+            if (phoneBtn) phoneBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(user.phone).then(() => showToast('Numéro copié'));
+            });
+            const linkBtnEl = row.querySelector('.btn-copy-invite-link');
+            linkBtnEl.addEventListener('click', async () => {
+                linkBtnEl.disabled    = true;
+                const original        = linkBtnEl.textContent;
+                linkBtnEl.textContent = '…';
+                try {
+                    const r = await fetch('/api/users/' + user._id + '/invite-link', { method: 'POST', credentials: 'include' });
+                    const data = await r.json();
+                    if (!r.ok) throw new Error(data.error);
+                    await navigator.clipboard.writeText(data.link);
+                    showToast('Lien d\'activation copié');
+                } catch (err) {
+                    showToast(err.message || 'Erreur', true);
+                } finally {
+                    linkBtnEl.disabled    = false;
+                    linkBtnEl.textContent = original;
+                }
+            });
+
+            list.appendChild(row);
+        });
+    } catch (e) {
+        list.innerHTML = '<div style="padding:16px;text-align:center;color:#e74c3c;font-size:13px">' + escapeHtml(e.message || 'Erreur') + '</div>';
     }
 }
 
