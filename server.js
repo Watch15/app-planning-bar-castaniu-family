@@ -1433,9 +1433,9 @@ app.post('/api/staff/bulk', checkDB, requirePatron, async (req, res) => {
 
 app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
-    const { color, name, email, venues, can_submit_dispos, groups, rest_days, hourly_rate } = req.body;
-    if (!color && !name && email === undefined && venues === undefined && can_submit_dispos === undefined && req.body.roles === undefined && groups === undefined && req.body.name_color === undefined && rest_days === undefined && req.body.nickname === undefined && hourly_rate === undefined)
-        return res.status(400).json({ error: 'color, name, email, venues, roles, groups, name_color, nickname, can_submit_dispos, hourly_rate ou rest_days requis' });
+    const { color, name, email, venues, can_submit_dispos, groups, rest_days, hourly_rate, fixed_rate } = req.body;
+    if (!color && !name && email === undefined && venues === undefined && can_submit_dispos === undefined && req.body.roles === undefined && groups === undefined && req.body.name_color === undefined && rest_days === undefined && req.body.nickname === undefined && hourly_rate === undefined && fixed_rate === undefined)
+        return res.status(400).json({ error: 'color, name, email, venues, roles, groups, name_color, nickname, can_submit_dispos, hourly_rate, fixed_rate ou rest_days requis' });
     try {
         const update = {};
         if (color)                             update.color             = color;
@@ -1456,6 +1456,19 @@ app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
                 update.hourly_rate = n;
             }
         }
+        if (fixed_rate !== undefined) {
+            if (fixed_rate === null || fixed_rate === '') update.fixed_rate = null;
+            else {
+                const n = parseFloat(fixed_rate);
+                if (Number.isNaN(n) || n < 0) return res.status(400).json({ error: 'fixed_rate doit être un nombre positif' });
+                update.fixed_rate = n;
+            }
+        }
+        // Mutual exclusion (Option A) : un seul mode actif à la fois.
+        // Si l'un est défini à une valeur non-null, l'autre est forcé à null —
+        // y compris si l'appelant ne l'a pas envoyé (ex. bulk import taux horaires).
+        if (update.hourly_rate != null && update.fixed_rate === undefined) update.fixed_rate  = null;
+        if (update.fixed_rate  != null && update.hourly_rate === undefined) update.hourly_rate = null;
         const result = await db.collection('staff').updateOne(
             { _id: new ObjectId(req.params.id) }, { $set: update }
         );
@@ -3131,15 +3144,35 @@ app.get('/api/performance', checkDB, requirePatron, async (req, res) => {
                 if (s.is_joker || s.staff_id === '__joker__') return;
                 const hours = (s.real_end - s.real_start);
                 const staffDoc = staffMap[String(s.staff_id)];
+                // Calcul wage : priorité snapshot (figé au pointage) > profil staff live.
+                // Deux modes mutuellement exclusifs : forfait par shift OU taux horaire.
+                let wage = 0;
                 let rate = null;
-                if (s.hourly_rate_snapshot != null) rate = s.hourly_rate_snapshot;
-                else if (staffDoc && staffDoc.hourly_rate != null) rate = staffDoc.hourly_rate;
-                const wage = rate != null ? hours * rate : 0;
+                let is_fixed = false;
+                if (s.fixed_rate_snapshot != null) {
+                    wage = s.fixed_rate_snapshot;
+                    rate = s.fixed_rate_snapshot;
+                    is_fixed = true;
+                } else if (s.hourly_rate_snapshot != null) {
+                    wage = hours * s.hourly_rate_snapshot;
+                    rate = s.hourly_rate_snapshot;
+                } else if (staffDoc) {
+                    if (staffDoc.fixed_rate != null) {
+                        wage = staffDoc.fixed_rate;
+                        rate = staffDoc.fixed_rate;
+                        is_fixed = true;
+                    } else if (staffDoc.hourly_rate != null) {
+                        wage = hours * staffDoc.hourly_rate;
+                        rate = staffDoc.hourly_rate;
+                    }
+                }
                 wage_bill_gross += wage;
                 staff_detail.push({
                     staff_name:   s.staff_name || (staffDoc && staffDoc.name) || 'Inconnu',
                     hours_worked: Math.round(hours * 100) / 100,
-                    hourly_rate:  rate,
+                    hourly_rate:  is_fixed ? null : rate,
+                    fixed_rate:   is_fixed ? rate : null,
+                    is_fixed,
                     wage_gross:   Math.round(wage * 100) / 100,
                 });
             });
@@ -3297,10 +3330,21 @@ app.patch('/api/shifts/:id/pointage', checkDB, requireAuth, async (req, res) => 
         if (hasStart) update.real_start = real_start != null ? parseFloat(real_start) : null;
         if (hasEnd)   update.real_end   = real_end   != null ? parseFloat(real_end)   : null;
 
-        // Snapshot du taux horaire au premier pointage (si pas encore figé)
-        if (existing.hourly_rate_snapshot === undefined && existing.staff_id && existing.staff_id !== '__joker__' && isValidObjectId(existing.staff_id)) {
+        // Snapshot du taux au premier pointage (si pas encore figé).
+        // Capture le MODE actif (horaire OU forfait) ET la valeur — évite qu'un
+        // changement de mode/taux rétroactif n'affecte les soirées passées.
+        if (existing.hourly_rate_snapshot === undefined && existing.fixed_rate_snapshot === undefined
+            && existing.staff_id && existing.staff_id !== '__joker__' && isValidObjectId(existing.staff_id)) {
             const staffDoc = await db.collection('staff').findOne({ _id: new ObjectId(existing.staff_id) });
-            update.hourly_rate_snapshot = (staffDoc && staffDoc.hourly_rate != null) ? staffDoc.hourly_rate : null;
+            if (staffDoc) {
+                if (staffDoc.fixed_rate != null) {
+                    update.fixed_rate_snapshot  = staffDoc.fixed_rate;
+                    update.hourly_rate_snapshot = null;
+                } else {
+                    update.hourly_rate_snapshot = staffDoc.hourly_rate != null ? staffDoc.hourly_rate : null;
+                    update.fixed_rate_snapshot  = null;
+                }
+            }
         }
 
         await db.collection('shifts').updateOne({ _id: new ObjectId(req.params.id) }, { $set: update });

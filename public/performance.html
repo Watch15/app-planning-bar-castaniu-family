@@ -831,10 +831,15 @@ function renderDetail(td, staff, totalWage) {
     }
     const totalHoursDetail = staff.reduce((a, s) => a + (s.hours_worked || 0), 0);
     const rows = staff.map(s => {
-        const rateLabel = s.hourly_rate == null
-            ? ''
-            : (s.hourly_rate.toFixed(2).replace('.', ',') + ' €/h');
-        const wageLabel = s.hourly_rate == null ? '' : fmtEUR(s.wage_gross);
+        // Mode forfait : 'Forfait XX €' (par shift) ; mode horaire : 'XX,XX €/h'
+        let rateLabel = '';
+        if (s.is_fixed && s.fixed_rate != null) {
+            rateLabel = 'Forfait ' + s.fixed_rate.toFixed(2).replace('.', ',') + ' €';
+        } else if (s.hourly_rate != null) {
+            rateLabel = s.hourly_rate.toFixed(2).replace('.', ',') + ' €/h';
+        }
+        const hasWage   = s.is_fixed ? s.fixed_rate != null : s.hourly_rate != null;
+        const wageLabel = hasWage ? fmtEUR(s.wage_gross) : '';
         return (
             '<tr>' +
                 '<td>' + escapeHtml(s.staff_name) + '</td>' +

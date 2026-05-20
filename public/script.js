@@ -5634,11 +5634,29 @@ function renderStaffManageList() {
                     '<input type="color" class="staff-manage-name-color" value="' + escapeHtml(staff.name_color || staff.color) + '" title="Couleur du nom">' +
                     '<button type="button" class="staff-name-color-reset" style="font-size:10px;color:#bbb;border:1px solid #e0e0e0;background:white;border-radius:4px;padding:2px 6px;cursor:pointer" title="Utiliser la couleur du shift">Reset</button>' +
                 '</div>' +
-                '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">' +
-                    '<span style="font-size:11px;color:#aaa">Taux horaire :</span>' +
-                    '<input type="number" step="0.01" min="0" class="staff-manage-hourly-rate" value="' + (staff.hourly_rate != null ? staff.hourly_rate : '') + '" placeholder="12.50" style="width:80px;padding:3px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-family:inherit">' +
-                    '<span style="font-size:11px;color:#aaa">€/h brut</span>' +
-                '</div>' +
+                (function () {
+                    // Deux modes mutuellement exclusifs : taux horaire OU forfait fixe par shift.
+                    const isFixedMode = staff.fixed_rate != null;
+                    const hRate = staff.hourly_rate != null ? staff.hourly_rate : '';
+                    const fRate = staff.fixed_rate  != null ? staff.fixed_rate  : '';
+                    return '<div class="staff-rate-block" data-mode="' + (isFixedMode ? 'fixed' : 'hourly') + '" style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">' +
+                        '<span style="font-size:11px;color:#aaa">Rémunération :</span>' +
+                        '<label style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:#555;cursor:pointer">' +
+                            '<input type="radio" name="rate-mode-' + staff._id + '" class="staff-rate-mode" value="hourly" ' + (isFixedMode ? '' : 'checked') + '> Horaire' +
+                        '</label>' +
+                        '<label style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:#555;cursor:pointer">' +
+                            '<input type="radio" name="rate-mode-' + staff._id + '" class="staff-rate-mode" value="fixed" ' + (isFixedMode ? 'checked' : '') + '> Forfait' +
+                        '</label>' +
+                        '<span class="staff-rate-input-wrap" data-for="hourly" style="display:' + (isFixedMode ? 'none' : 'inline-flex') + ';align-items:center;gap:4px">' +
+                            '<input type="number" step="0.01" min="0" class="staff-manage-hourly-rate" value="' + hRate + '" placeholder="12.50" style="width:80px;padding:3px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-family:inherit">' +
+                            '<span style="font-size:11px;color:#aaa">€/h brut</span>' +
+                        '</span>' +
+                        '<span class="staff-rate-input-wrap" data-for="fixed" style="display:' + (isFixedMode ? 'inline-flex' : 'none') + ';align-items:center;gap:4px">' +
+                            '<input type="number" step="0.01" min="0" class="staff-manage-fixed-rate" value="' + fRate + '" placeholder="80" style="width:80px;padding:3px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-family:inherit">' +
+                            '<span style="font-size:11px;color:#aaa">€ / shift brut</span>' +
+                        '</span>' +
+                    '</div>';
+                })() +
                 '<div class="venue-pref-row">' + venueButtons + '</div>' +
                 '<div class="role-assign-section">' + rolesHTML + '</div>' +
                 groupChips +
@@ -5667,6 +5685,18 @@ function renderStaffManageList() {
                 btn.style.borderColor = isActive ? '#534AB7' : '#e0e0e0';
                 btn.style.background  = isActive ? '#f0effe' : 'white';
                 btn.style.color       = isActive ? '#534AB7' : '#888';
+            });
+        });
+
+        // Toggle mode rémunération (horaire / forfait) : affiche le champ pertinent
+        row.querySelectorAll('.staff-rate-mode').forEach(radio => {
+            radio.addEventListener('change', () => {
+                const mode = radio.value;
+                const block = row.querySelector('.staff-rate-block');
+                if (block) block.dataset.mode = mode;
+                row.querySelectorAll('.staff-rate-input-wrap').forEach(w => {
+                    w.style.display = (w.dataset.for === mode) ? 'inline-flex' : 'none';
+                });
             });
         });
 
@@ -5711,8 +5741,13 @@ function renderStaffManageList() {
             const newRoles      = Array.from(row.querySelectorAll('.role-assign-btn.active')).map(b => b.dataset.role);
             const newCanSubmit  = row.querySelector('.staff-can-submit').checked;
             const newGroups     = Array.from(row.querySelectorAll('.staff-group-btn.active')).map(b => b.dataset.group);
-            const rateRaw       = row.querySelector('.staff-manage-hourly-rate')?.value;
-            const newHourlyRate = (rateRaw === '' || rateRaw == null) ? null : parseFloat(rateRaw);
+            const rateMode = row.querySelector('.staff-rate-mode:checked')?.value || 'hourly';
+            const hRaw = row.querySelector('.staff-manage-hourly-rate')?.value;
+            const fRaw = row.querySelector('.staff-manage-fixed-rate')?.value;
+            // Mode actif → on envoie la valeur saisie ; l'autre champ est forcé null
+            // côté client pour rester explicite (le serveur applique aussi la mutual exclusion).
+            const newHourlyRate = rateMode === 'hourly' && hRaw !== '' && hRaw != null ? parseFloat(hRaw) : null;
+            const newFixedRate  = rateMode === 'fixed'  && fRaw !== '' && fRaw != null ? parseFloat(fRaw) : null;
 
             if (!newName) { showToast('Le nom ne peut pas être vide', true); return; }
 
@@ -5724,7 +5759,7 @@ function renderStaffManageList() {
                     method:      'PATCH',
                     credentials: 'include',
                     headers:     { 'Content-Type': 'application/json' },
-                    body:        JSON.stringify({ name: newName, color: newColor, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups, name_color: effectiveNameColor, nickname: newNickname, hourly_rate: newHourlyRate }),
+                    body:        JSON.stringify({ name: newName, color: newColor, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups, name_color: effectiveNameColor, nickname: newNickname, hourly_rate: newHourlyRate, fixed_rate: newFixedRate }),
                 });
                 if (!res.ok) throw new Error((await res.json()).error);
 
@@ -5737,6 +5772,7 @@ function renderStaffManageList() {
                 staff.groups            = newGroups;
                 staff.name_color = effectiveNameColor;
                 staff.hourly_rate = newHourlyRate;
+                staff.fixed_rate  = newFixedRate;
 
                 buildStaffDisplayNames();
 

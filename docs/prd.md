@@ -173,14 +173,19 @@ Page dédiée au patron / directeur pour suivre la masse salariale vs CA par soi
 - **KPIs** : CA total, **Heures travaillées** (somme `real_end - real_start` des shifts pointés), Masse salariale brute, Masse salariale chargée + coefficients %
 - **Vue calendaire** semaine par semaine : carte par jour avec CA + heures travaillées + coefficient brut. Code couleur : vert si coeff < `target_gross`, rouge sinon, orange si CA saisi mais aucun shift pointé
 - **Table détaillée** : Date, CA, Heures, Masse brute, Coeff brut, Masse chargée, Coeff chargé — scrollable horizontalement sur mobile (min-width 640 px)
-- **Détail par soirée** (ligne expandable) : staff, heures réelles, taux horaire, salaire brut + total ligne (heures + €)
+- **Détail par soirée** (ligne expandable) : staff, heures réelles, taux (horaire `XX,XX €/h` ou forfait `Forfait XX €`), salaire brut + total ligne (heures + €)
 - **Filtre période** : « Tout l'historique », « Cette semaine », « Ce mois ». Les périodes semaine/mois suivent **la semaine actuellement affichée dans le calendrier** (navigation ‹ ›). Navigation calendrier recharge automatiquement le tableau si la période est week/month
 - **Paramètres** (section « ⚙️ Paramètres ») :
   - `target_gross` (objectif coefficient brut, défaut 30 %)
   - `target_charged` (objectif coefficient chargé, défaut 43 %)
   - `charge_rate` (taux de charges patronales, défaut 45 % → multiplicateur ×1,45 sur la masse brute)
 - **Calcul** : `wage_bill_charged = wage_bill_gross × (1 + charge_rate/100)` — `charge_rate` lu dynamiquement depuis `settings.performance` (plus de valeur codée en dur)
-- **Snapshot taux horaire** : chaque shift conserve `hourly_rate_snapshot` au moment du pointage pour stabiliser les calculs historiques même si le `hourly_rate` du staff change ultérieurement
+- **Modes de rémunération staff** (mutuellement exclusifs, configurés dans la modale Gestion du staff) :
+  - **Horaire** : `wage_shift = hours × hourly_rate`
+  - **Forfait** : `wage_shift = fixed_rate` (par shift — pas multiplié par les heures ; si un staff fait 2 shifts dans la même soirée, le forfait s'applique 2×)
+  - Aucun taux défini → `wage_shift = 0` (affiché « — » dans le détail)
+- **Snapshot taux au pointage** : chaque shift conserve `hourly_rate_snapshot` OU `fixed_rate_snapshot` (selon le mode actif) au premier pointage — stabilise les calculs historiques même si le mode/taux du staff change ultérieurement
+- **Effet de bord côté API** : `PATCH /api/staff/:id` force automatiquement l'autre champ à `null` quand on définit `hourly_rate` ou `fixed_rate` à une valeur non-null — voir `architecture.md` §5 (Mutual exclusion Option A)
 
 ### 3.17 Pointage avancé (`pointage.html`)
 - Saisie des heures réelles (`real_start` / `real_end`) — patron/directeur peuvent ré-éditer, compte établissement verrouillé après enregistrement
