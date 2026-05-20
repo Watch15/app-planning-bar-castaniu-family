@@ -572,8 +572,12 @@ async function init() {
 
 // ── Calendrier semaine ────────────────────────────────────────────────────────
 
-async function loadCalendarWeek() {
+async function loadCalendarWeek(opts) {
     if (!calendarWeekStart || !currentEstab) return;
+    const silent = !!(opts && opts.silent);
+    const grid = document.getElementById('calendar-grid');
+    if (silent && grid) grid.classList.add('is-updating');
+
     const monday = new Date(calendarWeekStart);
     const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
     const from = toDateStr(monday);
@@ -591,7 +595,9 @@ async function loadCalendarWeek() {
         const data = res.ok ? await res.json() : [];
         renderCalendarGrid(data);
     } catch {
-        renderCalendarGrid([]);
+        if (!silent) renderCalendarGrid([]);
+    } finally {
+        if (silent && grid) grid.classList.remove('is-updating');
     }
 }
 
@@ -945,9 +951,9 @@ async function saveTargets() {
         setTimeout(() => { fb.textContent = ''; }, 2500);
         // Refetch complet : charge_rate impacte wage_bill_charged et staff_detail.wage_charged
         // côté serveur — un simple re-render des données existantes garderait les anciennes valeurs.
-        // Les seuils target_gross/target_charged sont aussi repris au passage (couleurs/KPIs).
-        loadData();
-        loadCalendarWeek();
+        // Mode silent : dim opacité au lieu de blank, restaure la ligne détail ouverte si besoin.
+        loadData({ silent: true });
+        loadCalendarWeek({ silent: true });
     } catch (e) {
         fb.style.color = 'var(--danger)'; fb.textContent = e.message || 'Erreur';
     } finally {
