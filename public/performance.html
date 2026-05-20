@@ -223,6 +223,13 @@
         .detail-table .total-row td { font-weight: 700; border-top: 1.5px solid var(--light-border); padding-top: 8px; }
         .missing-rate { color: var(--warning-text); background: var(--warning-bg); padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; }
 
+        /* Refresh « doux » après modification des paramètres : on garde la donnée
+           précédente visible sous une légère opacité au lieu de la blanker. */
+        #table-wrap, #kpis, #calendar-grid { transition: opacity 0.18s ease; }
+        #table-wrap.is-updating, #kpis.is-updating, #calendar-grid.is-updating {
+            opacity: 0.55; pointer-events: none;
+        }
+
         /* ── Objectifs ── */
         .targets {
             background: var(--light-card); border: 1px solid var(--light-border);
@@ -707,10 +714,27 @@ function _periodRange() {
     return { from: null, to: null };
 }
 
-async function loadData() {
+async function loadData(opts) {
+    const silent = !!(opts && opts.silent);
     const wrap = document.getElementById('table-wrap');
-    wrap.innerHTML = '<div class="loading-msg">Chargement…</div>';
-    const kpis = document.getElementById('kpis'); kpis.innerHTML = '';
+    const kpis = document.getElementById('kpis');
+
+    // Mode initial / changement de période : on blank (squelette « Chargement… »).
+    // Mode silencieux (après save paramètres) : on dim juste l'opacité — la donnée
+    // précédente reste lisible et la ligne expandée est restaurée après refresh.
+    let expandedDate = null;
+    if (silent) {
+        wrap.classList.add('is-updating');
+        kpis.classList.add('is-updating');
+        const openRow = wrap.querySelector('.perf-row.expanded');
+        if (openRow) {
+            const idx = openRow.dataset.idx;
+            if (idx != null && currentData[idx]) expandedDate = currentData[idx].date;
+        }
+    } else {
+        wrap.innerHTML = '<div class="loading-msg">Chargement…</div>';
+        kpis.innerHTML = '';
+    }
 
     const { from, to } = _periodRange();
     const params = new URLSearchParams({ establishment_id: currentEstab });
@@ -724,8 +748,35 @@ async function loadData() {
         currentData = data;
         renderKpis(data);
         renderTable(data);
+        if (silent && expandedDate) {
+            const newIdx = data.findIndex(r => r.date === expandedDate);
+            if (newIdx >= 0) {
+                const row    = wrap.querySelector('.perf-row[data-idx="' + newIdx + '"]');
+                const detail = wrap.querySelector('.perf-detail[data-detail-for="' + newIdx + '"]');
+                if (row && detail) {
+                    row.classList.add('expanded');
+                    detail.style.display = '';
+                    renderDetail(
+                        detail.querySelector('td'),
+                        data[newIdx].staff_detail,
+                        data[newIdx].wage_bill_gross,
+                        data[newIdx].wage_bill_charged
+                    );
+                }
+            }
+        }
     } catch (e) {
-        wrap.innerHTML = '<div class="empty-msg" style="color:var(--danger)">' + escapeHtml(e.message || 'Erreur') + '</div>';
+        if (silent) {
+            // Ne pas effacer la donnée existante en cas d'erreur silencieuse — un toast suffit.
+            console.error('[loadData silent]', e);
+        } else {
+            wrap.innerHTML = '<div class="empty-msg" style="color:var(--danger)">' + escapeHtml(e.message || 'Erreur') + '</div>';
+        }
+    } finally {
+        if (silent) {
+            wrap.classList.remove('is-updating');
+            kpis.classList.remove('is-updating');
+        }
     }
 }
 
