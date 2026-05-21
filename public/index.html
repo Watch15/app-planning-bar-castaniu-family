@@ -886,7 +886,7 @@
             <button class="week-sub-tab" data-sub="gantt">Gantt</button>
             <div style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:4px 0 4px 8px">
                 <button id="btn-export-csv" title="Exporter le planning en CSV" style="font-size:11px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#555;cursor:pointer;white-space:nowrap">⬇ CSV</button>
-                <button id="btn-print-dashboard" title="Imprimer le tableau de bord" style="font-size:11px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#555;cursor:pointer;white-space:nowrap">🖨 Imprimer</button>
+                <button id="btn-print-dashboard" title="Enregistrer le tableau de bord en PDF" style="font-size:11px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#555;cursor:pointer;white-space:nowrap">📄 PDF</button>
                 <button id="btn-print-gantt" title="Imprimer le Gantt" style="display:none;font-size:11px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#555;cursor:pointer;white-space:nowrap">🖨 Imprimer</button>
             </div>
         </div>
@@ -1292,6 +1292,8 @@
 <div class="drop-hint" id="drop-hint">Dépose pour ajouter au planning</div>
 <div id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="script.js"></script>
 <script>
 if ('serviceWorker' in navigator) {

@@ -342,7 +342,7 @@ async function init() {
     const btnPrintDashboard  = document.getElementById('btn-print-dashboard');
     const btnPrintGantt      = document.getElementById('btn-print-gantt');
     if (btnExportCsv)      btnExportCsv.addEventListener('click', exportWeekCSV);
-    if (btnPrintDashboard) btnPrintDashboard.addEventListener('click', generatePrintDashboard);
+    if (btnPrintDashboard) btnPrintDashboard.addEventListener('click', saveDashboardPdf);
     if (btnPrintGantt)     btnPrintGantt.addEventListener('click', generatePrintGantt);
     // Synchroniser visibilité boutons impression avec le sous-onglet actif
     document.querySelectorAll('.week-sub-tab').forEach(btn => {
@@ -6855,7 +6855,12 @@ function exportWeekCSV() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function generatePrintDashboard() {
+async function saveDashboardPdf() {
+    if (!window.jspdf || !window.html2canvas) {
+        showToast('Bibliothèque PDF non chargée', true);
+        return;
+    }
+
     const days = Array.from({ length: 7 }, (_, i) => {
         const d = addDays(currentWeekStart, i);
         return { date: toDateStr(d), d };
@@ -6864,12 +6869,6 @@ function generatePrintDashboard() {
         const hh = Math.floor(v % 24).toString().padStart(2, '0');
         const mm = Math.round((v % 1) * 60);
         return hh + 'h' + (mm > 0 ? String(mm).padStart(2, '0') : '');
-    };
-    const fmtTotal = h => {
-        const totalMins = Math.round(h * 60);
-        const hrs = Math.floor(totalMins / 60);
-        const mins = totalMins % 60;
-        return mins > 0 ? hrs + 'h' + String(mins).padStart(2, '0') : hrs + 'h';
     };
 
     const staffMap = new Map();
@@ -6889,29 +6888,21 @@ function generatePrintDashboard() {
         thead += '<th style="padding:6px 8px;text-align:center;border:1px solid #ddd;min-width:60px">' +
             DAY_NAMES_SHORT[d.getDay()] + '<br>' + d.getDate() + '</th>';
     });
-    thead += '<th style="padding:6px 10px;text-align:center;border:1px solid #ddd">Total</th></tr>';
+    thead += '</tr>';
 
     let tbody = '';
     staffMap.forEach(staff => {
-        let totalH = 0;
         let row = '<tr><td style="padding:6px 10px;border:1px solid #ddd;white-space:nowrap">' +
-            '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + staff.color + ';margin-right:5px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></span>' +
+            '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + staff.color + ';margin-right:5px"></span>' +
             escapeHtml(displayName(staff._id, staff.name)) + '</td>';
         days.forEach(({ date }) => {
             const dayShifts = staff.shifts[date];
             if (dayShifts && dayShifts.length) {
-                let dayH = 0;
-                dayShifts.forEach(s => {
-                    const ds = s.real_start != null ? s.real_start : s.start_time;
-                    const de = s.real_end   != null ? s.real_end   : s.end_time;
-                    dayH += de - ds;
-                });
-                totalH += dayH;
                 const pills = dayShifts.map(s => {
                     const ds = s.real_start != null ? s.real_start : s.start_time;
                     const de = s.real_end   != null ? s.real_end   : s.end_time;
                     const tc = textColorFor(s.color || '#3498db');
-                    return '<div style="background:' + s.color + ';color:' + tc + ';border-radius:4px;padding:2px 5px;font-size:10px;margin-bottom:2px;-webkit-print-color-adjust:exact;print-color-adjust:exact">' +
+                    return '<div style="background:' + s.color + ';color:' + tc + ';border-radius:4px;padding:2px 5px;font-size:10px;margin-bottom:2px">' +
                         escapeHtml(fmtD(ds)) + '–' + escapeHtml(fmtD(de)) + '</div>';
                 }).join('');
                 row += '<td style="padding:4px 6px;border:1px solid #ddd">' + pills + '</td>';
@@ -6919,7 +6910,7 @@ function generatePrintDashboard() {
                 row += '<td style="padding:6px;border:1px solid #ddd;color:#bbb;text-align:center">—</td>';
             }
         });
-        row += '<td style="padding:6px 10px;font-weight:600;text-align:center;border:1px solid #ddd">' + fmtTotal(totalH) + '</td></tr>';
+        row += '</tr>';
         tbody += row;
     });
 
@@ -6927,23 +6918,51 @@ function generatePrintDashboard() {
     const to    = addDays(currentWeekStart, 6);
     const title = 'Planning ' + formatDateShort(from) + ' – ' + formatDateShort(to);
 
-    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>' + title + '</title>' +
-        '<style>' +
-        '@page{size:A4 landscape;margin:10mm}' +
-        '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
-        'body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a2e;margin:0}' +
-        'h2{font-size:14px;margin:0 0 10px}' +
-        'table{width:100%;border-collapse:collapse}' +
-        'tr:nth-child(even){background:#fafafa}' +
-        '</style></head>' +
-        '<body><h2>' + title + '</h2>' +
-        '<table><thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>' +
-        '<script>window.onload=function(){window.print()};<\/script></body></html>';
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;left:-10000px;top:0;width:1100px;background:#fff;padding:16px;font-family:Arial,sans-serif;font-size:12px;color:#1a1a2e';
+    container.innerHTML =
+        '<h2 style="font-size:14px;margin:0 0 10px">' + title + '</h2>' +
+        '<table style="width:100%;border-collapse:collapse">' +
+        '<thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>';
+    document.body.appendChild(container);
 
-    const w = window.open('', '_blank');
-    if (!w) { showToast('Autorise les popups pour imprimer', true); return; }
-    w.document.write(html);
-    w.document.close();
+    try {
+        const canvas = await window.html2canvas(container, { scale: 2, backgroundColor: '#ffffff' });
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const margin = 10;
+        const imgW = pageW - margin * 2;
+        const imgH = canvas.height * imgW / canvas.width;
+        const imgData = canvas.toDataURL('image/png');
+
+        if (imgH <= pageH - margin * 2) {
+            doc.addImage(imgData, 'PNG', margin, margin, imgW, imgH);
+        } else {
+            // Pagination : on découpe l'image en tranches qui tiennent dans la page
+            const pxPerMm = canvas.width / imgW;
+            const sliceHpx = (pageH - margin * 2) * pxPerMm;
+            let yPx = 0;
+            while (yPx < canvas.height) {
+                const hPx = Math.min(sliceHpx, canvas.height - yPx);
+                const slice = document.createElement('canvas');
+                slice.width = canvas.width;
+                slice.height = hPx;
+                slice.getContext('2d').drawImage(canvas, 0, yPx, canvas.width, hPx, 0, 0, canvas.width, hPx);
+                const sliceData = slice.toDataURL('image/png');
+                if (yPx > 0) doc.addPage();
+                doc.addImage(sliceData, 'PNG', margin, margin, imgW, hPx / pxPerMm);
+                yPx += hPx;
+            }
+        }
+        doc.save('planning-' + toDateStr(currentWeekStart) + '.pdf');
+    } catch (err) {
+        console.error(err);
+        showToast('Erreur lors de la génération du PDF', true);
+    } finally {
+        document.body.removeChild(container);
+    }
 }
 
 function generatePrintGantt() {
