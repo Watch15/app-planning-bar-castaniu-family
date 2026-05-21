@@ -2984,10 +2984,11 @@ app.get('/api/recap-mensuel', checkDB, requirePatron, async (req, res) => {
         const staffMap  = {};
         staffList.forEach(s => { staffMap[String(s._id)] = s; });
 
-        // Charger les établissements pour les noms dans la ventilation
+        // Charger les établissements pour les noms dans la ventilation.
+        // Les shifts référencent le champ custom `id` (pas `_id`).
         const estabList = await db.collection('establishments').find().toArray();
         const estabMap  = {};
-        estabList.forEach(e => { estabMap[String(e._id)] = e; });
+        estabList.forEach(e => { estabMap[String(e.id)] = e; });
 
         const result = Object.values(byStaff).map(entry => {
             const dates    = [...new Set(entry.shifts.map(s => s.date))];

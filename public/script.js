@@ -4327,7 +4327,7 @@ async function loadRecapData() {
             estabCols.forEach((e, i) => {
                 const h = byEstabMap[e.id];
                 if (h != null) estabTotals[i] += h;
-                tableHTML += '<td style="text-align:center;padding:8px 6px;color:' + (h != null ? '#1a1a2e' : '#bbb') + '">' + (h != null ? fmtH(h) : '—') + '</td>';
+                tableHTML += '<td style="text-align:center;padding:8px 6px">' + (h != null ? fmtH(h) : '') + '</td>';
             });
             tableHTML +=
                 '<td style="text-align:center;padding:8px 6px">' + s.days + '</td>' +
