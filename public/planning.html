@@ -403,7 +403,6 @@
             border-radius: 20px; padding: 4px 10px;
             font-size: 12px; color: var(--text-secondary);
         }
-        .estab-hours-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
         /* ── Lien Pointage directeur ── */
         .btn-pointage-tab {
@@ -1122,7 +1121,7 @@ function renderStatsInto(shifts, el, prevTotalH) {
     shifts.forEach(s => {
         const start = (s.real_start != null) ? s.real_start : s.start_time;
         const end   = (s.real_end   != null) ? s.real_end   : s.end_time;
-        if (!byEstab[s.establishment_id]) byEstab[s.establishment_id] = { total: 0, color: s.color || '#8892a4' };
+        if (!byEstab[s.establishment_id]) byEstab[s.establishment_id] = { total: 0 };
         byEstab[s.establishment_id].total += (end - start);
     });
     const estabIds = Object.keys(byEstab);
@@ -1130,10 +1129,9 @@ function renderStatsInto(shifts, el, prevTotalH) {
         const bar = document.createElement('div');
         bar.className = 'estab-hours-bar';
         estabIds.forEach(id => {
-            const { total, color } = byEstab[id];
+            const { total } = byEstab[id];
             bar.innerHTML +=
                 '<div class="estab-hours-chip">' +
-                    '<div class="estab-hours-dot" style="background:' + color + '"></div>' +
                     '<span>' + formatEstablishment(id) + '</span>' +
                     '<span style="font-weight:700;color:var(--text-primary);margin-left:4px">' + fmtDuration(total) + '</span>' +
                 '</div>';
@@ -1273,7 +1271,7 @@ function renderMonthStats(shifts, prevTotalH) {
     shifts.forEach(s => {
         const start = (s.real_start != null) ? s.real_start : s.start_time;
         const end   = (s.real_end   != null) ? s.real_end   : s.end_time;
-        if (!byEstab[s.establishment_id]) byEstab[s.establishment_id] = { total: 0, color: s.color || '#8892a4' };
+        if (!byEstab[s.establishment_id]) byEstab[s.establishment_id] = { total: 0 };
         byEstab[s.establishment_id].total += (end - start);
     });
     const estabIds = Object.keys(byEstab);
@@ -1281,10 +1279,9 @@ function renderMonthStats(shifts, prevTotalH) {
         const bar = document.createElement('div');
         bar.className = 'estab-hours-bar';
         estabIds.forEach(id => {
-            const { total, color } = byEstab[id];
+            const { total } = byEstab[id];
             bar.innerHTML +=
                 '<div class="estab-hours-chip">' +
-                    '<div class="estab-hours-dot" style="background:' + color + '"></div>' +
                     '<span>' + formatEstablishment(id) + '</span>' +
                     '<span style="font-weight:700;color:var(--text-primary);margin-left:4px">' + fmtDuration(total) + '</span>' +
                 '</div>';
@@ -1625,17 +1622,16 @@ function buildHistStatsHtml(shifts, prevTotalH) {
     shifts.forEach(s => {
         const start = (s.real_start != null) ? s.real_start : s.start_time;
         const end   = (s.real_end   != null) ? s.real_end   : s.end_time;
-        if (!byEstab[s.establishment_id]) byEstab[s.establishment_id] = { total: 0, color: s.color || '#8892a4' };
+        if (!byEstab[s.establishment_id]) byEstab[s.establishment_id] = { total: 0 };
         byEstab[s.establishment_id].total += (end - start);
     });
     const estabIds = Object.keys(byEstab);
     if (estabIds.length > 1) {
         html += '<div class="estab-hours-bar" style="padding:0 0 12px">';
         estabIds.forEach(id => {
-            const { total, color } = byEstab[id];
+            const { total } = byEstab[id];
             html +=
                 '<div class="estab-hours-chip">' +
-                    '<div class="estab-hours-dot" style="background:' + color + '"></div>' +
                     '<span>' + formatEstablishment(id) + '</span>' +
                     '<span style="font-weight:700;color:var(--text-primary);margin-left:4px">' + fmtDuration(total) + '</span>' +
                 '</div>';
