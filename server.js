@@ -2984,6 +2984,11 @@ app.get('/api/recap-mensuel', checkDB, requirePatron, async (req, res) => {
         const staffMap  = {};
         staffList.forEach(s => { staffMap[String(s._id)] = s; });
 
+        // Charger les établissements pour les noms dans la ventilation
+        const estabList = await db.collection('establishments').find().toArray();
+        const estabMap  = {};
+        estabList.forEach(e => { estabMap[String(e._id)] = e; });
+
         const result = Object.values(byStaff).map(entry => {
             const dates    = [...new Set(entry.shifts.map(s => s.date))];
             const planned  = entry.shifts.reduce((a, s) => a + (s.end_time - s.start_time), 0);
@@ -2997,6 +3002,19 @@ app.get('/api/recap-mensuel', checkDB, requirePatron, async (req, res) => {
                 const end   = s.real_end   != null ? s.real_end   : s.end_time;
                 return a + (end - start);
             }, 0);
+
+            // Ventilation des heures planifiées par établissement
+            const estabHours = {};
+            entry.shifts.forEach(s => {
+                const eid = String(s.establishment_id || '');
+                if (!estabHours[eid]) estabHours[eid] = 0;
+                estabHours[eid] += (s.end_time - s.start_time);
+            });
+            const by_establishment = Object.entries(estabHours).map(([eid, h]) => ({
+                establishment_id:   eid,
+                establishment_name: estabMap[eid] ? estabMap[eid].name : '—',
+                planned_hours:      Math.round(h * 100) / 100,
+            })).sort((a, b) => a.establishment_name.localeCompare(b.establishment_name));
 
             const sm = staffMap[entry.staff_id];
             return {
@@ -3012,6 +3030,7 @@ app.get('/api/recap-mensuel', checkDB, requirePatron, async (req, res) => {
                 extra_count:   extraShifts.length,
                 extra_hours:   Math.round(extraHours * 100) / 100,
                 total_shifts:  entry.shifts.length,
+                by_establishment,
             };
         });
 

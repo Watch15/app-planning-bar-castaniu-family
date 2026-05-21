@@ -4215,11 +4215,11 @@ function openRecapModal() {
         btnPrint.addEventListener('click', () => window.print());
     }
 
-    // Listener export CSV
-    const btnCsv = document.getElementById('recap-export-csv');
-    if (btnCsv && !btnCsv._bound) {
-        btnCsv._bound = true;
-        btnCsv.addEventListener('click', exportRecapCsv);
+    // Listener export Excel
+    const btnXlsx = document.getElementById('recap-export-csv');
+    if (btnXlsx && !btnXlsx._bound) {
+        btnXlsx._bound = true;
+        btnXlsx.addEventListener('click', exportRecapXlsx);
     }
 
     // Listener fermer
@@ -4273,14 +4273,34 @@ async function loadRecapData() {
         let totalPlanned = 0, totalReal = 0, totalDays = 0;
         let hasAnyReal = false;
 
-        let tableHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+        // Colonnes par établissement (uniquement quand on n'a pas filtré sur un seul)
+        const showByEstab = !estabId;
+        const estabCols = [];
+        if (showByEstab) {
+            const seen = new Map();
+            data.forEach(s => {
+                (s.by_establishment || []).forEach(b => {
+                    if (!seen.has(b.establishment_id))
+                        seen.set(b.establishment_id, { id: b.establishment_id, name: b.establishment_name });
+                });
+            });
+            estabCols.push(...Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name)));
+        }
+
+        let tableHTML = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px">';
         tableHTML += '<thead><tr style="background:#f8f8f8;border-bottom:2px solid #e0e0e0">' +
-            '<th style="text-align:left;padding:8px 10px">Nom</th>' +
+            '<th style="text-align:left;padding:8px 10px">Nom</th>';
+        estabCols.forEach(e => {
+            tableHTML += '<th style="text-align:center;padding:8px 6px;white-space:nowrap" title="' + escapeHtml(e.name) + '">' + escapeHtml(e.name) + '</th>';
+        });
+        tableHTML +=
             '<th style="text-align:center;padding:8px 6px">Jours</th>' +
             '<th style="text-align:center;padding:8px 6px">H. planifiées</th>' +
             '<th style="text-align:center;padding:8px 6px">H. réelles</th>' +
             '<th style="text-align:center;padding:8px 6px">Écart</th>' +
             '</tr></thead><tbody>';
+
+        const estabTotals = estabCols.map(() => 0);
 
         data.forEach(s => {
             totalPlanned += s.planned_hours;
@@ -4295,12 +4315,21 @@ async function loadRecapData() {
                 ? fmtH(s.real_hours) + (s.partial ? ' <span class="badge badge--warning" title="Certains shifts non pointés">partiel</span>' : '')
                 : '—';
 
+            // Ventilation par établissement (map pour lookup rapide)
+            const byEstabMap = {};
+            (s.by_establishment || []).forEach(b => { byEstabMap[b.establishment_id] = b.planned_hours; });
 
             tableHTML += '<tr style="border-bottom:1px solid #f0f0f0">' +
                 '<td style="padding:8px 10px;display:flex;align-items:center;gap:6px">' +
                     '<span style="width:8px;height:8px;border-radius:50%;background:' + s.color + ';flex-shrink:0;display:inline-block"></span>' +
-                    '<span style="font-weight:600">' + s.staff_name + '</span>' +
-                '</td>' +
+                    '<span style="font-weight:600">' + escapeHtml(s.staff_name) + '</span>' +
+                '</td>';
+            estabCols.forEach((e, i) => {
+                const h = byEstabMap[e.id];
+                if (h != null) estabTotals[i] += h;
+                tableHTML += '<td style="text-align:center;padding:8px 6px;color:' + (h != null ? '#1a1a2e' : '#bbb') + '">' + (h != null ? fmtH(h) : '—') + '</td>';
+            });
+            tableHTML +=
                 '<td style="text-align:center;padding:8px 6px">' + s.days + '</td>' +
                 '<td style="text-align:center;padding:8px 6px">' + fmtH(s.planned_hours) + '</td>' +
                 '<td style="text-align:center;padding:8px 6px">' + realStr + '</td>' +
@@ -4315,14 +4344,18 @@ async function loadRecapData() {
             : '—';
 
         tableHTML += '<tr style="border-top:2px solid #e0e0e0;font-weight:700;background:#f8f8f8">' +
-            '<td style="padding:8px 10px">Total (' + data.length + ' staff)</td>' +
+            '<td style="padding:8px 10px">Total (' + data.length + ' staff)</td>';
+        estabTotals.forEach(t => {
+            tableHTML += '<td style="text-align:center;padding:8px 6px">' + (t > 0 ? fmtH(t) : '—') + '</td>';
+        });
+        tableHTML +=
             '<td style="text-align:center;padding:8px 6px">' + totalDays + '</td>' +
             '<td style="text-align:center;padding:8px 6px">' + fmtH(totalPlanned) + '</td>' +
             '<td style="text-align:center;padding:8px 6px">' + (hasAnyReal ? fmtH(totalReal) : '—') + '</td>' +
             '<td style="text-align:center;padding:8px 6px">' + totalEcartStr + '</td>' +
             '</tr>';
 
-        tableHTML += '</tbody></table>';
+        tableHTML += '</tbody></table></div>';
         content.innerHTML = tableHTML;
 
     } catch (e) {
@@ -4330,9 +4363,13 @@ async function loadRecapData() {
     }
 }
 
-function exportRecapCsv() {
+function exportRecapXlsx() {
     if (!_recapLastData || _recapLastData.length === 0) {
-        showToast('Aucune donnée à exporter', true);
+        showToast('Aucune donn\u00E9e \u00E0 exporter', true);
+        return;
+    }
+    if (!window.XLSX) {
+        showToast('Biblioth\u00E8que Excel non charg\u00E9e', true);
         return;
     }
     const fmtH = h => {
@@ -4343,52 +4380,89 @@ function exportRecapCsv() {
         const mins = totalMins % 60;
         return sign + hrs + 'h' + String(mins).padStart(2, '0');
     };
-    const esc = v => {
-        const s = (v == null ? '' : String(v));
-        return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-    };
-    const sep = ';';
-    const lines = [];
     const { month, estabLabel } = _recapLastMeta || {};
-    lines.push(esc('Récapitulatif mensuel ' + (month || '')) + sep + esc('Établissement: ' + (estabLabel || 'Tous')));
-    lines.push('');
-    lines.push(['Nom', 'Jours', 'Heures planifiées', 'Heures réelles', 'Écart', 'Partiel'].map(esc).join(sep));
+    const filteredOnEstab = estabLabel && estabLabel !== 'Tous';
+
+    // Colonnes par \u00E9tablissement uniquement si on n'a pas filtr\u00E9 sur un seul
+    const estabCols = [];
+    if (!filteredOnEstab) {
+        const seen = new Map();
+        _recapLastData.forEach(s => {
+            (s.by_establishment || []).forEach(b => {
+                if (!seen.has(b.establishment_id))
+                    seen.set(b.establishment_id, { id: b.establishment_id, name: b.establishment_name });
+            });
+        });
+        estabCols.push(...Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name)));
+    }
+
+    const header = ['Nom']
+        .concat(estabCols.map(e => e.name))
+        .concat(['Jours', 'Heures planifi\u00E9es', 'Heures r\u00E9elles', '\u00C9cart', 'Partiel']);
+
+    const rows = [
+        ['R\u00E9capitulatif mensuel ' + (month || ''), '\u00C9tablissement : ' + (estabLabel || 'Tous')],
+        [],
+        header,
+    ];
 
     let totalPlanned = 0, totalReal = 0, totalDays = 0, hasAnyReal = false;
+    const estabTotals = estabCols.map(() => 0);
+
     _recapLastData.forEach(s => {
         totalPlanned += s.planned_hours;
-        totalDays += s.days;
+        totalDays    += s.days;
         if (s.real_hours != null) { totalReal += s.real_hours; hasAnyReal = true; }
-        lines.push([
-            s.staff_name,
+
+        const byEstabMap = {};
+        (s.by_establishment || []).forEach(b => { byEstabMap[b.establishment_id] = b.planned_hours; });
+
+        const row = [s.staff_name];
+        estabCols.forEach((e, i) => {
+            const h = byEstabMap[e.id];
+            if (h != null) estabTotals[i] += h;
+            row.push(h != null ? fmtH(h) : '');
+        });
+        row.push(
             s.days,
             fmtH(s.planned_hours),
             s.real_hours != null ? fmtH(s.real_hours) : '',
             s.ecart != null ? fmtH(s.ecart) : '',
             s.partial ? 'oui' : ''
-        ].map(esc).join(sep));
+        );
+        rows.push(row);
     });
+
     const totalEcart = hasAnyReal ? totalReal - totalPlanned : null;
-    lines.push([
-        'Total (' + _recapLastData.length + ' staff)',
+    const totalRow = ['Total (' + _recapLastData.length + ' staff)'];
+    estabTotals.forEach(t => totalRow.push(t > 0 ? fmtH(t) : ''));
+    totalRow.push(
         totalDays,
         fmtH(totalPlanned),
         hasAnyReal ? fmtH(totalReal) : '',
         totalEcart != null ? fmtH(totalEcart) : '',
         ''
-    ].map(esc).join(sep));
+    );
+    rows.push(totalRow);
 
-    const csv = '\uFEFF' + lines.join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+
+    // Largeurs auto : on prend le plus large entre l'en-t\u00EAte et le contenu
+    ws['!cols'] = header.map((h, ci) => {
+        let max = String(h || '').length + 2;
+        for (let ri = 3; ri < rows.length; ri++) {
+            const v = rows[ri][ci];
+            if (v != null) max = Math.max(max, String(v).length + 2);
+        }
+        return { wch: Math.min(Math.max(max, 8), 32) };
+    });
+
+    const wb = XLSX.utils.book_new();
+    const sheetName = ('R\u00E9cap ' + (month || '')).slice(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
     const safeEstab = (estabLabel || 'tous').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    a.href = url;
-    a.download = 'recap-' + (month || 'mois') + '-' + safeEstab + '.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    XLSX.writeFile(wb, 'recap-' + (month || 'mois') + '-' + safeEstab + '.xlsx');
 }
 
 /* ── Échanges de shifts — côté patron (F-05) — DÉSACTIVÉ ────────────────────

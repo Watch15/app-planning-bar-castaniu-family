@@ -1228,7 +1228,7 @@
                 <option value="">Tous les établissements</option>
             </select>
             <button id="recap-load" class="btn-add-staff" style="padding:6px 14px;font-size:12px">Charger</button>
-            <button id="recap-export-csv" class="btn-manage-staff" style="margin-left:auto;font-size:11px;padding:4px 10px" title="Exporter en CSV (Excel)">⬇ Export CSV</button>
+            <button id="recap-export-csv" class="btn-manage-staff" style="margin-left:auto;font-size:11px;padding:4px 10px" title="Enregistrer en Excel (.xlsx)">📊 Excel</button>
             <button id="recap-print" class="btn-manage-staff" style="font-size:11px;padding:4px 10px" title="Imprimer ce récap">🖨 Imprimer</button>
         </div>
         <div id="recap-content" style="max-height:60vh;overflow-y:auto"></div>
@@ -1294,6 +1294,7 @@
 
 <script src="/vendor/html2canvas.min.js"></script>
 <script src="/vendor/jspdf.umd.min.js"></script>
+<script src="/vendor/xlsx.full.min.js"></script>
 <script src="script.js"></script>
 <script>
 if ('serviceWorker' in navigator) {
