@@ -6883,16 +6883,28 @@ async function saveDashboardPdf() {
         });
     });
 
-    let thead = '<tr style="background:#f0f0f0"><th style="padding:6px 10px;text-align:left;border:1px solid #ddd">Staff</th>';
+    // Densité adaptative : plus on a de staff, plus on compacte
+    const staffCount = staffMap.size;
+    const dense = staffCount > 15;
+    const xDense = staffCount > 25;
+    const rowPad      = xDense ? '2px 6px' : (dense ? '3px 7px' : '6px 10px');
+    const cellPad     = xDense ? '1px 3px' : (dense ? '2px 4px' : '4px 6px');
+    const pillPad     = xDense ? '0 4px'   : (dense ? '1px 4px' : '2px 5px');
+    const pillFont    = xDense ? '9px'     : (dense ? '9.5px'   : '10px');
+    const pillMargin  = xDense ? '1px'     : '2px';
+    const rowFont     = xDense ? '10px'    : (dense ? '11px'    : '12px');
+    const headPad     = dense  ? '4px 6px' : '6px 8px';
+
+    let thead = '<tr style="background:#f0f0f0"><th style="padding:' + rowPad + ';text-align:left;border:1px solid #ddd">Staff</th>';
     days.forEach(({ d }) => {
-        thead += '<th style="padding:6px 8px;text-align:center;border:1px solid #ddd;min-width:60px">' +
+        thead += '<th style="padding:' + headPad + ';text-align:center;border:1px solid #ddd;min-width:60px">' +
             DAY_NAMES_SHORT[d.getDay()] + '<br>' + d.getDate() + '</th>';
     });
     thead += '</tr>';
 
     let tbody = '';
     staffMap.forEach(staff => {
-        let row = '<tr><td style="padding:6px 10px;border:1px solid #ddd;white-space:nowrap">' +
+        let row = '<tr><td style="padding:' + rowPad + ';border:1px solid #ddd;white-space:nowrap">' +
             '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + staff.color + ';margin-right:5px"></span>' +
             escapeHtml(displayName(staff._id, staff.name)) + '</td>';
         days.forEach(({ date }) => {
@@ -6902,12 +6914,12 @@ async function saveDashboardPdf() {
                     const ds = s.real_start != null ? s.real_start : s.start_time;
                     const de = s.real_end   != null ? s.real_end   : s.end_time;
                     const tc = textColorFor(s.color || '#3498db');
-                    return '<div style="background:' + s.color + ';color:' + tc + ';border-radius:4px;padding:2px 5px;font-size:10px;margin-bottom:2px">' +
+                    return '<div style="background:' + s.color + ';color:' + tc + ';border-radius:4px;padding:' + pillPad + ';font-size:' + pillFont + ';margin-bottom:' + pillMargin + ';line-height:1.25">' +
                         escapeHtml(fmtD(ds)) + '–' + escapeHtml(fmtD(de)) + '</div>';
                 }).join('');
-                row += '<td style="padding:4px 6px;border:1px solid #ddd">' + pills + '</td>';
+                row += '<td style="padding:' + cellPad + ';border:1px solid #ddd">' + pills + '</td>';
             } else {
-                row += '<td style="padding:6px;border:1px solid #ddd;color:#bbb;text-align:center">—</td>';
+                row += '<td style="padding:' + cellPad + ';border:1px solid #ddd;color:#bbb;text-align:center">—</td>';
             }
         });
         row += '</tr>';
@@ -6921,8 +6933,10 @@ async function saveDashboardPdf() {
     const estab     = allEstablishments.find(e => String(e._id) === String(currentVenueId) || e.id === currentVenueId);
     const venueName = estab ? estab.name : 'Mon établissement';
 
+    // Largeur source : on tend vers le ratio A4 paysage (≈1.41) pour minimiser le scaling perdu
+    const containerWidth = dense ? 1400 : 1200;
     const container = document.createElement('div');
-    container.style.cssText = 'position:fixed;left:-10000px;top:0;width:1100px;background:#fff;padding:20px 24px;font-family:Arial,sans-serif;font-size:12px;color:#1a1a2e';
+    container.style.cssText = 'position:fixed;left:-10000px;top:0;width:' + containerWidth + 'px;background:#fff;padding:20px 24px;font-family:Arial,sans-serif;font-size:' + rowFont + ';color:#1a1a2e';
     container.innerHTML =
         '<header style="display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;border-bottom:2px solid #1a1a2e;margin-bottom:14px">' +
             '<div style="display:flex;align-items:center;gap:11px">' +
@@ -6936,7 +6950,7 @@ async function saveDashboardPdf() {
             '</div>' +
             '<div><span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #6C63FF;border-radius:14px;color:#6C63FF;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Semaine</span></div>' +
         '</header>' +
-        '<table style="width:100%;border-collapse:collapse">' +
+        '<table style="width:100%;border-collapse:collapse;table-layout:fixed">' +
         '<thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>';
     document.body.appendChild(container);
 
@@ -6946,30 +6960,17 @@ async function saveDashboardPdf() {
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
         const pageW = doc.internal.pageSize.getWidth();
         const pageH = doc.internal.pageSize.getHeight();
-        const margin = 10;
-        const imgW = pageW - margin * 2;
-        const imgH = canvas.height * imgW / canvas.width;
-        const imgData = canvas.toDataURL('image/png');
+        const margin = 8;
+        const availW = pageW - margin * 2;
+        const availH = pageH - margin * 2;
 
-        if (imgH <= pageH - margin * 2) {
-            doc.addImage(imgData, 'PNG', margin, margin, imgW, imgH);
-        } else {
-            // Pagination : on découpe l'image en tranches qui tiennent dans la page
-            const pxPerMm = canvas.width / imgW;
-            const sliceHpx = (pageH - margin * 2) * pxPerMm;
-            let yPx = 0;
-            while (yPx < canvas.height) {
-                const hPx = Math.min(sliceHpx, canvas.height - yPx);
-                const slice = document.createElement('canvas');
-                slice.width = canvas.width;
-                slice.height = hPx;
-                slice.getContext('2d').drawImage(canvas, 0, yPx, canvas.width, hPx, 0, 0, canvas.width, hPx);
-                const sliceData = slice.toDataURL('image/png');
-                if (yPx > 0) doc.addPage();
-                doc.addImage(sliceData, 'PNG', margin, margin, imgW, hPx / pxPerMm);
-                yPx += hPx;
-            }
-        }
+        // Toujours une seule page : on prend le plus petit ratio pour faire tenir
+        const ratio = Math.min(availW / canvas.width, availH / canvas.height);
+        const drawW = canvas.width * ratio;
+        const drawH = canvas.height * ratio;
+        const x = (pageW - drawW) / 2;
+        const y = margin;
+        doc.addImage(canvas.toDataURL('image/png'), 'PNG', x, y, drawW, drawH);
         doc.save('planning-' + toDateStr(currentWeekStart) + '.pdf');
     } catch (err) {
         console.error(err);
