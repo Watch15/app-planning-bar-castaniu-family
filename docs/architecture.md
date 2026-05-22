@@ -194,7 +194,7 @@ Rate limiter en mémoire basé sur `Map` (aucune dépendance externe). Login : 1
 - `note` = note libre saisie par le patron sur un Joker (visible aussi par le staff assigné après conversion)
 - `real_start` / `real_end` = heures réelles saisies au pointage
 - `hourly_rate_snapshot` / `fixed_rate_snapshot` = copie du taux (mode horaire OU forfait, mutuellement exclusifs) figée au premier pointage — stabilise les calculs Performance historiques même si le mode/taux du staff change ensuite. Exactement un des deux est non-null pour un shift pointé d'un staff rémunéré.
-- `pointage_resp: true` = ce shift désigne le responsable de soirée pour l'établissement/date (un seul par soirée)
+- `pointage_resp: true` = ce shift désigne un responsable de soirée pour l'établissement/date (plusieurs possibles, ex : 1 responsable matin + 1 responsable soir)
 - `extra: true` = shift créé directement au pointage (non planifié à l'avance)
 
 ### `staff` — champs de rémunération

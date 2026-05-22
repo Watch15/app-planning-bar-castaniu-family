@@ -609,11 +609,11 @@ function canAccessEstablishment(user, establishmentId) {
     return assigned.includes(establishmentId);
 }
 
-// Vérifie si un staff est le responsable de pointage pour un établissement à une date donnée.
+// Vérifie si un staff est un responsable de pointage pour un établissement à une date donnée.
 // Les rôles sont portés par le profil staff, pas par le shift.
 // Règle : parmi les shifts de cet établissement/date dont le staff a un rôle 'responsable',
-//         seul celui avec pointage_resp:true peut faire le pointage.
-//         Si aucun n'est explicitement désigné, personne n'a accès.
+//         tous ceux avec pointage_resp:true peuvent faire le pointage (plusieurs autorisés,
+//         ex : 1 matin + 1 soir). Si aucun n'est explicitement désigné, personne n'a accès.
 async function isResponsablePourSoiree(staffId, establishmentId, date) {
     if (!staffId || !establishmentId || !date) return false;
 
@@ -647,10 +647,10 @@ async function isResponsablePourSoiree(staffId, establishmentId, date) {
 
     if (responsableShifts.length === 0) return false;
 
-    // Quelqu'un est-il explicitement désigné pointage_resp ?
-    const designated = responsableShifts.find(s => s.pointage_resp === true);
-    if (!designated) return false;
-    return String(designated.staff_id) === String(staffId);
+    // Le staff fait-il partie des désignés pointage_resp ce jour-là ?
+    const designated = responsableShifts.filter(s => s.pointage_resp === true);
+    if (designated.length === 0) return false;
+    return designated.some(s => String(s.staff_id) === String(staffId));
 }
 
 // Compte établissement uniquement
@@ -3330,13 +3330,8 @@ app.patch('/api/shifts/:id/pointage-resp', checkDB, requirePatron, async (req, r
         if (!canAccessEstablishment(req.session.user, shift.establishment_id))
             return res.status(403).json({ error: 'Accès refusé' });
 
-        if (value === true) {
-            // Retirer pointage_resp de tous les autres responsables du même établissement/date
-            await db.collection('shifts').updateMany(
-                { establishment_id: shift.establishment_id, date: shift.date, _id: { $ne: new ObjectId(req.params.id) } },
-                { $unset: { pointage_resp: '' } }
-            );
-        }
+        // Plusieurs responsables peuvent coexister sur le même établissement/date
+        // (ex : 1 responsable matin + 1 responsable soir).
         await db.collection('shifts').updateOne(
             { _id: new ObjectId(req.params.id) },
             value === true ? { $set: { pointage_resp: true } } : { $unset: { pointage_resp: '' } }

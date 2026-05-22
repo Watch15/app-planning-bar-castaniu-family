@@ -1465,17 +1465,7 @@ function createShiftEl(shift) {
                 if (!r.ok) throw new Error(d.error);
                 shift.pointage_resp = newVal;
                 btn.classList.toggle('active', newVal);
-                // Retirer le 👑 actif des autres shifts responsables du même jour
-                if (newVal) {
-                    currentShifts.forEach(s => {
-                        if (String(s._id) !== String(shift._id)) {
-                            s.pointage_resp = false;
-                            // Mettre à jour le bouton dans le DOM si présent
-                            const otherEl = document.querySelector(`.shift[data-id="${s._id}"] .shift-resp-btn`);
-                            if (otherEl) otherEl.classList.remove('active');
-                        }
-                    });
-                }
+                // Plusieurs responsables peuvent coexister sur la même soirée (matin + soir, etc.)
                 showToast(newVal ? shift.staff_name + ' — responsable pointage 👑' : 'Désignation retirée');
             } catch (err) { showToast(err.message, true); }
         });
