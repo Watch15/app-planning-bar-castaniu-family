@@ -487,6 +487,13 @@ function fmtH(h) {
     return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
 }
 
+// Nom court affiché : nickname si défini, sinon prénom (1er mot du nom complet)
+function staffDisplayName(staff, fallbackFullName) {
+    if (staff && staff.nickname) return staff.nickname;
+    const n = ((staff && staff.name) || fallbackFullName || '').trim();
+    return n.split(/\s+/)[0] || n || '—';
+}
+
 function parseTimeInput(val, referenceStart) {
     if (!val) return null;
     const [h, m] = val.split(':').map(Number);
@@ -830,7 +837,7 @@ function buildShiftCard(shift) {
     })();
 
     const _shiftSm          = allStaff.find(s => String(s._id) === String(shift.staff_id));
-    const _shiftDisplayName = _shiftSm ? (_shiftSm.nickname || (shift.staff_name || '').split(' ')[0]) : (shift.staff_name || '—');
+    const _shiftDisplayName = staffDisplayName(_shiftSm, shift.staff_name);
 
     card.innerHTML =
         '<div class="shift-header">' +
@@ -1074,11 +1081,14 @@ function initExtraForm() {
         matches.forEach(s => {
             const item = document.createElement('div');
             item.className = 'staff-suggestion-item';
+            const shortName = staffDisplayName(s);
+            const showFull  = shortName !== s.name;
             item.innerHTML =
                 '<span style="width:10px;height:10px;border-radius:50%;background:' + s.color + ';flex-shrink:0;display:inline-block"></span>' +
-                '<span>' + s.name + '</span>';
+                '<span>' + shortName + '</span>' +
+                (showFull ? '<span style="color:var(--text-muted);font-size:11px;margin-left:auto">' + s.name + '</span>' : '');
             item.addEventListener('click', () => {
-                searchInput.value  = s.name;
+                searchInput.value  = shortName;
                 hiddenId.value     = String(s._id);
                 freeName.style.display = 'none';
                 suggestions.style.display = 'none';
