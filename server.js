@@ -3390,6 +3390,30 @@ app.patch('/api/shifts/:id/pointage', checkDB, requireAuth, async (req, res) => 
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
+// DELETE shift non pointé (depuis l'écran Pointage).
+// Auth identique au PATCH pointage : établissement, patron/directeur, responsable de soirée.
+// Refus si le shift a déjà des heures réelles saisies.
+app.delete('/api/shifts/:id/pointage', checkDB, requireAuth, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    try {
+        const existing = await db.collection('shifts').findOne({ _id: new ObjectId(req.params.id) });
+        if (!existing) return res.status(404).json({ error: 'Shift introuvable' });
+        const user = req.session.user;
+        if (user.role === 'etablissement' && user.establishment_id !== existing.establishment_id)
+            return res.status(403).json({ error: 'Accès refusé' });
+        if (user.role !== 'etablissement' && !canAccessEstablishment(user, existing.establishment_id)) {
+            const ok = await isResponsablePourSoiree(user.staff_id, existing.establishment_id, existing.date);
+            if (!ok) return res.status(403).json({ error: 'Accès refusé' });
+        }
+        if (existing.real_start != null || existing.real_end != null)
+            return res.status(409).json({ error: 'Shift déjà pointé, suppression interdite' });
+
+        await db.collection('shifts').deleteOne({ _id: new ObjectId(req.params.id) });
+        res.json({ message: 'Shift supprimé' });
+        touchLastUpdated();
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
 // POST service non planifié (extra)
 app.post('/api/shifts/extra', checkDB, requireAuth, async (req, res) => {
     const user = req.session.user;

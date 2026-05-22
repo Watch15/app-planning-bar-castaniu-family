@@ -47,6 +47,10 @@ app-planning-bar/
 │   ├── style.css               ← Styles globaux
 │   ├── manifest.json           ← Manifest PWA
 │   ├── sw.js                   ← Service Worker
+│   ├── vendor/                 ← Libs tierces auto-hébergées (pas de CDN runtime)
+│   │   ├── jspdf.umd.min.js        ← Export PDF (D-51)
+│   │   ├── html2canvas.min.js      ← Capture DOM pour PDF (D-51)
+│   │   └── xlsx.full.min.js        ← SheetJS — export Excel récap mensuel (D-52)
 │   └── icons/
 │       ├── icon-192.png
 │       └── icon-512.png

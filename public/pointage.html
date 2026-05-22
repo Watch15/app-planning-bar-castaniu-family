@@ -204,6 +204,24 @@
         .btn-save:disabled { background: #c8ccd6; cursor: not-allowed; }
         .btn-save.saved { background: var(--success); }
 
+        .btn-delete {
+            padding: 0 14px; height: 48px;
+            background: transparent; color: var(--danger);
+            border: 1.5px solid var(--danger-bg);
+            border-radius: 8px;
+            font-size: 12px; font-weight: 600; cursor: pointer;
+            flex-shrink: 0; font-family: var(--font);
+            transition: all 0.15s; white-space: nowrap;
+        }
+        .btn-delete:hover:not(:disabled) {
+            background: var(--danger-bg);
+            border-color: var(--danger);
+        }
+        .btn-delete.confirming {
+            background: var(--danger); color: white; border-color: var(--danger);
+        }
+        .btn-delete:disabled { opacity: 0.5; cursor: not-allowed; }
+
         /* ── Section extra ── */
         .extra-section {
             background: var(--light-card);
@@ -367,6 +385,7 @@
             .shift-body { gap: 8px; padding: 12px; }
             .time-input { height: 52px; font-size: 17px; }
             .btn-save { height: 52px; padding: 0 16px; width: 100%; }
+            .btn-delete { height: 44px; width: 100%; }
             .time-group { min-width: calc(50% - 4px); }
             .ecart-badge { width: 100%; text-align: center; }
             .extra-section { border-radius: 12px; padding: 16px 12px; }
@@ -383,6 +402,7 @@
             .shift-body { gap: 20px; justify-content: center; flex-wrap: wrap; padding-right: 24px; }
             .ecart-badge { flex: 0 0 100%; text-align: center; }
             .btn-save { height: 48px; flex: 0 0 100%; }
+            .btn-delete { height: 40px; flex: 0 0 100%; }
             .btn-add-extra { height: 44px; }
         }
     </style>
@@ -832,6 +852,7 @@ function buildShiftCard(shift) {
             '</div>' +
             (ecartDuree ? '<span class="ecart-badge ' + ecartDuree.cls + '">' + ecartDuree.text + '</span>' : '<span class="ecart-badge" style="display:none">—</span>') +
             '<button class="btn-save' + (lockedOnLoad ? ' saved' : '') + '"' + (lockedOnLoad ? ' disabled' : '') + '>' + (lockedOnLoad ? '✓ Enregistré' : (canEdit && isValidated ? 'Mettre à jour' : 'Enregistrer')) + '</button>' +
+            (isValidated ? '' : '<button class="btn-delete" type="button">Supprimer</button>') +
         '</div>';
 
     // Mise à jour de l'écart en temps réel
@@ -962,6 +983,49 @@ function buildShiftCard(shift) {
             btnSave.disabled = false;
         }
     });
+
+    // Suppression d'un shift non pointé (2 clics : Supprimer → Confirmer)
+    const btnDelete = card.querySelector('.btn-delete');
+    if (btnDelete) {
+        let confirmTimer = null;
+        const resetBtn = () => {
+            btnDelete.classList.remove('confirming');
+            btnDelete.textContent = 'Supprimer';
+            confirmTimer = null;
+        };
+        btnDelete.addEventListener('click', async () => {
+            if (!btnDelete.classList.contains('confirming')) {
+                btnDelete.classList.add('confirming');
+                btnDelete.textContent = 'Confirmer ?';
+                clearTimeout(confirmTimer);
+                confirmTimer = setTimeout(resetBtn, 4000);
+                return;
+            }
+            clearTimeout(confirmTimer);
+            btnDelete.disabled = true;
+            try {
+                const res = await fetch('/api/shifts/' + shift._id + '/pointage', {
+                    credentials: 'include', method: 'DELETE',
+                });
+                const d = await res.json();
+                if (!res.ok) throw new Error(d.error);
+                card.remove();
+                if (window._visibleShifts) {
+                    window._visibleShifts = window._visibleShifts.filter(s => String(s._id) !== String(shift._id));
+                    renderTotalFooter(window._visibleShifts);
+                    if (window._visibleShifts.length === 0) {
+                        document.getElementById('shifts-list').innerHTML =
+                            '<div class="empty-msg">Aucun shift planifié aujourd\'hui</div>';
+                    }
+                }
+                showToast(shift.staff_name + ' — shift supprimé');
+            } catch (e) {
+                showToast(e.message, true);
+                btnDelete.disabled = false;
+                resetBtn();
+            }
+        });
+    }
 
     return card;
 }

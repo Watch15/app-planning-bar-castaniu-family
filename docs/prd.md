@@ -38,6 +38,7 @@ Templyo est une application web SaaS de planification du personnel multi-établi
 #### Navigation semaine
 - Flèches Précédent / Suivant, bouton Aujourd'hui
 - Deux vues : **Jour** (timeline) et **Semaine** (dashboard + agenda)
+- **Export PDF du Tableau de bord** : bouton « 📄 PDF » télécharge directement `planning-YYYY-MM-DD.pdf` (A4 paysage, **toujours 1 page**). En-tête style Gantt (logo + nom établissement + libellé de semaine). Densité adaptative selon le nombre de personnes (≤15 / 16-25 / 26+). Colonne « Total » par personne volontairement omise. Bouton « 🖨 Imprimer » du Gantt conservé en parallèle.
 
 #### Cartes semaine
 - 7 cartes cliquables (Lun → Dim)
@@ -136,10 +137,15 @@ Paramétrage global :
 
 ### 3.11 Vue Staff (`planning.html`)
 - Stats : jours travaillés, shifts, total d'heures
+- **Toggle Semaine / Mois** au-dessus des stats (défaut « Semaine ») :
+  - Mode **Semaine** : delta heures vs semaine précédente, répartition par établissement si > 1
+  - Mode **Mois** : récap du mois calendaire en cours (frontière à minuit), delta vs mois précédent, répartition par établissement
+  - Cache mémoire (`_lastWeekData` / `_lastMonthData`) — bascule instantanée sans re-fetch
 - Jours travaillés : bordure colorée, établissement, horaires, durée, collègues
 - Aujourd'hui : bordure violette
 - Jours de repos : grille compacte 5 colonnes (pas de lignes vides)
 - Semaine suivante visible si publiée
+- **Onglet Historique** : navigation par semaine (jusqu'à 5 sem. en arrière). Un bloc stats est rendu en haut de chaque semaine navigée : 3 cartes (Jours / Shifts / Heures + delta « vs sem. préc. ») + répartition par établissement si > 1.
 
 ### 3.12 PWA
 - Installable sur mobile sans App Store
@@ -194,6 +200,14 @@ Page dédiée au patron / directeur pour suivre la masse salariale vs CA par soi
 - Footer total soirée : réel / planifié + nombre de shifts pointés
 - Heure de bascule du jour configurable (`pointage_settings.cutoff_hour`, défaut 9h00) — bandeau si date active = veille
 - Ajout shift extra (non planifié) avec saisie directe nom + horaires
+
+### 3.18 Récap mensuel patron (modale Récap — `index.html`)
+Synthèse mensuelle des heures par membre du staff, accessible depuis le bouton « Récap » de la barre d'actions.
+
+- **Filtres** : sélecteur de mois (12 derniers + mois en cours) et sélecteur d'établissement (« Tous les établissements » par défaut)
+- **Colonnes par établissement** : quand « Tous » est sélectionné, le tableau insère une colonne par établissement entre **Nom** et `Jours/H. planifiées/H. réelles/Écart`, avec une ligne de total par établissement en bas. Cellule **vide** si le staff n'a pas travaillé dans cet établissement ce mois. Backend : `GET /api/recap-mensuel` retourne `by_establishment[]` par staff. Lookup établissement via le champ custom `establishments.id` (pas `_id`)
+- **Export Excel `.xlsx`** : bouton « 📊 Excel » télécharge `recap-YYYY-MM-<estab>.xlsx` (SheetJS, feuille « Récap YYYY-MM », largeurs auto, mêmes colonnes que la modale). Remplace l'ancien export CSV
+- **Impression** : bouton « 🖨 Imprimer » conservé (impression navigateur)
 
 ---
 
