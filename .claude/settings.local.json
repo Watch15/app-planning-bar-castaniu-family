@@ -9,7 +9,8 @@
       "Bash(node -e \"const { ObjectId } = require\\('mongodb'\\); const id = new ObjectId\\(\\); console.log\\(JSON.stringify\\({_id: id}\\)\\);\")",
       "Bash(curl -sL -o \"C:/Users/pierr/app-planning-bar/public/vendor/jspdf.umd.min.js\" \"https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js\")",
       "Bash(curl -sL -o \"C:/Users/pierr/app-planning-bar/public/vendor/html2canvas.min.js\" \"https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js\")",
-      "Bash(node *)"
+      "Bash(node *)",
+      "PowerShell(node --check server.js; if \\($?\\) { \"OK\" })"
     ]
   }
 }

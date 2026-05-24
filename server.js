@@ -12,6 +12,7 @@ const morgan  = require('morgan');
 const {
     isValidObjectId, hashToken, normalizePhone,
     weekStart, disposWeekStart, isAutoPublished, chargeMultiplier,
+    toDateStr,
 } = require('./lib/utils');
 
 // Sentry — initialisation conditionnelle (ne se charge que si SENTRY_DSN fourni).
@@ -1669,14 +1670,16 @@ app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
                     if (isPublished) {
                         const estabDoc  = await db.collection('establishments').findOne({ id: establishment_id }) || {};
                         const estabName = estabDoc.name || establishment_id;
-                        // Push au staff planifié
-                        await sendPushToStaff([staff_id], {
-                            title:   '✅ Nouveau shift — ' + estabName,
-                            body:    'Tu es planifié(e) ' + formatDateFR(date) + ' · ' + formatShiftTime(parseFloat(start_time)) + ' → ' + formatShiftTime(parseFloat(end_time)),
-                            tag:     'planning-publie',
-                            url:     '/planning.html',
-                            actions: [{ action: 'voir', title: 'Voir mon planning' }],
-                        });
+                        // B-10 : pas de push si le shift est dans le passé
+                        if (date >= toDateStr(new Date())) {
+                            await sendPushToStaff([staff_id], {
+                                title:   '✅ Nouveau shift — ' + estabName,
+                                body:    'Tu es planifié(e) ' + formatDateFR(date) + ' · ' + formatShiftTime(parseFloat(start_time)) + ' → ' + formatShiftTime(parseFloat(end_time)),
+                                tag:     'planning-publie',
+                                url:     '/planning.html',
+                                actions: [{ action: 'voir', title: 'Voir mon planning' }],
+                            });
+                        }
                         // In-app patron
                         await createNotifForPatrons(
                             establishment_id,
@@ -1708,8 +1711,8 @@ app.patch('/api/shifts/:id/transfer', checkDB, requirePatron, async (req, res) =
             { $set: { establishment_id, date } }
         );
 
-        // Notification push au staff concerné
-        if (shift.staff_id && shift.staff_id !== '__joker__') {
+        // Notification push au staff concerné — B-10 : pas de push si nouvelle date dans le passé
+        if (shift.staff_id && shift.staff_id !== '__joker__' && date >= toDateStr(new Date())) {
             const estabDoc  = await db.collection('establishments').findOne({ id: establishment_id }) || {};
             const estabName = estabDoc.name || establishment_id;
             await sendPushToStaff([shift.staff_id], {
@@ -1741,9 +1744,10 @@ app.patch('/api/shifts/:id/joker-open', checkDB, requirePatron, async (req, res)
                 { _id: new ObjectId(req.params.id) },
                 { $set: { joker_open: true } }
             );
+            // B-10 : pas de push si le shift Joker est dans le passé
             const estabStaff = await db.collection('staff').find({ venues: shift.establishment_id }).toArray();
             const staffIds   = estabStaff.map(s => String(s._id));
-            if (staffIds.length) {
+            if (staffIds.length && shift.date >= toDateStr(new Date())) {
                 const body = 'Un créneau est ouvert ' + formatDateFR(shift.date) + ' ' +
                     formatShiftTime(shift.start_time) + '–' + formatShiftTime(shift.end_time) + '. Tu es disponible ?';
                 await sendPushToStaff(staffIds, {
@@ -1839,6 +1843,8 @@ app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
                 { _id: existing._id, start_time: existing.start_time, end_time: existing.end_time, staff_id: existing.staff_id },
                 // Push au staff — lancé après 60s de silence
                 async () => {
+                    // B-10 : pas de push si le shift est dans le passé
+                    if (capturedDate < toDateStr(new Date())) return;
                     let isPublished = _isAutoPublished(capturedDate);
                     if (!isPublished) {
                         const allPubs = await db.collection('settings').find({
@@ -1912,13 +1918,16 @@ app.delete('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
                     if (!isPublished) return;
                     const estabDoc  = await db.collection('establishments').findOne({ id: existing.establishment_id }) || {};
                     const estabName = estabDoc.name || existing.establishment_id;
-                    await sendPushToStaff([existing.staff_id], {
-                        title:   '❌ Shift annulé — ' + estabName,
-                        body:    'Ton shift du ' + formatDateFR(existing.date) + ' (' + formatShiftTime(existing.start_time) + ' → ' + formatShiftTime(existing.end_time) + ') a été annulé.',
-                        tag:     'shift-modifie',
-                        url:     '/planning.html',
-                        actions: [{ action: 'voir', title: 'Voir les changements' }],
-                    });
+                    // B-10 : pas de push si le shift annulé était dans le passé
+                    if (existing.date >= toDateStr(new Date())) {
+                        await sendPushToStaff([existing.staff_id], {
+                            title:   '❌ Shift annulé — ' + estabName,
+                            body:    'Ton shift du ' + formatDateFR(existing.date) + ' (' + formatShiftTime(existing.start_time) + ' → ' + formatShiftTime(existing.end_time) + ') a été annulé.',
+                            tag:     'shift-modifie',
+                            url:     '/planning.html',
+                            actions: [{ action: 'voir', title: 'Voir les changements' }],
+                        });
+                    }
                     await createNotifForPatrons(
                         existing.establishment_id,
                         'shift_deleted',
@@ -2809,8 +2818,12 @@ app.patch('/api/publish/:weekStart', checkDB, requirePatron, async (req, res) =>
                 return y + '-' + m + '-' + j;
             })();
 
+            // B-10 : ne notifier que les staff ayant au moins un shift dans la semaine
+            // dont la date est >= aujourd'hui (les semaines passées ne déclenchent rien).
+            const today = toDateStr(new Date());
+            const lowerBound = weekStart > today ? weekStart : today;
             db.collection('shifts').distinct('staff_id', {
-                date: { $gte: weekStart, $lte: weekEnd },
+                date: { $gte: lowerBound, $lte: weekEnd },
                 staff_id: { $ne: '__joker__' },
                 is_joker: { $ne: true },
             }).then(staffIds => {
