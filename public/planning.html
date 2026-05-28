@@ -390,12 +390,7 @@
         .btn-notif.active { background: var(--accent); border-color: var(--accent); color: white; }
         .btn-notif.denied { opacity: 0.3; cursor: not-allowed; }
 
-        /* ── Delta semaine + répartition établissements ── */
-        .stat-delta { font-size: 9px; font-weight: 700; margin-top: 2px; white-space: nowrap; }
-        .stat-delta.up   { color: var(--success); }
-        .stat-delta.down { color: var(--danger); }
-        .stat-delta.even { color: var(--text-muted); }
-
+        /* ── Répartition établissements ── */
         .estab-hours-bar { display: flex; gap: 6px; padding: 0 20px 10px; flex-wrap: wrap; }
         .estab-hours-chip {
             display: flex; align-items: center; gap: 5px;
@@ -766,7 +761,7 @@ let allEstablishments = [];
 let currentUser = null;
 let _statsPeriod = 'week';            // 'week' ou 'month'
 let _lastWeekData = null;             // { shifts } pour switch instantané
-let _lastMonthData = null;            // idem pour le mois
+let _lastMonthData = null;            // { shifts } pour le mois
 
 async function init() {
     const user = await checkAuth();
@@ -1138,7 +1133,7 @@ function applyStatsPeriod() {
     const now = new Date();
     if (sub) sub.textContent = 'Récap de ' + MONTH_NAMES_LONG_HIST[now.getMonth()] + ' ' + now.getFullYear();
     if (_lastMonthData) {
-        renderMonthStats(_lastMonthData.shifts, _lastMonthData.prevTotalH);
+        renderMonthStats(_lastMonthData.shifts);
     } else {
         loadMonthRecap();
     }
@@ -1156,19 +1151,12 @@ async function loadMonthRecap() {
     const m      = now.getMonth();
     const first  = new Date(y, m, 1);
     const last   = new Date(y, m + 1, 0);
-    const pFirst = new Date(y, m - 1, 1);
-    const pLast  = new Date(y, m, 0);
 
     const monthFrom = toDateStr(first);
     const monthTo   = toDateStr(last);
-    const prevFrom  = toDateStr(pFirst);
-    const prevTo    = toDateStr(pLast);
 
     try {
-        const [res, prevRes] = await Promise.all([
-            fetch('/api/my-shifts?from=' + monthFrom + '&to=' + monthTo, { credentials: 'include' }),
-            fetch('/api/my-shifts?from=' + prevFrom + '&to=' + prevTo, { credentials: 'include' }).catch(() => null),
-        ]);
+        const res = await fetch('/api/my-shifts?from=' + monthFrom + '&to=' + monthTo, { credentials: 'include' });
 
         const ct = res.headers.get('content-type') || '';
         if (!ct.includes('application/json')) throw new Error('Erreur serveur (' + res.status + ')');
@@ -1177,27 +1165,14 @@ async function loadMonthRecap() {
 
         const myShifts = (data.shifts || []).filter(s => !s.is_joker && s.staff_id !== '__joker__');
 
-        let prevTotalH = null;
-        if (prevRes && prevRes.ok) {
-            try {
-                const pData   = await prevRes.json();
-                const pShifts = (pData.shifts || []).filter(s => !s.is_joker && s.staff_id !== '__joker__');
-                prevTotalH = pShifts.reduce((a, s) => {
-                    const start = s.real_start != null ? s.real_start : s.start_time;
-                    const end   = s.real_end   != null ? s.real_end   : s.end_time;
-                    return a + (end - start);
-                }, 0);
-            } catch { /* silencieux */ }
-        }
-
-        _lastMonthData = { shifts: myShifts, prevTotalH };
-        if (_statsPeriod === 'month') renderMonthStats(myShifts, prevTotalH);
+        _lastMonthData = { shifts: myShifts };
+        if (_statsPeriod === 'month') renderMonthStats(myShifts);
     } catch (e) {
         el.innerHTML = '<div class="state-msg error" style="grid-column:1/-1">' + e.message + '</div>';
     }
 }
 
-function renderMonthStats(shifts, prevTotalH) {
+function renderMonthStats(shifts) {
     const el = document.getElementById('week-stats');
     if (!el) return;
 
@@ -1209,23 +1184,11 @@ function renderMonthStats(shifts, prevTotalH) {
     }, 0);
     const nbJours = new Set(shifts.map(s => s.date)).size;
 
-    let deltaHtml = '';
-    if (prevTotalH != null) {
-        const diff = totalH - prevTotalH;
-        if (Math.abs(diff) < 0.05) {
-            deltaHtml = '<div class="stat-delta even">= mois préc.</div>';
-        } else {
-            const sign = diff > 0 ? '+' : '−';
-            const cls  = diff > 0 ? 'up' : 'down';
-            deltaHtml = '<div class="stat-delta ' + cls + '">' + sign + fmtDuration(Math.abs(diff)) + ' vs mois préc.</div>';
-        }
-    }
-
     el.style.display = '';
     el.innerHTML =
         statCard(nbJours,             'Jours',  '') +
         statCard(nbShifts,            'Shifts', '') +
-        statCard(fmtDuration(totalH), 'Heures', deltaHtml);
+        statCard(fmtDuration(totalH), 'Heures', '');
 
     // Répartition par établissement
     const next = el.nextElementSibling;
