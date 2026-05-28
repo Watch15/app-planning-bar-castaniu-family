@@ -2246,7 +2246,8 @@ app.post('/api/dispos', checkDB, requireAuth, async (req, res) => {
                 update: { $setOnInsert: {
                     staff_id: staffId, staff_name: req.session.user.name || '',
                     date: d.date, type: d.type || 'custom',
-                    start_time: parseFloat(d.start_time), end_time: parseFloat(d.end_time),
+                    start_time: d.start_time != null ? parseFloat(d.start_time) : null,
+                    end_time:   d.end_time   != null ? parseFloat(d.end_time)   : null,
                     note: d.note || '', status: 'pending', created_at: new Date(),
                 }},
                 upsert: true,
@@ -2289,7 +2290,7 @@ app.get('/api/dispos/non-affectees', checkDB, requirePatron, async (req, res) =>
         const dispos = await db.collection('availabilities').find({
             date: { $gte: from, $lte: to },
             status: 'confirmed',
-            type: { $ne: 'week_note' },
+            type: { $nin: ['week_note', 'off'] },
         }).sort({ date: 1 }).toArray();
 
         if (dispos.length === 0) return res.json([]);
@@ -2442,12 +2443,16 @@ app.post('/api/dispos/reopen-for-correction', checkDB, requirePatron, async (req
 app.patch('/api/dispos/:id/confirm', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { establishment_id, create_shift } = req.body;
-    if (!establishment_id) return res.status(400).json({ error: 'establishment_id requis' });
     try {
         const dispo = await db.collection('availabilities').findOne({ _id: new ObjectId(req.params.id) });
         if (!dispo) return res.status(404).json({ error: 'Dispo introuvable' });
-        await db.collection('availabilities').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { status: 'confirmed', establishment_id } });
-        if (create_shift) {
+        const isOff = dispo.type === 'off';
+        // Une indispo n'est qu'informative : pas d'établissement ni de shift
+        if (!isOff && !establishment_id) return res.status(400).json({ error: 'establishment_id requis' });
+        const setFields = { status: 'confirmed' };
+        if (!isOff) setFields.establishment_id = establishment_id;
+        await db.collection('availabilities').updateOne({ _id: new ObjectId(req.params.id) }, { $set: setFields });
+        if (create_shift && !isOff) {
             const staffMember = await db.collection('staff').findOne({ _id: new ObjectId(dispo.staff_id) });
             await db.collection('shifts').insertOne({
                 staff_id: dispo.staff_id, staff_name: dispo.staff_name,
@@ -2456,7 +2461,7 @@ app.patch('/api/dispos/:id/confirm', checkDB, requirePatron, async (req, res) =>
                 color: staffMember?.color || '#3498db',
             });
         }
-        res.json({ message: 'Dispo confirmée' + (create_shift ? ' et shift créé' : '') });
+        res.json({ message: isOff ? 'Indisponibilité confirmée' : ('Dispo confirmée' + (create_shift ? ' et shift créé' : '')) });
         touchLastUpdated();
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
@@ -2942,6 +2947,7 @@ app.get('/api/dispos/confirmed', checkDB, requirePatron, async (req, res) => {
         const dispos = await db.collection('availabilities').find({
             date:   { $gte: from, $lte: to },
             status: 'confirmed',
+            type:   { $ne: 'off' },
         }).toArray();
         res.json(dispos);
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }

@@ -1882,7 +1882,7 @@ async function submitDispos() {
     for (let i = 0; i < 7; i++) {
         const date = toDateStr(addDays(nextMonday, i));
         const sel  = dispoSelections[date];
-        if (!sel || sel.type === null || sel.type === 'off') continue;
+        if (!sel || sel.type === null) continue; // jour non renseigné → ignoré (off = indispo, on l'enregistre)
 
         // Horaires précis : lire les champs
         let start = sel.start_time;
@@ -1924,7 +1924,7 @@ async function submitDispos() {
     }
 
     if (dispos.length === 0) {
-        showMsg('Sélectionne au moins un jour disponible.', 'error');
+        showMsg('Sélectionne au moins un jour.', 'error');
         btn.disabled    = false;
         btn.textContent = 'Envoyer mes dispos';
         return;

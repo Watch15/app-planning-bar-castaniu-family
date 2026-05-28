@@ -5180,6 +5180,12 @@ async function loadDisposList() {
             const color = sm ? sm.color : '#888';
             const fmt   = h => String(Math.floor(h % 24)).padStart(2, '0') + 'h' + (Math.round((h%1)*60) > 0 ? String(Math.round((h%1)*60)).padStart(2,'0') : '');
 
+            const availCount = staffDispos.filter(d => d.type !== 'off').length;
+            const offCount   = staffDispos.length - availCount;
+            const subLabel   = availCount > 0
+                ? availCount + ' jour' + (availCount > 1 ? 's' : '') + ' dispo' + (availCount > 1 ? 's' : '') + (offCount > 0 ? ' · ' + offCount + ' indispo' : '')
+                : 'Indisponible' + (offCount > 1 ? ' (' + offCount + ' jours)' : '');
+
             const card = document.createElement('div');
             card.style.cssText = 'background:var(--color-bg-secondary,#f8f8f8);border:1px solid var(--color-border-secondary,#eee);border-radius:12px;margin:8px 16px;overflow:hidden';
 
@@ -5190,7 +5196,7 @@ async function loadDisposList() {
                 '<span style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0;display:inline-block"></span>' +
                 '<div style="flex:1">' +
                     '<div style="font-size:13px;font-weight:700;color:#333">' + name + '</div>' +
-                    '<div style="font-size:11px;color:#aaa">' + staffDispos.length + ' jour' + (staffDispos.length > 1 ? 's' : '') + ' disponible' + (staffDispos.length > 1 ? 's' : '') + '</div>' +
+                    '<div style="font-size:11px;color:#aaa">' + subLabel + '</div>' +
                 '</div>' +
                 '<button class="btn-confirm-all" style="padding:6px 12px;border-radius:8px;border:1.5px solid #2ecc71;background:#eafaf1;color:#27ae60;font-size:12px;font-weight:600;cursor:pointer">✓ Tout confirmer</button>';
             card.appendChild(header);
@@ -5201,26 +5207,36 @@ async function loadDisposList() {
 
             weekDays.forEach(date => {
                 const dispo = staffDispos.find(d => d.date === date);
+                const isOff = dispo && dispo.type === 'off';
                 const d     = parseDate(date);
                 const pill  = document.createElement('div');
                 pill.style.cssText = 'min-width:70px;border-radius:8px;padding:8px 6px;text-align:center;border:1.5px solid;flex-shrink:0;' +
-                    (dispo
-                        ? 'background:white;border-color:#e0e0e0;cursor:pointer'
-                        : 'background:#f5f5f5;border-color:#eee;opacity:0.5');
+                    (!dispo
+                        ? 'background:#f5f5f5;border-color:#eee;opacity:0.5'
+                        : isOff
+                            ? 'background:#fdf0f0;border-color:#f5c6c6;cursor:pointer'
+                            : 'background:white;border-color:#e0e0e0;cursor:pointer');
 
-                const typeColor = dispo
-                    ? (dispo.type === 'midi' ? '#534AB7' : '#1a1a2e')
-                    : '#ccc';
+                const typeColor = !dispo
+                    ? '#ccc'
+                    : isOff ? '#e74c3c'
+                    : (dispo.type === 'midi' ? '#534AB7' : '#1a1a2e');
 
                 pill.innerHTML =
                     '<div style="font-size:10px;color:#aaa;margin-bottom:2px">' + DAY_SHORT[d.getDay()] + ' ' + d.getDate() + '</div>' +
-                    (dispo
-                        ? '<div style="font-size:12px;font-weight:700;color:' + typeColor + '">' + (dispo.type === 'soir' ? 'Soir' : dispo.type === 'midi' ? 'Midi' : 'Perso') + '</div>' +
-                          '<div style="font-size:10px;color:#999;margin-top:1px">' + fmt(dispo.start_time) + '→' + fmt(dispo.end_time) + '</div>' +
-                          (dispo.note ? '<div style="font-size:9px;color:#f39c12;margin-top:2px">✎ note</div>' : '')
-                        : '<div style="font-size:14px;color:#ddd">—</div>');
+                    (!dispo
+                        ? '<div style="font-size:14px;color:#ddd">—</div>'
+                        : isOff
+                            ? '<div style="font-size:12px;font-weight:700;color:' + typeColor + '">Indispo</div>' +
+                              (dispo.note ? '<div style="font-size:9px;color:#f39c12;margin-top:2px">✎ note</div>' : '')
+                            : '<div style="font-size:12px;font-weight:700;color:' + typeColor + '">' + (dispo.type === 'soir' ? 'Soir' : dispo.type === 'midi' ? 'Midi' : 'Perso') + '</div>' +
+                              '<div style="font-size:10px;color:#999;margin-top:1px">' + fmt(dispo.start_time) + '→' + fmt(dispo.end_time) + '</div>' +
+                              (dispo.note ? '<div style="font-size:9px;color:#f39c12;margin-top:2px">✎ note</div>' : ''));
 
-                if (dispo) {
+                if (dispo && isOff) {
+                    pill.title = 'Indisponible — cliquer pour acquitter';
+                    pill.addEventListener('click', () => acknowledgeOffDispo(dispo, pill));
+                } else if (dispo) {
                     pill.title = 'Cliquer pour confirmer ou refuser';
                     pill.addEventListener('click', () => openConfirmDispo(dispo, pill, card, staffId));
 
@@ -5358,6 +5374,25 @@ function openConfirmDispo(dispo, pill, card, staffId) {
             loadDisposBadge();
         });
     };
+}
+
+// Une indispo n'a rien à confirmer : un simple clic l'acquitte (sans établissement ni shift)
+async function acknowledgeOffDispo(dispo, pill) {
+    try {
+        const res = await fetch('/api/dispos/' + dispo._id + '/confirm', {
+            credentials: 'include', method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        pill.dataset.confirmed   = '1';
+        pill.style.opacity       = '0.55';
+        pill.style.cursor        = 'default';
+        pill.style.pointerEvents = 'none';
+        loadDisposBadge();
+        showToast(data.message);
+    } catch (e) { showToast(e.message, true); }
 }
 
 // ── Notes staff — côté patron ─────────────────────────────────────────────────
