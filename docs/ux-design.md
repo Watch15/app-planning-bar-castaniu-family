@@ -63,7 +63,7 @@ Inter uniquement. Échelle : 11px (labels caps) → 13px (corps) → 14–15px (
 | # | Problème | Sévérité | Statut |
 |---|---|---|---|
 | P-01 | Collègues en pastilles sans nom au tap mobile | Moyen | |
-| P-02 | Delta heures uniquement textuel, pas de couleur sur mobile portrait | Faible | |
+| ~~P-02~~ | ~~Delta heures uniquement textuel, pas de couleur sur mobile portrait~~ | Faible | ✅ Obsolète — delta hebdo « vs sem. préc. » retiré côté staff (D-61). Le delta mensuel subsiste mais hors scope mobile portrait |
 | ~~P-03~~ | ~~Onglet ⏱ Pointage actif seulement le jour J — disparu le lendemain~~ | Haut | ✅ Done — date de référence = date active (cutoff_hour) |
 | ~~P-04~~ | ~~Bouton fixe "Envoyer" dispos couvre le dernier jour sur petits écrans~~ | Moyen | ✅ Done — spacer 96px + safe-area-inset-bottom |
 | P-05 | Pas de confirmation visuelle post-envoi dispos au-delà du toast | Faible | |
@@ -170,5 +170,5 @@ Actions associées :
 
 - **Staff** : deadline dispos vendredi 13h non affichée sur planning.html
 - **Staff** : shifts passés inaccessibles (P-06)
-- ~~**Patron** : export heures mensuelles absent (F-04 backlog)~~ — ✅ Livré (export CSV)
+- ~~**Patron** : export heures mensuelles absent (F-04 backlog)~~ — ✅ Livré (export Excel `.xlsx`, ex-CSV — D-52)
 - ~~**Établissement** : shifts validés vs non-validés non différenciés (PT-01)~~ — ✅ Livré (`validated-card` + badge)

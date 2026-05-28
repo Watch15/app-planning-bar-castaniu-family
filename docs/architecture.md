@@ -104,7 +104,7 @@ db.collection('sessions').findOne({ sid }, (err, doc) => { ... })
 
 ### 3.3 `script.js` — monolithique, ne pas découper
 
-`script.js` est la logique frontend côté patron (~6800 lignes). Il est volontairement gardé en un seul fichier pour la stabilité actuelle. Ne pas refactoriser en modules ni découper en plusieurs fichiers sans décision architecturale explicite. Ajouter toute nouvelle logique côté patron à l'intérieur de ce fichier.
+`script.js` est la logique frontend côté patron (~7300 lignes). Il est volontairement gardé en un seul fichier pour la stabilité actuelle. Ne pas refactoriser en modules ni découper en plusieurs fichiers sans décision architecturale explicite. Ajouter toute nouvelle logique côté patron à l'intérieur de ce fichier.
 
 ### 3.4 Frontend — aucun outillage de build
 
@@ -255,7 +255,7 @@ CA quotidien saisi par le patron / directeur depuis `performance.html`. Une entr
 
 ### `settings` — documents clés
 Collection polymorphe (clé `key` discriminante) :
-- `{ key: 'dispo', open_day, custom_deadline, force_open, notif_sent_open_week, notif_sent_j2, notif_sent_j1 }` — paramétrage des dispos + état des rappels push envoyés
+- `{ key: 'dispo', open_day, custom_deadline, force_open, force_open_staff[], notif_sent_open_week, notif_sent_j2, notif_sent_j1 }` — paramétrage des dispos + état des rappels push envoyés. `force_open_staff` = tableau de `staff_id` autorisés à (re)soumettre malgré la deadline (réouverture individuelle E-15) ; chaque `staff_id` est retiré automatiquement à sa prochaine soumission réussie
 - `{ key: 'performance', target_gross, target_charged, charge_rate }` — objectifs coefficient + taux de charges patronales appliqué dans `/api/performance` (remplace l'ancienne valeur 1.45 codée en dur)
 - `{ key: 'pointage', cutoff_hour }` — heure de bascule du jour pour `pointage.html` (défaut 9h)
 - `{ key: 'publish_<YYYY-MM-DD>', published: true }` — une entrée par semaine publiée par le patron (clé = lundi de la semaine)
@@ -278,7 +278,7 @@ Collection polymorphe (clé `key` discriminante) :
   "decided_by": "string"
 }
 ```
-> ⚠️ Toutes les routes `/api/shift-swaps/*` sont commentées via deux blocs `/* */` dans `server.js` (lignes 2186→2422 et 2488→2550). **Ne jamais insérer de nouvelles routes à l'intérieur de ces blocs** — c'est un piège qui a déjà coûté un debug long (les routes Joker s'y étaient retrouvées par erreur, ne se chargeaient pas, 404 silencieux).
+> ⚠️ Toutes les routes `/api/shift-swaps/*` sont commentées via deux blocs `/* */` dans `server.js` (actuellement lignes 2488→2724 et 2811→2875 — repérer par le marqueur `F-05 — DÉSACTIVÉ`, les n° bougent quand le fichier grossit). **Ne jamais insérer de nouvelles routes à l'intérieur de ces blocs** — c'est un piège qui a déjà coûté un debug long (les routes Joker s'y étaient retrouvées par erreur, ne se chargeaient pas, 404 silencieux).
 
 ---
 
@@ -289,6 +289,10 @@ Collection polymorphe (clé `key` discriminante) :
 3. Le backend envoie via `webpush.sendNotification()` à l'intérieur de `sendPushToStaff(staffIds, payload)`
 4. Les notifications de mise à jour de shift sont debouncées à 60 secondes (`scheduleShiftNotif`) pour éviter le spam pendant un drag/resize
 5. Le handler `push` du Service Worker affiche la notification ; le handler `notificationclick` ouvre / met au premier plan la page cible
+
+### Garde « pas de notification pour un shift passé » (B-10)
+
+Aucun push lié à un shift n'est envoyé si la date du shift est strictement antérieure à aujourd'hui (`shift.date < toDateStr(new Date())`). La comparaison est lexicographique sur le format `'YYYY-MM-DD'` (cf. §3.1 — toujours `toDateStr()`, jamais `toISOString()`). Couvre `POST /api/shifts`, `PATCH /api/shifts/:id`, `PATCH /api/shifts/:id/transfer`, `PATCH /api/shifts/:id/joker-open`, `DELETE /api/shifts/:id`, `PATCH /api/publish/:weekStart` (filtre sur `date >= max(weekStart, today)`). **Ne s'applique pas** aux notifications hors-shift : rappels dispos, notifications in-app patron (`createNotifForPatrons` reste déclenché même pour un shift passé).
 
 ---
 

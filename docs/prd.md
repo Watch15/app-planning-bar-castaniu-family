@@ -91,6 +91,7 @@ Le patron peut choisir, shift par shift, d'**ouvrir un Joker aux candidatures du
 - Le clic sur la notification ouvre / met au premier plan la page concernée
 - Abonnements staff stockés dans la collection `push_subscriptions` (abonnements périmés 410/404 supprimés automatiquement)
 - Debounce : les notifications de mise à jour de shift sont envoyées 60 secondes après le dernier drag/resize pour éviter le spam
+- **Aucun push pour un shift passé** : si la date du shift est strictement antérieure à aujourd'hui, aucune notification push n'est émise (création, modification, transfert, joker, annulation, publication). Les notifications in-app patron ne sont pas concernées
 - Notifications in-app pour patron/directeur stockées dans la collection `notifications`
 
 ### 3.5 Gestion du personnel
@@ -116,18 +117,23 @@ Le patron peut choisir, shift par shift, d'**ouvrir un Joker aux candidatures du
 - Par jour : **Soir** (16h→2h), **Midi** (10h→17h), **Personnalisé**, **Indisponible**
 - Note optionnelle par jour
 - Bouton fixe « Envoyer mes disponibilités » en bas d'écran
+- Un staff rouvert individuellement par le patron (`force_open_staff`, onglets « Sans dispo » / « Modifier ») peut soumettre malgré la deadline dépassée ; il est retiré de la liste de réouverture dès sa soumission réussie
 
 ### 3.9 Disponibilités (côté Patron)
-La modale **Disponibilités** est organisée en 4 onglets accessibles depuis le header :
+La modale **Disponibilités** est organisée en 5 onglets accessibles depuis le header :
 - **📋 En attente** — dispos envoyées par le staff à valider / rejeter (clic = création shift, choix de l'établissement)
 - **🔄 À réaffecter** — dispos acceptées mais sans shift correspondant à la date (cross-établissement : si le staff travaille ailleurs ce jour-là, la dispo est considérée comme couverte et n'apparaît pas)
-- **🔔 Sans dispo** — checklist des staff actifs avec login valide qui n'ont **pas** envoyé de dispo pour la semaine cible (toujours la semaine suivante, alignée avec `_disposWeekStart`)
+- **🔔 Sans dispo** — checklist des staff actifs avec login valide qui n'ont **pas** envoyé de dispo pour la semaine cible (toujours la semaine suivante, alignée avec `_disposWeekStart`). Bouton « 🔓 Rouvrir » par ligne pour autoriser un staff à soumettre malgré la deadline
+- **🔓 Modifier** — staff ayant **déjà** envoyé des dispos pour la semaine, avec compteur. Bouton « 🔓 Rouvrir » à 2 clics (confirmation) : supprime toutes ses dispos de la semaine (`POST /api/dispos/reopen-for-correction`) et l'ajoute à `force_open_staff` pour qu'il puisse resoumettre. Pour corriger un staff qui s'est trompé après avoir envoyé / été validé
 - **📝 Notes** — notes hebdo libres du staff par semaine
+
+La barre d'onglets passe sur 2 lignes (`flex-wrap`) si l'espace est insuffisant (mobile / modale étroite).
 
 Paramétrage global :
 - Toggle ouvrir / fermer l'envoi des disponibilités (`force_open`)
 - `open_day` : jour de la semaine où le rappel push « Dispos ouvertes » est envoyé (Trigger 1)
 - `custom_deadline` : deadline configurable (défaut : vendredi 13h00)
+- `force_open_staff[]` : réouverture **individuelle** par staff (E-15) — bypass de la deadline pour les `staff_id` listés ; chaque entrée est purgée automatiquement à la prochaine soumission réussie du staff
 - 3 rappels push automatiques quotidiens à 10h via `checkDispoRappels()` : Trigger 1 (ouverture le `open_day`), J-2, J-1
 - Garde anti-doublon : `notif_sent_open_week` mémorise la `weekStart` cible — Trigger 1 ne part qu'une fois par semaine cible
 
@@ -138,14 +144,14 @@ Paramétrage global :
 ### 3.11 Vue Staff (`planning.html`)
 - Stats : jours travaillés, shifts, total d'heures
 - **Toggle Semaine / Mois** au-dessus des stats (défaut « Semaine ») :
-  - Mode **Semaine** : delta heures vs semaine précédente, répartition par établissement si > 1
+  - Mode **Semaine** : jours / shifts / total d'heures, répartition par établissement si > 1. *(Le delta « vs semaine précédente » a été retiré à la demande utilisateur)*
   - Mode **Mois** : récap du mois calendaire en cours (frontière à minuit), delta vs mois précédent, répartition par établissement
   - Cache mémoire (`_lastWeekData` / `_lastMonthData`) — bascule instantanée sans re-fetch
 - Jours travaillés : bordure colorée, établissement, horaires, durée, collègues
 - Aujourd'hui : bordure violette
 - Jours de repos : grille compacte 5 colonnes (pas de lignes vides)
 - Semaine suivante visible si publiée
-- **Onglet Historique** : navigation par semaine (jusqu'à 5 sem. en arrière). Un bloc stats est rendu en haut de chaque semaine navigée : 3 cartes (Jours / Shifts / Heures + delta « vs sem. préc. ») + répartition par établissement si > 1.
+- **Onglet Historique** : navigation par semaine (jusqu'à 5 sem. en arrière). Un bloc stats est rendu en haut de chaque semaine navigée : 3 cartes (Jours / Shifts / Heures) + répartition par établissement si > 1. *(Le delta « vs sem. préc. » a été retiré à la demande utilisateur)*
 
 ### 3.12 PWA
 - Installable sur mobile sans App Store
@@ -199,7 +205,8 @@ Page dédiée au patron / directeur pour suivre la masse salariale vs CA par soi
 - Écart planifié vs réel coloré : `.pos` (vert, dépassement), `.neg` (orange, sous-réalisation), `.zero` (gris)
 - Footer total soirée : réel / planifié + nombre de shifts pointés
 - Heure de bascule du jour configurable (`pointage_settings.cutoff_hour`, défaut 9h00) — bandeau si date active = veille
-- Ajout shift extra (non planifié) avec saisie directe nom + horaires
+- Ajout shift extra (non planifié) avec saisie directe nom + horaires. Le sélecteur de nom suit la même convention d'affichage que le reste de l'app (surnom sinon prénom)
+- **Suppression d'un shift non pointé** : bouton « Supprimer » à 2 clics (Supprimer → Confirmer) sur les cartes non encore pointées (`DELETE /api/shifts/:id/pointage`). Refusée (409) dès qu'un `real_start`/`real_end` est saisi. Accessible à toute personne ayant accès à la page (établissement, patron/directeur, responsable de soirée)
 
 ### 3.18 Récap mensuel patron (modale Récap — `index.html`)
 Synthèse mensuelle des heures par membre du staff, accessible depuis le bouton « Récap » de la barre d'actions.
