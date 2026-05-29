@@ -5219,9 +5219,26 @@ async function loadDisposList() {
         for (let i = 0; i < 7; i++) weekDays.push(toDateStr(addDays(nextMonday, i)));
         const DAY_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
-        Object.entries(byStaff).forEach(([staffId, { name, dispos: staffDispos }]) => {
+        // Un directeur voit en priorité les staff rattachés à ses établissements
+        const dirEstabs = (currentUser && currentUser.role === 'directeur')
+            ? (currentUser.assigned_establishments || [])
+            : [];
+        const isMyStaff = (staffId) => {
+            if (dirEstabs.length === 0) return false;
+            const sm = allStaff.find(s => String(s._id) === String(staffId));
+            return !!(sm && sm.venues && sm.venues.some(v => dirEstabs.includes(v)));
+        };
+
+        const staffEntries = Object.entries(byStaff);
+        if (dirEstabs.length) {
+            staffEntries.sort((a, b) =>
+                (isMyStaff(a[0]) ? 0 : 1) - (isMyStaff(b[0]) ? 0 : 1) || a[1].name.localeCompare(b[1].name));
+        }
+
+        staffEntries.forEach(([staffId, { name, dispos: staffDispos }]) => {
             const sm    = allStaff.find(s => String(s._id) === staffId);
             const color = sm ? sm.color : '#888';
+            const mine  = isMyStaff(staffId);
             const fmt   = h => String(Math.floor(h % 24)).padStart(2, '0') + 'h' + (Math.round((h%1)*60) > 0 ? String(Math.round((h%1)*60)).padStart(2,'0') : '');
 
             const availCount = staffDispos.filter(d => d.type !== 'off').length;
@@ -5239,7 +5256,9 @@ async function loadDisposList() {
             header.innerHTML =
                 '<span style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0;display:inline-block"></span>' +
                 '<div style="flex:1">' +
-                    '<div style="font-size:13px;font-weight:700;color:#333">' + name + '</div>' +
+                    '<div style="font-size:13px;font-weight:700;color:#333">' + name +
+                        (mine ? '<span style="font-size:9px;font-weight:700;color:#27ae60;background:#eafaf1;border:1px solid #abe9c5;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:middle">Mon resto</span>' : '') +
+                    '</div>' +
                     '<div style="font-size:11px;color:#aaa">' + subLabel + '</div>' +
                 '</div>' +
                 '<button class="btn-confirm-all" style="padding:6px 12px;border-radius:8px;border:1.5px solid #2ecc71;background:#eafaf1;color:#27ae60;font-size:12px;font-weight:600;cursor:pointer">✓ Tout confirmer</button>';
