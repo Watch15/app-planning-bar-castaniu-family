@@ -5248,7 +5248,10 @@ async function loadDisposList() {
                 : 'Indisponible' + (offCount > 1 ? ' (' + offCount + ' jours)' : '');
 
             const card = document.createElement('div');
-            card.style.cssText = 'background:var(--color-bg-secondary,#f8f8f8);border:1px solid var(--color-border-secondary,#eee);border-radius:12px;margin:8px 16px;overflow:hidden';
+            card.style.cssText = 'border-radius:12px;margin:8px 16px;overflow:hidden;' +
+                (mine
+                    ? 'background:#fffdf5;border:1px solid var(--warning,#f59e0b)'
+                    : 'background:var(--color-bg-secondary,#f8f8f8);border:1px solid var(--color-border-secondary,#eee)');
 
             // Header carte staff
             const header = document.createElement('div');
@@ -5256,8 +5259,9 @@ async function loadDisposList() {
             header.innerHTML =
                 '<span style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0;display:inline-block"></span>' +
                 '<div style="flex:1">' +
-                    '<div style="font-size:13px;font-weight:700;color:#333">' + name +
-                        (mine ? '<span style="font-size:9px;font-weight:700;color:#27ae60;background:#eafaf1;border:1px solid #abe9c5;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:middle">Mon resto</span>' : '') +
+                    '<div style="font-size:13px;font-weight:700;color:#333">' +
+                        (mine ? '<span class="staff-pref-dot" title="Affecté à ton établissement" style="margin-right:4px">★</span>' : '') +
+                        name +
                     '</div>' +
                     '<div style="font-size:11px;color:#aaa">' + subLabel + '</div>' +
                 '</div>' +
