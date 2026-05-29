@@ -5235,10 +5235,27 @@ async function loadDisposList() {
                 (isMyStaff(a[0]) ? 0 : 1) - (isMyStaff(b[0]) ? 0 : 1) || a[1].name.localeCompare(b[1].name));
         }
 
+        let shownMine = false, shownOthers = false;
         staffEntries.forEach(([staffId, { name, dispos: staffDispos }]) => {
             const sm    = allStaff.find(s => String(s._id) === staffId);
             const color = sm ? sm.color : '#888';
             const mine  = isMyStaff(staffId);
+
+            // En-têtes de section pour un directeur : "Mon staff" puis "Autres"
+            if (dirEstabs.length && mine && !shownMine) {
+                shownMine = true;
+                const sec = document.createElement('div');
+                sec.style.cssText = 'margin:14px 16px 8px;padding:9px 14px;background:#fff7e6;border:1.5px solid var(--warning,#f59e0b);border-radius:10px;font-size:15px;font-weight:800;color:#b45309;display:flex;align-items:center;gap:8px';
+                sec.innerHTML = '<span style="font-size:17px;color:var(--warning,#f59e0b)">★</span> Mon staff';
+                list.appendChild(sec);
+            }
+            if (dirEstabs.length && !mine && shownMine && !shownOthers) {
+                shownOthers = true;
+                const sec = document.createElement('div');
+                sec.style.cssText = 'margin:20px 16px 6px;padding:0 4px;font-size:12px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.5px';
+                sec.textContent = 'Autres';
+                list.appendChild(sec);
+            }
             const fmt   = h => String(Math.floor(h % 24)).padStart(2, '0') + 'h' + (Math.round((h%1)*60) > 0 ? String(Math.round((h%1)*60)).padStart(2,'0') : '');
 
             const availCount = staffDispos.filter(d => d.type !== 'off').length;
