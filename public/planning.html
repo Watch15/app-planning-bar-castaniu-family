@@ -866,6 +866,38 @@ async function init() {
         }
     } catch { /* silencieux */ }
 
+    // ── Onglet « Tableau de bord » pour les responsables (semaine en cours) ───
+    try {
+        const respMonday = getMondayOf(new Date());
+        const rFrom = toDateStr(respMonday);
+        const rTo   = toDateStr(addDays(respMonday, 6));
+        const rRes  = await fetch('/api/me/responsable-week?from=' + rFrom + '&to=' + rTo, { credentials: 'include' });
+        if (rRes.ok) {
+            const rData = await rRes.json();
+            if (rData.authorized && rData.days) {
+                const viewResp = document.createElement('div');
+                viewResp.id            = 'view-resp-dashboard';
+                viewResp.style.display = 'none';
+                document.getElementById('view-planning').after(viewResp);
+
+                const tabBar  = document.querySelector('.tabs-bar');
+                const tabResp = document.createElement('button');
+                tabResp.className   = 'tab-btn';
+                tabResp.dataset.tab = 'resp-dashboard';
+                tabResp.innerHTML   = '<span class="tab-full">📋 Tableau de bord</span><span class="tab-short">Équipe</span>';
+                const disposTab = tabBar.querySelector('[data-tab="dispos"]');
+                tabBar.insertBefore(tabResp, disposTab || null);
+                initTabs();
+
+                tabResp.addEventListener('click', () => {
+                    if (viewResp.dataset.loaded) return;
+                    renderResponsableDashboard(rData.days, viewResp, respMonday);
+                    viewResp.dataset.loaded = '1';
+                });
+            }
+        }
+    } catch { /* silencieux */ }
+
     // Vérifier si la semaine suivante est publiée
     const nextMonday = getMondayOf(addDays(new Date(), 7));
     const nextWeekStart = toDateStr(nextMonday);
@@ -1425,11 +1457,105 @@ function formatEstablishment(id) {
     return estab ? estab.name : id;
 }
 
+// ── Tableau de bord du responsable ────────────────────────────────────────────
+
+function renderResponsableDashboard(days, container, monday) {
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    container.innerHTML = '';
+
+    const weekDates = Array.from({ length: 7 }, (_, i) => ({
+        date: toDateStr(addDays(monday, i)),
+        d:    addDays(monday, i),
+    }));
+
+    // Map staff_id → { name, color, shifts: { date: [shift,...] } }
+    const staffMap = new Map();
+    weekDates.forEach(({ date }) => {
+        (days[date] || []).forEach(s => {
+            if (!staffMap.has(s.staff_id)) {
+                staffMap.set(s.staff_id, { _id: s.staff_id, name: s.staff_name, color: s.color, shifts: {} });
+            }
+            const entry = staffMap.get(s.staff_id);
+            if (!entry.shifts[date]) entry.shifts[date] = [];
+            entry.shifts[date].push(s);
+        });
+    });
+
+    if (staffMap.size === 0) {
+        container.innerHTML = '<div style="padding:32px;text-align:center;color:#aaa;font-size:13px">Aucune soirée à gérer cette semaine</div>';
+        return;
+    }
+
+    const intro = document.createElement('div');
+    intro.style.cssText = 'padding:16px 20px 8px;font-size:13px;color:#888;line-height:1.4';
+    intro.innerHTML = 'Équipe des soirées où tu es désigné <strong style="color:var(--accent,#6C63FF)">responsable</strong> cette semaine.';
+    container.appendChild(intro);
+
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'padding:0 12px 20px;overflow-x:auto';
+
+    const tbl = document.createElement('table');
+    tbl.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px;min-width:560px;background:white;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06)';
+
+    const todayStr = toDateStr(new Date());
+    let thead = '<thead><tr style="background:#f8f8f8;border-bottom:2px solid #e0e0e0">'
+        + '<th style="text-align:left;padding:9px 10px;color:#555;font-weight:700">Staff</th>';
+    weekDates.forEach(({ date, d }) => {
+        const isTd = date === todayStr;
+        thead += '<th style="text-align:center;padding:9px 4px;color:' + (isTd ? 'var(--accent,#6C63FF)' : '#555') + ';font-weight:700;font-size:11px">'
+            + DAY_NAMES[d.getDay()] + '<br>' + d.getDate() + '</th>';
+    });
+    thead += '<th style="text-align:center;padding:9px 6px;color:#555;font-weight:700">Total</th></tr></thead>';
+    tbl.innerHTML = thead;
+
+    let tbody = '<tbody>';
+    let rowIdx = 0;
+    staffMap.forEach(staff => {
+        let totalH = 0;
+        const rowBg = rowIdx % 2 ? '#f9f9fb' : 'white';
+        let row = '<tr style="background:' + rowBg + ';border-bottom:1px solid #f0f0f0">'
+            + '<td style="padding:8px 10px"><div style="display:flex;align-items:center;gap:6px">'
+            +   '<span style="width:9px;height:9px;border-radius:50%;background:' + (staff.color || '#888') + ';flex-shrink:0;display:inline-block"></span>'
+            +   '<span style="font-weight:600;color:#333">' + esc(staff.name) + '</span>'
+            + '</div></td>';
+
+        weekDates.forEach(({ date }) => {
+            const dayShifts = staff.shifts[date] || [];
+            if (dayShifts.length === 0) {
+                row += '<td style="text-align:center;padding:6px 4px;color:#ddd">—</td>';
+                return;
+            }
+            let cell = '<td style="text-align:center;padding:6px 4px"><div style="display:flex;flex-direction:column;gap:3px;align-items:center">';
+            dayShifts.forEach(s => {
+                const st = s.real_start != null ? s.real_start : s.start_time;
+                const en = s.real_end   != null ? s.real_end   : s.end_time;
+                totalH += (en - st);
+                const estabName = formatEstablishment(s.establishment_id);
+                cell += '<span style="background:' + (s.color || '#888') + ';color:white;padding:3px 7px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap;line-height:1.25">'
+                    +     fmtHour(st) + '-' + fmtHour(en)
+                    +     '<span style="display:block;font-size:8px;opacity:0.9;font-weight:500;margin-top:1px">' + esc(estabName) + '</span>'
+                    +   '</span>';
+            });
+            cell += '</div></td>';
+            row += cell;
+        });
+
+        row += '<td style="text-align:center;padding:6px;font-weight:700;color:var(--accent,#6C63FF)">' + fmtDuration(totalH) + '</td></tr>';
+        tbody += row;
+        rowIdx++;
+    });
+    tbody += '</tbody>';
+    tbl.innerHTML += tbody;
+    wrap.appendChild(tbl);
+    container.appendChild(wrap);
+}
+
 // ── Navigation onglets ───────────────────────────────────────────────────────
 
 function showTab(tab) {
     // Cacher toutes les vues connues
-    const views = ['view-planning', 'view-dispos', 'view-next-week', 'view-historique'];
+    const views = ['view-planning', 'view-dispos', 'view-next-week', 'view-historique', 'view-resp-dashboard'];
     views.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';

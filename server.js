@@ -3204,6 +3204,62 @@ app.get('/api/me/responsable-tonight', checkDB, requireAuth, async (req, res) =>
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
+// Tableau de bord du responsable : pour chaque (date, établissement) où le staff
+// est désigné responsable (pointage_resp:true sur son propre shift), renvoyer
+// tous les shifts de l'équipe (collègues compris), groupés par date.
+app.get('/api/me/responsable-week', checkDB, requireAuth, async (req, res) => {
+    const { from, to } = req.query;
+    if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to))
+        return res.status(400).json({ error: 'from et to requis (YYYY-MM-DD)' });
+    const user = req.session.user;
+    if (!user.staff_id) return res.json({ authorized: false, days: {} });
+    try {
+        // Mes shifts sur la période
+        const myShifts = await db.collection('shifts').find({
+            staff_id: user.staff_id,
+            date: { $gte: from, $lte: to },
+        }).toArray();
+        if (myShifts.length === 0) return res.json({ authorized: false, days: {} });
+
+        // Vérifier qu'il a au moins un rôle de type 'responsable'
+        const staffDoc = isValidObjectId(user.staff_id)
+            ? await db.collection('staff').findOne({ _id: new ObjectId(user.staff_id) })
+            : null;
+        const responsableRoles = await db.collection('roles').find({ type: 'responsable' }).toArray();
+        const responsableIds   = responsableRoles.map(r => String(r._id));
+        const staffRoles       = (staffDoc && staffDoc.roles) || [];
+        if (!staffRoles.some(r => responsableIds.includes(r))) {
+            return res.json({ authorized: false, days: {} });
+        }
+
+        // Distinct (date, establishment_id) où ce staff est LE responsable de la soirée
+        const seen = new Set();
+        const pairs = [];
+        for (const s of myShifts) {
+            const key = s.date + '|' + s.establishment_id;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const ok = await isResponsablePourSoiree(user.staff_id, s.establishment_id, s.date);
+            if (ok) pairs.push({ date: s.date, establishment_id: s.establishment_id });
+        }
+        if (pairs.length === 0) return res.json({ authorized: false, days: {} });
+
+        // Tous les shifts de l'équipe sur ces (date, établissement)
+        const teamShifts = await db.collection('shifts').find({
+            $or: pairs.map(p => ({ date: p.date, establishment_id: p.establishment_id })),
+        }).sort({ date: 1, start_time: 1 }).toArray();
+
+        // Groupé par date (chaque jour de la période initialisé même si vide)
+        const byDate = {};
+        for (let d = new Date(from + 'T12:00:00'); d <= new Date(to + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+            const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+            byDate[key] = [];
+        }
+        teamShifts.forEach(s => { if (byDate[s.date] !== undefined) byDate[s.date].push(s); });
+        res.json({ authorized: true, days: byDate });
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
 // ── Pilotage économique : CA + performance ───────────────────────────────────
 
 // POST CA d'une soirée (établissement, directeur, patron)

@@ -153,6 +153,7 @@ Paramétrage global :
 - Jours de repos : grille compacte 5 colonnes (pas de lignes vides)
 - Semaine suivante visible si publiée
 - **Onglet Historique** : navigation par semaine (jusqu'à 5 sem. en arrière). Un bloc stats est rendu en haut de chaque semaine navigée : 3 cartes (Jours / Shifts / Heures) + répartition par établissement si > 1. *(Le delta « vs sem. préc. » a été retiré à la demande utilisateur)*
+- **Onglet « 📋 Tableau de bord »** (visible uniquement pour les responsables) : pour un staff porteur d'un rôle de type `responsable` ET désigné `pointage_resp` sur au moins un shift de la semaine en cours, un nouvel onglet apparaît avant Dispos. Il affiche une table style tableau de bord (staff × jours) de toutes les soirées qu'il gère cette semaine — collègues compris — sur les seuls couples (date, établissement) où il est le responsable. Pastilles colorées `HHhMM-HHhMM` + chip avec le nom de l'établissement. Lecture seule, semaine en cours uniquement. Backend : `GET /api/me/responsable-week?from=…&to=…`
 
 ### 3.12 PWA
 - Installable sur mobile sans App Store
