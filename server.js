@@ -3205,8 +3205,9 @@ app.get('/api/me/responsable-tonight', checkDB, requireAuth, async (req, res) =>
 });
 
 // Tableau de bord du responsable : pour chaque (date, établissement) où le staff
-// est désigné responsable (pointage_resp:true sur son propre shift), renvoyer
-// tous les shifts de l'équipe (collègues compris), groupés par date.
+// porteur d'un rôle 'responsable' travaille, renvoyer tous les shifts de l'équipe
+// (collègues compris), groupés par date. Pas de filtre pointage_resp — un
+// responsable voit l'équipe sur toutes ses soirées de travail.
 app.get('/api/me/responsable-week', checkDB, requireAuth, async (req, res) => {
     const { from, to } = req.query;
     if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to))
@@ -3232,15 +3233,14 @@ app.get('/api/me/responsable-week', checkDB, requireAuth, async (req, res) => {
             return res.json({ authorized: false, days: {} });
         }
 
-        // Distinct (date, establishment_id) où ce staff est LE responsable de la soirée
+        // Distinct (date, establishment_id) où ce staff travaille
         const seen = new Set();
         const pairs = [];
         for (const s of myShifts) {
             const key = s.date + '|' + s.establishment_id;
             if (seen.has(key)) continue;
             seen.add(key);
-            const ok = await isResponsablePourSoiree(user.staff_id, s.establishment_id, s.date);
-            if (ok) pairs.push({ date: s.date, establishment_id: s.establishment_id });
+            pairs.push({ date: s.date, establishment_id: s.establishment_id });
         }
         if (pairs.length === 0) return res.json({ authorized: false, days: {} });
 
