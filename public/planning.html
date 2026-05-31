@@ -884,7 +884,7 @@ async function init() {
                 const tabResp = document.createElement('button');
                 tabResp.className   = 'tab-btn';
                 tabResp.dataset.tab = 'resp-dashboard';
-                tabResp.innerHTML   = '<span class="tab-full">📋 Tableau de bord</span><span class="tab-short">Équipe</span>';
+                tabResp.innerHTML   = '<span class="tab-full">👥 Mon équipe</span><span class="tab-short">Équipe</span>';
                 const disposTab = tabBar.querySelector('[data-tab="dispos"]');
                 tabBar.insertBefore(tabResp, disposTab || null);
                 initTabs();
@@ -1493,6 +1493,7 @@ function renderResponsableDashboard(days, container, monday) {
             return a.start_time - b.start_time;
         });
         const isToday = date === todayStr;
+        const isPast  = date < todayStr;
 
         // Séparer équipe vs jokers ouverts (les Jokers fermés sont des placeholders
         // patron au cas où, pas des créneaux à pourvoir — on les masque côté staff)
@@ -1507,25 +1508,29 @@ function renderResponsableDashboard(days, container, monday) {
         const multiEstab = byEstab.size > 1;
         const headerEstab = (!multiEstab && team.length > 0) ? team[0].establishment_id : (jokers[0] && jokers[0].establishment_id);
 
+        // Pill style pour le nom d'établissement (renforce l'identifiant visuel
+        // sans inventer de couleur par estab — convention absente du reste de l'app)
+        const estabPill = id => '<span style="display:inline-flex;align-items:center;font-size:11px;font-weight:600;color:#534AB7;background:rgba(108,99,255,0.08);padding:3px 9px;border-radius:8px;border:1px solid rgba(108,99,255,0.18);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">' + esc(formatEstablishment(id)) + '</span>';
+
         const card = document.createElement('div');
         card.style.cssText =
             'background:#fff;border-radius:12px;padding:14px 14px 12px;' +
             'box-shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);' +
-            (isToday ? 'border-left:3px solid var(--accent,#6C63FF)' : 'border-left:3px solid transparent');
+            (isToday ? 'border-left:3px solid var(--accent,#6C63FF);' : 'border-left:3px solid transparent;') +
+            (isPast  ? 'opacity:0.62;' : '');
 
         const dayLabel = DAY_NAMES[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()];
         let html =
-            '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap">' +
                 '<div style="font-weight:700;font-size:15px;color:' + (isToday ? 'var(--accent,#6C63FF)' : '#1a1a2e') + ';letter-spacing:-0.2px">' + dayLabel + '</div>' +
                 (isToday
                     ? '<span style="font-size:10px;font-weight:700;color:#fff;background:var(--accent,#6C63FF);padding:3px 8px;border-radius:8px;letter-spacing:0.3px">Aujourd hui</span>'
-                    : (headerEstab && !multiEstab ? '<span style="font-size:11px;color:#8892a4;font-weight:600">' + esc(formatEstablishment(headerEstab)) + '</span>' : '')) +
+                    : (headerEstab && !multiEstab ? estabPill(headerEstab) : '')) +
             '</div>';
 
         byEstab.forEach((shiftList, estabId) => {
             if (multiEstab) {
-                html += '<div style="font-size:10px;font-weight:700;color:#8892a4;text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 6px">' +
-                    esc(formatEstablishment(estabId)) + '</div>';
+                html += '<div style="margin:10px 0 6px">' + estabPill(estabId) + '</div>';
             }
             html += '<div style="display:flex;flex-direction:column;gap:5px">';
             shiftList.forEach(s => {
