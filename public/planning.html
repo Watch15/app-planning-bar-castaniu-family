@@ -1462,6 +1462,7 @@ function formatEstablishment(id) {
 function renderResponsableDashboard(days, container, monday) {
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const isJoker = s => s.is_joker || s.staff_id === '__joker__';
     container.innerHTML = '';
 
     const todayStr = toDateStr(new Date());
@@ -1479,7 +1480,7 @@ function renderResponsableDashboard(days, container, monday) {
 
     const intro = document.createElement('div');
     intro.style.cssText = 'padding:16px 20px 8px;font-size:13px;color:#888;line-height:1.4';
-    intro.innerHTML = 'Équipe présente sur tes soirées de travail cette semaine.';
+    intro.innerHTML = 'Équipe présente sur tes soirées de travail cette semaine. Tape un coéquipier pour l’appeler.';
     container.appendChild(intro);
 
     const wrap = document.createElement('div');
@@ -1493,13 +1494,17 @@ function renderResponsableDashboard(days, container, monday) {
         });
         const isToday = date === todayStr;
 
-        // Regrouper par établissement (un responsable peut travailler dans 2 bars le même soir)
+        // Séparer équipe vs jokers, regrouper équipe par établissement
+        const team   = dayShifts.filter(s => !isJoker(s));
+        const jokers = dayShifts.filter(isJoker);
+
         const byEstab = new Map();
-        dayShifts.forEach(s => {
+        team.forEach(s => {
             if (!byEstab.has(s.establishment_id)) byEstab.set(s.establishment_id, []);
             byEstab.get(s.establishment_id).push(s);
         });
         const multiEstab = byEstab.size > 1;
+        const headerEstab = (!multiEstab && team.length > 0) ? team[0].establishment_id : (jokers[0] && jokers[0].establishment_id);
 
         const card = document.createElement('div');
         card.style.cssText =
@@ -1513,7 +1518,7 @@ function renderResponsableDashboard(days, container, monday) {
                 '<div style="font-weight:700;font-size:15px;color:' + (isToday ? 'var(--accent,#6C63FF)' : '#1a1a2e') + ';letter-spacing:-0.2px">' + dayLabel + '</div>' +
                 (isToday
                     ? '<span style="font-size:10px;font-weight:700;color:#fff;background:var(--accent,#6C63FF);padding:3px 8px;border-radius:8px;letter-spacing:0.3px">Aujourd hui</span>'
-                    : (!multiEstab ? '<span style="font-size:11px;color:#8892a4;font-weight:600">' + esc(formatEstablishment(dayShifts[0].establishment_id)) + '</span>' : '')) +
+                    : (headerEstab && !multiEstab ? '<span style="font-size:11px;color:#8892a4;font-weight:600">' + esc(formatEstablishment(headerEstab)) + '</span>' : '')) +
             '</div>';
 
         byEstab.forEach((shiftList, estabId) => {
@@ -1525,22 +1530,97 @@ function renderResponsableDashboard(days, container, monday) {
             shiftList.forEach(s => {
                 const st = s.real_start != null ? s.real_start : s.start_time;
                 const en = s.real_end   != null ? s.real_end   : s.end_time;
-                const isMe = myStaffId && String(s.staff_id) === String(myStaffId);
+                const isMe   = myStaffId && String(s.staff_id) === String(myStaffId);
+                const isResp = !!s.pointage_resp;
+                const phone  = s.phone || '';
+                const canCall = !isMe && phone;
+                const rowAttrs = canCall
+                    ? ' data-phone="' + esc(phone) + '" data-name="' + esc(s.staff_name) + '" role="button" tabindex="0"'
+                    : '';
+                const cursor   = canCall ? 'cursor:pointer;' : '';
+                const bg       = isMe ? 'rgba(108,99,255,0.07)' : '#f4f5f8';
                 html +=
-                    '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:' + (isMe ? 'rgba(108,99,255,0.07)' : '#f4f5f8') + ';border-radius:8px">' +
+                    '<div class="resp-team-row"' + rowAttrs + ' style="' + cursor +
+                        'display:flex;align-items:center;gap:10px;padding:10px;background:' + bg + ';border-radius:8px;min-height:44px">' +
                         '<span style="width:10px;height:10px;border-radius:50%;background:' + (s.color || '#888') + ';flex-shrink:0"></span>' +
-                        '<span style="flex:1;font-weight:600;font-size:13px;color:#1a1a2e">' + esc(s.staff_name) + (isMe ? ' <span style="font-size:10px;font-weight:700;color:var(--accent,#6C63FF);margin-left:4px">· toi</span>' : '') + '</span>' +
+                        '<span style="flex:1;font-weight:600;font-size:13px;color:#1a1a2e;display:flex;align-items:center;gap:6px;min-width:0">' +
+                            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(s.staff_name) + '</span>' +
+                            (isResp ? '<span title="Responsable de la soirée" style="font-size:12px;flex-shrink:0">👑</span>' : '') +
+                        '</span>' +
                         '<span style="font-size:13px;font-weight:600;color:#1a1a2e;font-variant-numeric:tabular-nums;white-space:nowrap">' + fmtHour(st) + '–' + fmtHour(en) + '</span>' +
+                        (canCall ? '<span style="font-size:11px;color:#8892a4;flex-shrink:0;margin-left:2px">▾</span>' : '') +
                     '</div>';
             });
             html += '</div>';
         });
 
+        if (jokers.length > 0) {
+            html += '<div style="margin-top:12px;padding-top:10px;border-top:1px dashed #e8eaed">' +
+                '<div style="font-size:10px;font-weight:700;color:#8892a4;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">' +
+                    '📢 Créneau' + (jokers.length > 1 ? 'x' : '') + ' à pourvoir' +
+                '</div>' +
+                '<div style="display:flex;flex-direction:column;gap:5px">';
+            jokers.forEach(s => {
+                const estabName = multiEstab ? ' · ' + esc(formatEstablishment(s.establishment_id)) : '';
+                html +=
+                    '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(108,99,255,0.05);border:1px dashed rgba(108,99,255,0.35);border-radius:8px">' +
+                        '<span style="width:10px;height:10px;border-radius:50%;background:rgba(108,99,255,0.55);flex-shrink:0"></span>' +
+                        '<span style="flex:1;font-weight:600;font-size:13px;color:#534AB7">Joker' + estabName + '</span>' +
+                        '<span style="font-size:13px;font-weight:600;color:#534AB7;font-variant-numeric:tabular-nums;white-space:nowrap">' + fmtHour(s.start_time) + '–' + fmtHour(s.end_time) + '</span>' +
+                    '</div>';
+            });
+            html += '</div></div>';
+        }
+
         card.innerHTML = html;
         wrap.appendChild(card);
     });
 
+    // Tap-to-contact : ouvre une modale d'actions (Appeler / SMS) sur les rows avec phone
+    wrap.addEventListener('click', (ev) => {
+        const row = ev.target.closest && ev.target.closest('.resp-team-row[data-phone]');
+        if (!row) return;
+        openContactSheet(row.dataset.name, row.dataset.phone);
+    });
+
     container.appendChild(wrap);
+}
+
+function openContactSheet(name, phone) {
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const existing = document.getElementById('resp-contact-sheet');
+    if (existing) existing.remove();
+
+    const sheet = document.createElement('div');
+    sheet.id = 'resp-contact-sheet';
+    sheet.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0);transition:background 0.18s ease';
+    sheet.innerHTML =
+        '<div class="resp-contact-panel" style="background:#fff;width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:16px 18px 20px;box-shadow:0 -4px 24px rgba(0,0,0,0.13);transform:translateY(100%);transition:transform 0.22s cubic-bezier(0.32,0.72,0,1)">' +
+            '<div style="width:36px;height:4px;background:#d0d0d0;border-radius:2px;margin:0 auto 14px"></div>' +
+            '<div style="font-weight:700;font-size:15px;color:#1a1a2e;text-align:center;margin-bottom:2px">' + esc(name) + '</div>' +
+            '<div style="font-size:13px;color:#8892a4;text-align:center;margin-bottom:16px;font-variant-numeric:tabular-nums">' + esc(phone) + '</div>' +
+            '<div style="display:flex;flex-direction:column;gap:8px">' +
+                '<a href="tel:' + esc(phone) + '" class="resp-contact-act" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;background:var(--accent,#6C63FF);color:#fff;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px;min-height:48px">📞 Appeler</a>' +
+                '<a href="sms:' + esc(phone) + '" class="resp-contact-act" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;background:#f4f5f8;color:#1a1a2e;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px;min-height:48px">💬 Envoyer un SMS</a>' +
+                '<button type="button" class="resp-contact-cancel" style="padding:12px;background:transparent;color:#8892a4;border:none;border-radius:12px;font-weight:600;font-size:13px;min-height:44px;cursor:pointer">Annuler</button>' +
+            '</div>' +
+        '</div>';
+
+    const panel = sheet.querySelector('.resp-contact-panel');
+    const close = () => {
+        sheet.style.background = 'rgba(0,0,0,0)';
+        panel.style.transform = 'translateY(100%)';
+        setTimeout(() => sheet.remove(), 220);
+    };
+    sheet.addEventListener('click', (ev) => { if (ev.target === sheet) close(); });
+    sheet.querySelector('.resp-contact-cancel').addEventListener('click', close);
+    sheet.querySelectorAll('.resp-contact-act').forEach(el => el.addEventListener('click', () => setTimeout(close, 100)));
+    document.body.appendChild(sheet);
+    requestAnimationFrame(() => {
+        sheet.style.background = 'rgba(0,0,0,0.45)';
+        panel.style.transform   = 'translateY(0)';
+    });
 }
 
 // ── Navigation onglets ───────────────────────────────────────────────────────

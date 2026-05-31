@@ -3249,6 +3249,20 @@ app.get('/api/me/responsable-week', checkDB, requireAuth, async (req, res) => {
             $or: pairs.map(p => ({ date: p.date, establishment_id: p.establishment_id })),
         }).sort({ date: 1, start_time: 1 }).toArray();
 
+        // Augmenter chaque shift avec le téléphone du staff (le responsable doit
+        // pouvoir contacter son équipe depuis le tableau de bord)
+        const staffIds = [...new Set(teamShifts
+            .map(s => s.staff_id)
+            .filter(id => id && id !== '__joker__' && isValidObjectId(id)))];
+        const staffDocs = staffIds.length
+            ? await db.collection('staff').find(
+                { _id: { $in: staffIds.map(id => new ObjectId(id)) } },
+                { projection: { phone: 1 } }
+            ).toArray()
+            : [];
+        const phoneMap = new Map(staffDocs.map(s => [String(s._id), s.phone || null]));
+        teamShifts.forEach(s => { s.phone = phoneMap.get(String(s.staff_id)) || null; });
+
         // Groupé par date (chaque jour de la période initialisé même si vide)
         const byDate = {};
         for (let d = new Date(from + 'T12:00:00'); d <= new Date(to + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
