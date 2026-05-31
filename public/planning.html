@@ -866,15 +866,18 @@ async function init() {
         }
     } catch { /* silencieux */ }
 
-    // ── Onglet « Tableau de bord » pour les responsables (semaine en cours) ───
+    // ── Onglet « Mon équipe » pour les responsables (semaine en cours) ───
+    // Re-fetch à chaque entrée (clic + visibilitychange) pour refléter les
+    // modifs patron pendant l'absence de l'utilisateur, et recalcule monday/
+    // todayStr à chaque rendu (corrige le badge « Aujourd hui » après minuit).
     try {
-        const respMonday = getMondayOf(new Date());
-        const rFrom = toDateStr(respMonday);
-        const rTo   = toDateStr(addDays(respMonday, 6));
-        const rRes  = await fetch('/api/me/responsable-week?from=' + rFrom + '&to=' + rTo, { credentials: 'include' });
+        const respMondayInit = getMondayOf(new Date());
+        const initFrom = toDateStr(respMondayInit);
+        const initTo   = toDateStr(addDays(respMondayInit, 6));
+        const rRes     = await fetch('/api/me/responsable-week?from=' + initFrom + '&to=' + initTo, { credentials: 'include' });
         if (rRes.ok) {
-            const rData = await rRes.json();
-            if (rData.authorized && rData.days) {
+            const initData = await rRes.json();
+            if (initData.authorized && initData.days) {
                 const viewResp = document.createElement('div');
                 viewResp.id            = 'view-resp-dashboard';
                 viewResp.style.display = 'none';
@@ -889,10 +892,45 @@ async function init() {
                 tabBar.insertBefore(tabResp, disposTab || null);
                 initTabs();
 
+                // Mémoriser ensemble la dernière donnée ET son monday pour éviter
+                // qu'un rendu de fallback (avant le re-fetch) utilise un monday
+                // décalé de la semaine couverte par lastData (cas semaine N→N+1).
+                let lastData     = initData;
+                let lastMonday   = respMondayInit;
+                let lastRendered = false;
+
+                const refreshResp = async () => {
+                    const monday = getMondayOf(new Date());
+                    const from   = toDateStr(monday);
+                    const to     = toDateStr(addDays(monday, 6));
+                    try {
+                        const r = await fetch('/api/me/responsable-week?from=' + from + '&to=' + to, { credentials: 'include' });
+                        if (!r.ok) return;
+                        const data = await r.json();
+                        if (!data.authorized) {
+                            tabResp.style.display = 'none';
+                            viewResp.innerHTML = '';
+                            return;
+                        }
+                        lastData   = data;
+                        lastMonday = monday;
+                        renderResponsableDashboard(data.days, viewResp, monday);
+                        lastRendered = true;
+                    } catch { /* silencieux */ }
+                };
+
                 tabResp.addEventListener('click', () => {
-                    if (viewResp.dataset.loaded) return;
-                    renderResponsableDashboard(rData.days, viewResp, respMonday);
-                    viewResp.dataset.loaded = '1';
+                    if (!lastRendered) {
+                        renderResponsableDashboard(lastData.days, viewResp, lastMonday);
+                        lastRendered = true;
+                    }
+                    refreshResp();
+                });
+
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState !== 'visible') return;
+                    if (!tabResp.classList.contains('active')) return;
+                    refreshResp();
                 });
             }
         }
