@@ -1608,7 +1608,7 @@ function renderResponsableDashboard(days, container, monday) {
                     : '';
                 const cursor   = canCall ? 'cursor:pointer;' : '';
                 const bg       = isMe ? 'rgba(108,99,255,0.07)' : '#f4f5f8';
-                const hours    = m.slots.map(s => fmtHour(s.st) + '–' + fmtHour(s.en)).join(', ');
+                const hours    = m.slots.map(s => fmtHour(s.st) + ' → ' + fmtHour(s.en)).join(', ');
                 html +=
                     '<div class="resp-team-row"' + rowAttrs + ' style="' + cursor +
                         'display:flex;align-items:center;gap:10px;padding:10px;background:' + bg + ';border-radius:8px;min-height:44px">' +
@@ -1636,7 +1636,7 @@ function renderResponsableDashboard(days, container, monday) {
                     '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(108,99,255,0.05);border:1px dashed rgba(108,99,255,0.35);border-radius:8px">' +
                         '<span style="width:10px;height:10px;border-radius:50%;background:rgba(108,99,255,0.55);flex-shrink:0"></span>' +
                         '<span style="flex:1;font-weight:600;font-size:13px;color:#534AB7">Joker' + estabName + '</span>' +
-                        '<span style="font-size:13px;font-weight:600;color:#534AB7;font-variant-numeric:tabular-nums;white-space:nowrap">' + fmtHour(s.start_time) + '–' + fmtHour(s.end_time) + '</span>' +
+                        '<span style="font-size:13px;font-weight:600;color:#534AB7;font-variant-numeric:tabular-nums;white-space:nowrap">' + fmtHour(s.start_time) + ' → ' + fmtHour(s.end_time) + '</span>' +
                     '</div>';
             });
             html += '</div></div>';
