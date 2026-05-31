@@ -1532,28 +1532,54 @@ function renderResponsableDashboard(days, container, monday) {
             if (multiEstab) {
                 html += '<div style="margin:10px 0 6px">' + estabPill(estabId) + '</div>';
             }
-            html += '<div style="display:flex;flex-direction:column;gap:5px">';
+            // Fusionner les shifts du même staff dans le même bar et la même soirée
+            // (ex. coupure 18-22h + 23-3h) → un seul row avec horaires joints
+            const byStaff = new Map();
             shiftList.forEach(s => {
-                const st = s.real_start != null ? s.real_start : s.start_time;
-                const en = s.real_end   != null ? s.real_end   : s.end_time;
-                const isMe   = myStaffId && String(s.staff_id) === String(myStaffId);
-                const isResp = !!s.pointage_resp;
-                const phone  = s.phone || '';
+                const key = String(s.staff_id);
+                if (!byStaff.has(key)) {
+                    byStaff.set(key, {
+                        staff_id:   s.staff_id,
+                        staff_name: s.staff_name,
+                        color:      s.color,
+                        phone:      s.phone,
+                        is_resp:    !!s.pointage_resp,
+                        slots:      [],
+                    });
+                }
+                const entry = byStaff.get(key);
+                entry.slots.push({
+                    st: s.real_start != null ? s.real_start : s.start_time,
+                    en: s.real_end   != null ? s.real_end   : s.end_time,
+                });
+                if (s.pointage_resp) entry.is_resp = true;
+            });
+            // Tri par premier créneau
+            const merged = [...byStaff.values()].map(e => {
+                e.slots.sort((a, b) => a.st - b.st);
+                return e;
+            }).sort((a, b) => a.slots[0].st - b.slots[0].st);
+
+            html += '<div style="display:flex;flex-direction:column;gap:5px">';
+            merged.forEach(m => {
+                const isMe   = myStaffId && String(m.staff_id) === String(myStaffId);
+                const phone  = m.phone || '';
                 const canCall = !isMe && phone;
                 const rowAttrs = canCall
-                    ? ' data-phone="' + esc(phone) + '" data-name="' + esc(s.staff_name) + '" role="button" tabindex="0"'
+                    ? ' data-phone="' + esc(phone) + '" data-name="' + esc(m.staff_name) + '" role="button" tabindex="0"'
                     : '';
                 const cursor   = canCall ? 'cursor:pointer;' : '';
                 const bg       = isMe ? 'rgba(108,99,255,0.07)' : '#f4f5f8';
+                const hours    = m.slots.map(s => fmtHour(s.st) + '–' + fmtHour(s.en)).join(', ');
                 html +=
                     '<div class="resp-team-row"' + rowAttrs + ' style="' + cursor +
                         'display:flex;align-items:center;gap:10px;padding:10px;background:' + bg + ';border-radius:8px;min-height:44px">' +
-                        '<span style="width:10px;height:10px;border-radius:50%;background:' + (s.color || '#888') + ';flex-shrink:0"></span>' +
+                        '<span style="width:10px;height:10px;border-radius:50%;background:' + (m.color || '#888') + ';flex-shrink:0"></span>' +
                         '<span style="flex:1;font-weight:600;font-size:13px;color:#1a1a2e;display:flex;align-items:center;gap:6px;min-width:0">' +
-                            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(s.staff_name) + '</span>' +
-                            (isResp ? '<span title="Responsable de la soirée" style="font-size:12px;flex-shrink:0">👑</span>' : '') +
+                            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(m.staff_name) + '</span>' +
+                            (m.is_resp ? '<span title="Responsable de la soirée" style="font-size:12px;flex-shrink:0">👑</span>' : '') +
                         '</span>' +
-                        '<span style="font-size:13px;font-weight:600;color:#1a1a2e;font-variant-numeric:tabular-nums;white-space:nowrap">' + fmtHour(st) + '–' + fmtHour(en) + '</span>' +
+                        '<span style="font-size:13px;font-weight:600;color:#1a1a2e;font-variant-numeric:tabular-nums;white-space:nowrap">' + hours + '</span>' +
                         (canCall ? '<span style="font-size:11px;color:#8892a4;flex-shrink:0;margin-left:2px">▾</span>' : '') +
                     '</div>';
             });
