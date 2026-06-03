@@ -500,6 +500,12 @@ function staffDisplayName(staff, fallbackFullName) {
     return n.split(/\s+/)[0] || n || '—';
 }
 
+// Normalise une chaîne pour recherche : minuscules + suppression des accents
+function normalizeStr(str) {
+    if (!str) return '';
+    return str.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 function parseTimeInput(val, referenceStart) {
     if (!val) return null;
     const [h, m] = val.split(':').map(Number);
@@ -1128,7 +1134,7 @@ function initExtraForm() {
         }
 
         const matches = val
-            ? allStaff.filter(s => s.name.toLowerCase().includes(val)).slice(0, 8)
+            ? allStaff.filter(s => normalizeStr(s.name).includes(val)).slice(0, 8)
             : pool.slice(0, 8);
 
         if (matches.length === 0) {
@@ -1176,11 +1182,11 @@ function initExtraForm() {
     }
 
     searchInput.addEventListener('focus', () => {
-        renderSuggestions(searchInput.value.toLowerCase().trim());
+        renderSuggestions(normalizeStr(searchInput.value).trim());
     });
 
     searchInput.addEventListener('input', () => {
-        renderSuggestions(searchInput.value.toLowerCase().trim());
+        renderSuggestions(normalizeStr(searchInput.value).trim());
     });
 
     // Fermer suggestions au clic extérieur
@@ -1200,9 +1206,9 @@ function initExtraForm() {
 
         if (!staffName)       { showToast('Nom du staff requis', true);          return; }
         // Avertir si le nom a été tapé sans être sélectionné dans la liste
-        if (!staffId && freeName.style.display === 'none' && allStaff.some(s => s.name.toLowerCase() === staffName.toLowerCase())) {
+        if (!staffId && freeName.style.display === 'none' && allStaff.some(s => normalizeStr(s.name) === normalizeStr(staffName))) {
             showToast('Sélectionne "' + staffName + '" dans la liste déroulante', true);
-            renderSuggestions(staffName.toLowerCase());
+            renderSuggestions(normalizeStr(staffName));
             return;
         }
         if (realStart == null) { showToast('Heure de début requise', true);       return; }
