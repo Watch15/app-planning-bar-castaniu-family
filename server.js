@@ -438,6 +438,30 @@ async function cleanupOldJokers() {
     } catch (e) { console.error('❌ cleanupOldJokers error:', e.message); }
 }
 
+// Purge toutes les dispos dès qu'on passe à une semaine suivante : une fois la
+// semaine entièrement écoulée, ses disponibilités n'ont plus de valeur (le shift
+// confirmé reste la source de vérité). On supprime aussi bien les dispos datées
+// (champ `date`) que les notes de semaine (type 'week_note', rattachées à un
+// `week_start`).
+async function cleanupPastDispos() {
+    if (!db) return;
+    try {
+        const now  = new Date();
+        const day  = now.getDay();
+        const diff = day === 0 ? -6 : 1 - day; // lundi de la semaine en cours
+        const mon  = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
+        const pad  = n => String(n).padStart(2, '0');
+        const mondayStr = mon.getFullYear() + '-' + pad(mon.getMonth() + 1) + '-' + pad(mon.getDate());
+        const result = await db.collection('availabilities').deleteMany({
+            $or: [
+                { date:       { $lt: mondayStr } }, // dispos des semaines déjà passées
+                { week_start: { $lt: mondayStr } }, // notes de semaine passées
+            ],
+        });
+        if (result.deletedCount > 0) console.log('🧹 Dispos des semaines passées purgées :', result.deletedCount);
+    } catch (e) { console.error('❌ cleanupPastDispos error:', e.message); }
+}
+
 function scheduleDailyAt10() {
     const now   = new Date();
     const next10 = new Date(now);
@@ -447,8 +471,10 @@ function scheduleDailyAt10() {
     setTimeout(() => {
         checkDispoRappels();
         cleanupOldJokers();
+        cleanupPastDispos();
         setInterval(checkDispoRappels, 24 * 60 * 60 * 1000);
         setInterval(cleanupOldJokers, 24 * 60 * 60 * 1000);
+        setInterval(cleanupPastDispos, 24 * 60 * 60 * 1000);
     }, msUntil10);
     console.log('⏰ Rappels auto dispos programmés — prochain check 10h00');
 }
