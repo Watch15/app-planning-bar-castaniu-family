@@ -35,7 +35,8 @@ app-planning-bar/
 │   └── utils.js                ← Helpers purs (sans Express/Mongo) — testables isolément
 ├── tests/
 │   ├── utils.test.js           ← Helpers purs lib/utils.js (43 tests)
-│   └── shift-hours.test.js     ← Heures effectives d'un shift (6 tests, D-73)
+│   ├── shift-hours.test.js     ← Heures effectives d'un shift (6 tests, D-73)
+│   └── week.test.js            ← Lundi de semaine — weekStart + currentWeekStart (15 tests, D-74/D-75)
 ├── public/
 │   ├── index.html              ← Interface patron/directeur
 │   ├── planning.html           ← Interface staff
@@ -48,8 +49,9 @@ app-planning-bar/
 │   ├── style.css               ← Styles globaux
 │   ├── manifest.json           ← Manifest PWA
 │   ├── sw.js                   ← Service Worker
-│   ├── lib/
-│   │   └── shift-hours.js      ← Heures effectives d'un shift — module UMD navigateur/Node (D-73)
+│   ├── lib/                    ← Code isomorphe partagé navigateur/Node (modules UMD)
+│   │   ├── shift-hours.js      ← Heures effectives d'un shift (D-73)
+│   │   └── week.js             ← Lundi de semaine — weekStart + currentWeekStart (cutoff 6h), réexporté par lib/utils.js (D-74/D-75)
 │   ├── vendor/                 ← Libs tierces auto-hébergées (pas de CDN runtime)
 │   │   ├── jspdf.umd.min.js        ← Export PDF (D-51)
 │   │   ├── html2canvas.min.js      ← Capture DOM pour PDF (D-51)
@@ -121,7 +123,7 @@ Le Service Worker (`sw.js`) utilise Network First pour les routes `/api/*` et `/
 
 Tout ce qui est pur (sans dépendance Express/Mongo/réseau) doit être dans `lib/utils.js` pour être testable isolément. Exports actuels : `isValidObjectId`, `hashToken`, `normalizePhone`, `computeActiveDate`, `toDateStr`, `weekStart`, `disposWeekStart`, `isAutoPublished`, `chargeMultiplier`. Ajouter les nouveaux helpers purs ici plutôt qu'en inline dans `server.js`.
 
-**Logique partagée navigateur + Node** : quand un helper doit être consommé par le **front** (servi en statique) ET testé sous Node, il ne peut pas vivre dans `lib/utils.js` (le navigateur ne fait pas de `require`). On utilise alors un **module UMD** sous `public/lib/` : il s'expose en global navigateur (`window.X`) via `<script src>` et reste `require()`-able en Node pour les tests. Exemple de référence : `public/lib/shift-hours.js` (`window.ShiftHours`) + `tests/shift-hours.test.js`. Côté HTML, déléguer depuis une fonction de même nom pour préserver le hoisting sans toucher les call sites existants (cf. D-73, gabarit des extractions futures).
+**Logique partagée navigateur + Node** : quand un helper doit être consommé par le **front** (servi en statique) ET testé sous Node, il ne peut pas vivre dans `lib/utils.js` (le navigateur ne fait pas de `require`). On utilise alors un **module UMD** sous `public/lib/` : il s'expose en global navigateur (`window.X`) via `<script src>` et reste `require()`-able en Node pour les tests. Exemples : `public/lib/shift-hours.js` (`window.ShiftHours`) + `tests/shift-hours.test.js` ; `public/lib/week.js` (`window.Week.weekStart`) + `tests/week.test.js`. Côté HTML, déléguer depuis une fonction de même nom pour préserver le hoisting sans toucher les call sites existants. **Si le helper existait déjà côté Node** (ex. `weekStart`), `lib/utils.js` le **ré-exporte** depuis le module UMD → source unique, call sites serveur inchangés (cf. D-73/D-74, gabarit des extractions futures).
 
 ### 3.7 En production `SESSION_SECRET` est obligatoire
 
@@ -130,6 +132,15 @@ Tout ce qui est pur (sans dépendance Express/Mongo/réseau) doit être dans `li
 ### 3.8 Trust proxy en production
 
 Railway termine le TLS au niveau de son proxy. `app.set('trust proxy', 1)` est activé en production pour que `cookie.secure: true` soit honoré et que `req.ip` reflète le client, et non le proxy.
+
+### 3.9 Semaine « en cours » — cutoff de bascule (D-75)
+
+La plupart des fermetures se terminent vers 2h du matin. Un shift de fermeture est stocké à la **date de la veille** (`end_time` ≥ 24, ex. 26 = 2h). Pour que « cette semaine » contienne encore ce shift entre lundi 00:00 et 06:00, deux fonctions **distinctes** vivent dans `public/lib/week.js` :
+
+- `weekStart(date)` — lundi de la semaine d'une **date calendaire**. Sert au mapping shift→semaine, à la publication, aux regroupements. **Jamais** de cutoff (sinon un shift daté un lundi basculerait à tort dans la semaine précédente).
+- `currentWeekStart(now, cutoff = WEEK_CUTOFF_HOUR)` — lundi de la semaine **opérationnelle à l'instant présent** : avant `cutoff` (défaut **6h**) le lundi, on rattache à la veille. À utiliser uniquement pour « quelle semaine est-on **maintenant** » (planning par défaut, base de l'historique, flux iCal, vue patron, calendrier performance).
+
+`WEEK_CUTOFF_HOUR = 6` est centralisé dans `public/lib/week.js` (ajustable simplement, ou branchable sur un réglage via le paramètre `cutoff`). **Indépendant** du `cutoff_hour` du pointage (9h, session quotidienne). Les traitements lancés à 10h (crons de purge) sont post-cutoff → non concernés.
 
 ---
 
@@ -368,8 +379,8 @@ POST HTTP direct vers l'API REST Twilio. Pas de SDK. Normalisation des numéros 
 ## 13. Tests & CI
 
 - **Runner** — `node --test` (intégré). Aucune dépendance de framework.
-- **Portée** — **49 tests, 2 suites** : `tests/utils.test.js` (43 — cutoff 0/pile/bascule mois-année, padding de dates, téléphones, tokens déterministes, ObjectId hex strict) et `tests/shift-hours.test.js` (6 — heures effectives réel/planifié, pointage partiel sans mélange, `real_start=0`, shift de nuit ; cf. D-71/D-73).
-- **Commande** — `npm test` liste explicitement les fichiers (`node --test tests/utils.test.js tests/shift-hours.test.js`). ⚠️ **Ne pas** repasser au mode répertoire `node --test tests/` : non fiable selon la version Node (il tente de charger `tests` comme un module → `MODULE_NOT_FOUND`).
+- **Portée** — **64 tests, 3 suites** : `tests/utils.test.js` (43 — cutoff 0/pile/bascule mois-année, padding de dates, téléphones, tokens déterministes, ObjectId hex strict), `tests/shift-hours.test.js` (6 — heures effectives réel/planifié, pointage partiel sans mélange, `real_start=0`, shift de nuit ; cf. D-71/D-73) et `tests/week.test.js` (15 — `weekStart` : lundi/dimanche/mercredi, bascule mois & année, idempotence, copie défensive ; `currentWeekStart` : cutoff hebdo 6h, lundi avant/après cutoff ; cf. D-74/D-75).
+- **Commande** — `npm test` liste explicitement les fichiers (`node --test tests/utils.test.js tests/shift-hours.test.js tests/week.test.js`). ⚠️ **Ne pas** repasser au mode répertoire `node --test tests/` : non fiable selon la version Node (il tente de charger `tests` comme un module → `MODULE_NOT_FOUND`).
 - **CI** — `.github/workflows/ci.yml` sur `push`/`PR` vers `main`. Matrice Node 20.x + 22.x. Étapes : `npm ci` → syntax check (`node -c` sur server.js, script.js, init-db.js) → `npm test`.
 
 **Ajouter un test quand** : on extrait un helper pur vers `lib/`, on change une règle de date/heure, ou on corrige un bug qui pourrait régresser.

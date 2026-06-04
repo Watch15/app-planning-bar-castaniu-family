@@ -702,8 +702,9 @@
 <div id="swap-toast" style="display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:white;padding:10px 16px;border-radius:10px;font-size:13px;z-index:2000;box-shadow:0 4px 16px rgba(0,0,0,0.2)"></div>
 -->
 
-<!-- Logique heures de shift extraite + testée (tests/shift-hours.test.js) -->
+<!-- Logique partagée extraite + testée (tests/shift-hours.test.js, tests/week.test.js) -->
 <script src="/lib/shift-hours.js"></script>
+<script src="/lib/week.js"></script>
 <script>
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -727,14 +728,8 @@ function toDateStr(d) {
     return y + '-' + m + '-' + j;
 }
 
-function getMondayOf(d) {
-    const day  = d.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    const mon  = new Date(d);
-    mon.setDate(d.getDate() + diff);
-    mon.setHours(0, 0, 0, 0);
-    return mon;
-}
+// Lundi de la semaine — délègue au module partagé/testé (public/lib/week.js, R-01).
+function getMondayOf(d) { return Week.weekStart(d); }
 
 function addDays(d, n) {
     const r = new Date(d);
@@ -850,7 +845,7 @@ async function init() {
     } catch { /* silencieux */ }
 
     // Semaine en cours
-    const monday = getMondayOf(new Date());
+    const monday = Week.currentWeekStart(new Date());
     const sunday = addDays(monday, 6);
     const from   = toDateStr(monday);
     const to     = toDateStr(sunday);
@@ -911,7 +906,7 @@ async function init() {
     // modifs patron pendant l'absence de l'utilisateur, et recalcule monday/
     // todayStr à chaque rendu (corrige le badge « Aujourd hui » après minuit).
     try {
-        const respMondayInit = getMondayOf(new Date());
+        const respMondayInit = Week.currentWeekStart(new Date());
         const initFrom = toDateStr(respMondayInit);
         const initTo   = toDateStr(addDays(respMondayInit, 6));
         const rRes     = await fetch('/api/me/responsable-week?from=' + initFrom + '&to=' + initTo, { credentials: 'include' });
@@ -940,7 +935,7 @@ async function init() {
                 let lastRendered = false;
 
                 const refreshResp = async () => {
-                    const monday = getMondayOf(new Date());
+                    const monday = Week.currentWeekStart(new Date());
                     const from   = toDateStr(monday);
                     const to     = toDateStr(addDays(monday, 6));
                     try {
@@ -1892,7 +1887,7 @@ async function loadHistoriqueWeek() {
     const wrap  = document.getElementById('hist-content');
     if (!navEl || !wrap) return;
 
-    const todayMonday = getMondayOf(new Date());
+    const todayMonday = Week.currentWeekStart(new Date());
     const weekMonday  = addDays(todayMonday, -7 * _histOffset);
     const weekSunday  = addDays(weekMonday, 6);
     const weekKey     = toDateStr(weekMonday);

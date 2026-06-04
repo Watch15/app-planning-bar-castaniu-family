@@ -415,6 +415,8 @@
     </div>
 </div>
 
+<!-- Lundi de la semaine — module partagé/testé (tests/week.test.js) -->
+<script src="/lib/week.js"></script>
 <script>
 'use strict';
 
@@ -426,13 +428,9 @@ function toDateStr(d) {
         String(d.getDate()).padStart(2, '0');
 }
 
-function getMondayOf(d) {
-    const r = new Date(d);
-    const day = r.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    r.setDate(r.getDate() + diff);
-    return r;
-}
+// Lundi de la semaine — délègue au module partagé/testé (public/lib/week.js, R-01).
+// (Normalise désormais à minuit ; sans effet ici — toutes les sorties passent par toDateStr.)
+function getMondayOf(d) { return Week.weekStart(d); }
 
 function escapeHtml(s) {
     return String(s == null ? '' : s)
@@ -543,7 +541,7 @@ async function init() {
     document.getElementById('btn-save-targets').addEventListener('click', saveTargets);
 
     // Navigation calendrier
-    calendarWeekStart = getMondayOf(new Date());
+    calendarWeekStart = Week.currentWeekStart(new Date());
     const _reloadOnNav = () => {
         const period = document.getElementById('period-select').value;
         if (period === 'week' || period === 'month') return Promise.all([loadCalendarWeek(), loadData()]);
@@ -558,7 +556,7 @@ async function init() {
         _reloadOnNav();
     });
     document.getElementById('cal-today').addEventListener('click', () => {
-        calendarWeekStart = getMondayOf(new Date());
+        calendarWeekStart = Week.currentWeekStart(new Date());
         _reloadOnNav();
     });
 

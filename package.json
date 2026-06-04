@@ -9,7 +9,7 @@
     "init": "node scripts/init-db.js",
     "seed": "node scripts/seed.js",
     "create-patron": "node scripts/create-patron.js",
-    "test": "node --test tests/utils.test.js tests/shift-hours.test.js"
+    "test": "node --test tests/utils.test.js tests/shift-hours.test.js tests/week.test.js"
   },
   "license": "ISC",
   "type": "commonjs",

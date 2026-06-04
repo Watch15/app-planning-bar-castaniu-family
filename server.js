@@ -11,7 +11,7 @@ const helmet  = require('helmet');
 const morgan  = require('morgan');
 const {
     isValidObjectId, hashToken, normalizePhone,
-    weekStart, disposWeekStart, isAutoPublished, chargeMultiplier,
+    weekStart, currentWeekStart, disposWeekStart, isAutoPublished, chargeMultiplier,
     toDateStr,
 } = require('./lib/utils');
 
@@ -1771,7 +1771,7 @@ app.get('/api/calendar/:token([a-f0-9]+).ics', checkDB, async (req, res) => {
             allowedEstabIds = groupEstabs.map(e => e.id);
         }
 
-        const fromStr = toDateStr(weekStart(new Date())); // lundi de la semaine en cours
+        const fromStr = toDateStr(currentWeekStart(new Date())); // lundi de la semaine en cours (cutoff 6h)
         const query = { staff_id: staffId, date: { $gte: fromStr } };
         if (allowedEstabIds) query.establishment_id = { $in: allowedEstabIds };
         const rawShifts = await db.collection('shifts').find(query).sort({ date: 1, start_time: 1 }).toArray();

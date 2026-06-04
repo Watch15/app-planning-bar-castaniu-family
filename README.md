@@ -34,7 +34,8 @@ app-templyo/
 │   └── utils.js                   ← Helpers purs testables (isValidObjectId, hashToken, normalizePhone, computeActiveDate, toDateStr)
 ├── tests/
 │   ├── utils.test.js              ← 43 tests node --test (helpers purs)
-│   └── shift-hours.test.js        ← 6 tests — heures effectives d'un shift
+│   ├── shift-hours.test.js        ← 6 tests — heures effectives d'un shift
+│   └── week.test.js               ← 15 tests — lundi de semaine (weekStart + currentWeekStart 6h)
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                 ← CI : npm ci → syntax check → npm test (Node 20/22)
@@ -117,7 +118,7 @@ PORT=3000
 | `npm run init` | Recrée les collections et indexes MongoDB |
 | `npm run create-patron` | Crée le compte patron en CLI |
 | `npm run seed` | Insère des shifts de démonstration |
-| `npm test` | Lance les 49 tests unitaires (`node --test`, 2 suites) |
+| `npm test` | Lance les 64 tests unitaires (`node --test`, 3 suites) |
 
 ---
 
@@ -354,9 +355,11 @@ Tout ce qui est testable sans Express/Mongo/réseau doit aller dans `lib/utils.j
 
 ```bash
 npm test
-# Lance : node --test tests/utils.test.js tests/shift-hours.test.js
-# 49 tests (2 suites) — timezone, padding dates, téléphones, tokens, ObjectId,
-# heures effectives d'un shift (réel/planifié, pointage partiel, shift de nuit)
+# Lance : node --test tests/utils.test.js tests/shift-hours.test.js tests/week.test.js
+# 64 tests (3 suites) — timezone, padding dates, téléphones, tokens, ObjectId,
+# heures effectives d'un shift (réel/planifié, pointage partiel, shift de nuit),
+# lundi de semaine (weekStart : bascule mois/année, idempotence ;
+# currentWeekStart : cutoff hebdo 6h pour les fermetures ~2h)
 ```
 
 La CI GitHub Actions tourne automatiquement sur chaque push/PR vers `main` (Node 20 + 22).
