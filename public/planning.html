@@ -587,6 +587,23 @@
         .hist-extra-estab { flex: 1; font-weight: 600; color: var(--text-primary); }
         .hist-extra-dur   { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
         .hist-hours-badge--sm { font-size: 11px; padding: 3px 7px; }
+
+        /* ── Synchro agenda (abonnement iCal) ─────────────────────────────── */
+        .cal-sync-card { margin: 8px 20px 24px; background: var(--light-card); border: 1px solid var(--light-border); border-radius: 14px; overflow: hidden; }
+        .cal-sync-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+        .cal-sync-icon { font-size: 22px; flex-shrink: 0; }
+        .cal-sync-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+        .cal-sync-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .cal-sync-toggle { margin-left: auto; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; }
+        .cal-sync-toggle:hover { background: var(--accent-soft); }
+        .cal-sync-body { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+        .cal-sync-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .cal-sync-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px; padding: 10px 12px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; text-decoration: none; border: 1.5px solid var(--light-border); background: var(--light-bg); color: var(--text-primary); flex: 1; min-width: 120px; }
+        .cal-sync-btn--primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .cal-sync-url-row { display: flex; gap: 8px; }
+        .cal-sync-url { flex: 1; min-width: 0; border: 1.5px solid var(--light-border); border-radius: 8px; padding: 9px 10px; font-size: 12px; font-family: inherit; background: var(--light-bg); color: var(--text-primary); }
+        .cal-sync-help { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+        .cal-sync-help b { color: var(--text-primary); }
     </style>
 </head>
 <body>
@@ -632,6 +649,19 @@
 <div id="open-jokers-section"></div>
 <div class="days-list" id="days-list">
     <div class="state-msg">Chargement…</div>
+</div>
+
+<!-- Synchronisation agenda (Google / Apple / Outlook) -->
+<div class="cal-sync-card" id="cal-sync-card">
+    <div class="cal-sync-head">
+        <span class="cal-sync-icon">📅</span>
+        <div>
+            <div class="cal-sync-title">Ajouter à mon agenda</div>
+            <div class="cal-sync-sub">Google, Apple, Outlook… synchro auto, plus besoin de te reconnecter</div>
+        </div>
+        <button type="button" class="cal-sync-toggle" id="cal-sync-toggle">Configurer</button>
+    </div>
+    <div class="cal-sync-body" id="cal-sync-body" style="display:none"></div>
 </div>
 </div>
 
@@ -782,6 +812,7 @@ async function init() {
 
     initTabs();
     initStatsToggle();
+    initCalSync();
 
     // Charger le staff et les établissements
     try {
@@ -1786,6 +1817,63 @@ function initTabs() {
             if (btn.disabled) return;
             showTab(btn.dataset.tab);
         });
+    });
+}
+
+// Carte « Ajouter à mon agenda » : récupère l'URL d'abonnement iCal et propose
+// les raccourcis Apple (webcal) / Google + copie manuelle pour Outlook/autres.
+function initCalSync() {
+    const toggle = document.getElementById('cal-sync-toggle');
+    const body   = document.getElementById('cal-sync-body');
+    if (!toggle || !body || toggle._bound) return;
+    toggle._bound = true;
+    let loaded = false;
+
+    toggle.addEventListener('click', async () => {
+        const isOpen = body.style.display !== 'none';
+        if (isOpen) { body.style.display = 'none'; toggle.textContent = 'Configurer'; return; }
+        body.style.display = '';
+        toggle.textContent = 'Masquer';
+        if (loaded) return;
+
+        body.innerHTML = '<div class="cal-sync-help">Chargement…</div>';
+        try {
+            const r = await fetch('/api/calendar-url', { credentials: 'include' });
+            if (!r.ok) throw new Error('indisponible');
+            const { url, webcal } = await r.json();
+            const googleUrl = 'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(url);
+
+            body.innerHTML =
+                '<div class="cal-sync-actions">' +
+                    '<a class="cal-sync-btn cal-sync-btn--primary" href="' + webcal + '">🍎 Apple / iPhone</a>' +
+                    '<a class="cal-sync-btn" href="' + googleUrl + '" target="_blank" rel="noopener">📆 Google Agenda</a>' +
+                '</div>' +
+                '<div class="cal-sync-url-row">' +
+                    '<input class="cal-sync-url" id="cal-sync-url-input" readonly value="' + url + '">' +
+                    '<button type="button" class="cal-sync-btn" id="cal-sync-copy" style="flex:0 0 auto;min-width:0">Copier</button>' +
+                '</div>' +
+                '<div class="cal-sync-help">' +
+                    '<b>Une seule fois :</b> sur iPhone/Mac, touche « Apple » et confirme l\'abonnement. ' +
+                    'Sur Android/PC, ouvre « Google Agenda », ou copie l\'URL et colle-la dans ton appli ' +
+                    '(Outlook : « Ajouter un agenda » → « S\'abonner à partir du web »). ' +
+                    'Ton agenda se mettra ensuite à jour <b>automatiquement</b>.' +
+                '</div>';
+
+            const copyBtn = document.getElementById('cal-sync-copy');
+            copyBtn.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(url);
+                } catch {
+                    const i = document.getElementById('cal-sync-url-input');
+                    i.select(); document.execCommand('copy');
+                }
+                copyBtn.textContent = 'Copié ✓';
+                setTimeout(() => { copyBtn.textContent = 'Copier'; }, 1500);
+            });
+            loaded = true;
+        } catch {
+            body.innerHTML = '<div class="cal-sync-help">Impossible de générer le lien pour le moment. Réessaie plus tard.</div>';
+        }
     });
 }
 

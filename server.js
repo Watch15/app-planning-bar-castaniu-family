@@ -1650,6 +1650,158 @@ app.get('/api/my-shifts', checkDB, requireAuth, async (req, res) => {
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
+// ── Flux iCal (abonnement agenda) ──────────────────────────────────────────────
+// Permet au staff d'ajouter son planning à Google Agenda / Apple Calendrier /
+// Outlook via une URL d'abonnement. L'agenda se rafraîchit tout seul → plus besoin
+// de se connecter pour consulter ses horaires.
+
+function icsEscape(str) {
+    return String(str == null ? '' : str)
+        .replace(/\\/g, '\\\\')
+        .replace(/;/g, '\\;')
+        .replace(/,/g, '\\,')
+        .replace(/\r?\n/g, '\\n');
+}
+
+// (date 'YYYY-MM-DD' + heure flottante, ex 18.5 ou 26 pour 2h du matin) → horodatage
+// local "YYYYMMDDTHHMMSS" à interpréter avec TZID=Europe/Paris. Gère le passage minuit
+// (heure ≥ 24 → jour suivant) par arithmétique entière, sans dépendre du fuseau serveur.
+function icsLocalDateTime(dateStr, hoursFloat) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const totalMin  = Math.round(hoursFloat * 60);
+    const dayOffset = Math.floor(totalMin / 1440);
+    const rem       = ((totalMin % 1440) + 1440) % 1440;
+    const hh = Math.floor(rem / 60), mm = rem % 60;
+    const base = new Date(Date.UTC(y, m - 1, d));
+    base.setUTCDate(base.getUTCDate() + dayOffset);
+    const pad = n => String(n).padStart(2, '0');
+    return base.getUTCFullYear() + pad(base.getUTCMonth() + 1) + pad(base.getUTCDate())
+        + 'T' + pad(hh) + pad(mm) + '00';
+}
+
+const ICS_VTIMEZONE = [
+    'BEGIN:VTIMEZONE',
+    'TZID:Europe/Paris',
+    'BEGIN:DAYLIGHT',
+    'TZOFFSETFROM:+0100', 'TZOFFSETTO:+0200', 'TZNAME:CEST',
+    'DTSTART:19700329T020000', 'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU',
+    'END:DAYLIGHT',
+    'BEGIN:STANDARD',
+    'TZOFFSETFROM:+0200', 'TZOFFSETTO:+0100', 'TZNAME:CET',
+    'DTSTART:19701025T030000', 'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
+    'END:STANDARD',
+    'END:VTIMEZONE',
+].join('\r\n');
+
+function buildShiftsIcs(shifts, estabMap) {
+    const pad = n => String(n).padStart(2, '0');
+    const now = new Date();
+    const dtstamp = now.getUTCFullYear() + pad(now.getUTCMonth() + 1) + pad(now.getUTCDate())
+        + 'T' + pad(now.getUTCHours()) + pad(now.getUTCMinutes()) + pad(now.getUTCSeconds()) + 'Z';
+
+    const lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Templyo//Planning//FR',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        'X-WR-CALNAME:Mes shifts — Templyo',
+        'X-WR-TIMEZONE:Europe/Paris',
+        'REFRESH-INTERVAL;VALUE=DURATION:PT6H',
+        'X-PUBLISHED-TTL:PT6H',
+        ICS_VTIMEZONE,
+    ];
+
+    shifts.forEach(s => {
+        const estab = estabMap[s.establishment_id] || {};
+        const title = estab.name || 'Shift';
+        lines.push('BEGIN:VEVENT');
+        lines.push('UID:shift-' + String(s._id) + '@templyo');
+        lines.push('DTSTAMP:' + dtstamp);
+        lines.push('DTSTART;TZID=Europe/Paris:' + icsLocalDateTime(s.date, s.start_time));
+        lines.push('DTEND;TZID=Europe/Paris:'   + icsLocalDateTime(s.date, s.end_time));
+        lines.push('SUMMARY:' + icsEscape(title));
+        if (estab.name) lines.push('LOCATION:' + icsEscape(estab.name));
+        lines.push('END:VEVENT');
+    });
+
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n') + '\r\n';
+}
+
+// URL d'abonnement agenda du staff connecté (génère le token au 1er appel)
+app.get('/api/calendar-url', checkDB, requireAuth, async (req, res) => {
+    const userId = req.session.user._id;
+    if (!req.session.user.staff_id) return res.status(400).json({ error: 'Aucun profil staff lié à ce compte' });
+    try {
+        const user = await db.collection('users').findOne({ _id: new ObjectId(userId) });
+        let token = user && user.calendar_token;
+        if (!token) {
+            token = require('crypto').randomBytes(24).toString('hex');
+            await db.collection('users').updateOne({ _id: new ObjectId(userId) }, { $set: { calendar_token: token } });
+        }
+        const base = (process.env.PUBLIC_BASE_URL || (req.protocol + '://' + req.get('host'))).replace(/\/$/, '');
+        const httpUrl = base + '/api/calendar/' + token + '.ics';
+        res.json({ url: httpUrl, webcal: httpUrl.replace(/^https?:/, 'webcal:') });
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// Flux iCal public — le token tient lieu d'authentification (lecture seule).
+// Expose les shifts du staff de la semaine en cours et des semaines futures PUBLIÉES.
+app.get('/api/calendar/:token([a-f0-9]+).ics', checkDB, async (req, res) => {
+    try {
+        const user = await db.collection('users').findOne({ calendar_token: req.params.token });
+        if (!user || !user.staff_id) return res.status(404).send('Calendrier introuvable');
+        const staffId = user.staff_id;
+
+        // Filtrage par groupes (cohérent avec /api/my-shifts)
+        const staffDoc = isValidObjectId(staffId)
+            ? await db.collection('staff').findOne({ _id: new ObjectId(staffId) })
+            : null;
+        const staffGroups = staffDoc?.groups || [];
+        let allowedEstabIds = null;
+        if (staffGroups.length > 0) {
+            const groupEstabs = await db.collection('establishments').find({
+                $or: [
+                    { groups: { $in: staffGroups } },
+                    { groups: { $size: 0 } },
+                    { groups: { $exists: false } },
+                ]
+            }).toArray();
+            allowedEstabIds = groupEstabs.map(e => e.id);
+        }
+
+        const fromStr = toDateStr(weekStart(new Date())); // lundi de la semaine en cours
+        const query = { staff_id: staffId, date: { $gte: fromStr } };
+        if (allowedEstabIds) query.establishment_id = { $in: allowedEstabIds };
+        const rawShifts = await db.collection('shifts').find(query).sort({ date: 1, start_time: 1 }).toArray();
+
+        // Ne garder que les shifts des semaines publiées (auto pour la semaine en cours,
+        // flag publish_<weekStart> pour les futures) et exclure les Jokers.
+        const pubDocs = await db.collection('settings')
+            .find({ key: { $regex: '^publish_' }, published: true }).toArray();
+        const publishedWeeks = new Set(pubDocs.map(p => p.key.replace('publish_', '')));
+        const visible = rawShifts.filter(s =>
+            !s.is_joker && s.staff_id !== '__joker__' &&
+            (isAutoPublished(s.date) || publishedWeeks.has(toDateStr(weekStart(new Date(s.date + 'T12:00:00')))))
+        );
+
+        const estabIds = [...new Set(visible.map(s => s.establishment_id))];
+        const estabs = estabIds.length
+            ? await db.collection('establishments').find({ id: { $in: estabIds } }).toArray()
+            : [];
+        const estabMap = {};
+        estabs.forEach(e => { estabMap[e.id] = e; });
+
+        res.set('Content-Type', 'text/calendar; charset=utf-8');
+        res.set('Cache-Control', 'no-cache, max-age=0');
+        res.send(buildShiftsIcs(visible, estabMap));
+    } catch (e) {
+        console.error('[' + req.method + ' ' + req.path + ']', e);
+        res.status(500).send('Erreur interne');
+    }
+});
+
 // GET tous les shifts de la semaine (remplace 7 appels /api/shifts/:id/:date)
 app.get('/api/week-full/:establishmentId', checkDB, requireAuth, async (req, res) => {
     const { from, to } = req.query;
