@@ -562,6 +562,10 @@ async function createNotifForPatrons(establishmentId, type, message, extra = {})
 }
 // ── Session ───────────────────────────────────────────────────────────────────
 
+// Durée de vie d'une session. Avec `rolling: true`, ce délai est renouvelé à
+// chaque visite → l'utilisateur n'est déconnecté qu'après cette durée d'inactivité.
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 jours
+
 function setupSession() {
     const MongoSessionStore = session.Store;
 
@@ -581,12 +585,23 @@ function setupSession() {
 
         set(sid, sessionData, cb) {
             if (!db) return cb(null);
-            const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+            const expires = new Date(Date.now() + SESSION_TTL_MS);
             db.collection('sessions').updateOne(
                 { sid },
                 { $set: { sid, session: sessionData, expires } },
                 { upsert: true }
             ).then(() => cb(null)).catch(err => cb(err));
+        }
+
+        // Appelé par express-session (rolling) quand la session est inchangée :
+        // fait glisser l'expiration en base sans réécrire toutes les données.
+        touch(sid, sessionData, cb) {
+            if (!db) return cb && cb(null);
+            const expires = new Date(Date.now() + SESSION_TTL_MS);
+            db.collection('sessions').updateOne(
+                { sid },
+                { $set: { expires } }
+            ).then(() => cb && cb(null)).catch(err => cb && cb(err));
         }
 
         destroy(sid, cb) {
@@ -601,12 +616,13 @@ function setupSession() {
         secret:            SESSION_SECRET,
         resave:            false,
         saveUninitialized: false,
+        rolling:           true, // renouvelle cookie + expiration à chaque réponse
         store:             new CustomMongoStore(),
         cookie: {
             httpOnly: true,
             secure:   process.env.NODE_ENV === 'production',
             sameSite: 'lax',
-            maxAge:   7 * 24 * 60 * 60 * 1000,
+            maxAge:   SESSION_TTL_MS,
         },
     }));
 }
