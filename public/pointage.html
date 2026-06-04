@@ -450,11 +450,11 @@
             <div class="extra-row">
                 <div class="time-group">
                     <div class="time-label">Début réel</div>
-                    <input type="time" class="time-input" id="extra-real-start">
+                    <input type="time" step="900" class="time-input" id="extra-real-start">
                 </div>
                 <div class="time-group">
                     <div class="time-label">Fin réelle</div>
-                    <input type="time" class="time-input" id="extra-real-end">
+                    <input type="time" step="900" class="time-input" id="extra-real-end">
                 </div>
             </div>
             <button class="btn-add-extra" id="btn-add-extra">Enregistrer le service</button>
@@ -491,6 +491,19 @@ function fmtH(h) {
     const hh = Math.floor(h % 24);
     const mm = Math.round((h % 1) * 60);
     return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+}
+
+// Arrondit une heure (float) au quart d'heure le plus proche
+function roundQuarter(h) {
+    if (h == null) return null;
+    return Math.round(h * 4) / 4;
+}
+
+// Recale la valeur d'un <input type="time"> sur le quart d'heure le plus proche
+function snapInputToQuarter(input) {
+    const v = parseTimeInput(input.value);
+    if (v == null) return;
+    input.value = fmtH(roundQuarter(v));
 }
 
 // Nom court affiché : nickname si défini, sinon prénom (1er mot du nom complet)
@@ -889,8 +902,15 @@ function buildShiftCard(shift) {
     card.className = 'shift-card' + (shift.extra ? ' extra-card' : (isValidated ? ' validated-card' : ''));
     card.dataset.id = String(shift._id);
 
-    const realStartVal = shift.real_start != null ? fmtH(shift.real_start) : '';
-    const realEndVal   = shift.real_end   != null ? fmtH(shift.real_end)   : '';
+    // Heures réelles préremplies : valeur saisie si elle existe, sinon les
+    // heures planifiées (arrondies au quart d'heure) servent de base par défaut.
+    // Les services hors planning n'ont pas d'heures planifiées → champs vides.
+    const realStartVal = shift.real_start != null
+        ? fmtH(shift.real_start)
+        : (shift.extra || shift.start_time == null ? '' : fmtH(roundQuarter(shift.start_time)));
+    const realEndVal   = shift.real_end   != null
+        ? fmtH(shift.real_end)
+        : (shift.extra || shift.end_time == null ? '' : fmtH(roundQuarter(shift.end_time)));
     // Établissement : si les heures sont déjà saisies, la carte sera verrouillée au chargement
     const lockedOnLoad = !canEdit && isValidated;
     const plannedLabel = fmtH(shift.start_time) + ' → ' + fmtH(shift.end_time);
@@ -918,11 +938,11 @@ function buildShiftCard(shift) {
         '<div class="shift-body">' +
             '<div class="time-group">' +
                 '<div class="time-label">Début réel</div>' +
-                '<input type="time" class="time-input real-start' + (realStartVal ? ' filled' : '') + '" value="' + realStartVal + '">' +
+                '<input type="time" step="900" class="time-input real-start' + (realStartVal ? ' filled' : '') + '" value="' + realStartVal + '">' +
             '</div>' +
             '<div class="time-group">' +
                 '<div class="time-label">Fin réelle</div>' +
-                '<input type="time" class="time-input real-end' + (realEndVal ? ' filled' : '') + '" value="' + realEndVal + '">' +
+                '<input type="time" step="900" class="time-input real-end' + (realEndVal ? ' filled' : '') + '" value="' + realEndVal + '">' +
             '</div>' +
             (ecartDuree ? '<span class="ecart-badge ' + ecartDuree.cls + '">' + ecartDuree.text + '</span>' : '<span class="ecart-badge" style="display:none">—</span>') +
             '<button class="btn-save' + (lockedOnLoad ? ' saved' : '') + '"' + (lockedOnLoad ? ' disabled' : '') + '>' + (lockedOnLoad ? '✓ Enregistré' : (canEdit && isValidated ? 'Mettre à jour' : 'Enregistrer')) + '</button>' +
@@ -1005,10 +1025,15 @@ function buildShiftCard(shift) {
 
     startInput.addEventListener('input', updateEcart);
     endInput.addEventListener('input',   updateEcart);
+    // Recaler sur le quart d'heure dès que la valeur est confirmée
+    startInput.addEventListener('change', () => { snapInputToQuarter(startInput); updateEcart(); });
+    endInput.addEventListener('change',   () => { snapInputToQuarter(endInput);   updateEcart(); });
+    // Refléter l'écart des heures préremplies (= planifié par défaut)
+    updateEcart();
 
     btnSave.addEventListener('click', async () => {
-        const rs = parseTimeInput(startInput.value);
-        const re = parseTimeInput(endInput.value, rs);
+        const rs = roundQuarter(parseTimeInput(startInput.value));
+        const re = roundQuarter(parseTimeInput(endInput.value, rs));
         if (rs == null && re == null) { showToast('Saisis au moins une heure', true); return; }
         btnSave.disabled = true;
         try {
@@ -1195,14 +1220,20 @@ function initExtraForm() {
             suggestions.style.display = 'none';
     });
 
+    // Recaler les heures du service hors planning sur le quart d'heure
+    const extraStart = document.getElementById('extra-real-start');
+    const extraEnd   = document.getElementById('extra-real-end');
+    extraStart.addEventListener('change', () => snapInputToQuarter(extraStart));
+    extraEnd.addEventListener('change',   () => snapInputToQuarter(extraEnd));
+
     // Bouton enregistrer extra
     document.getElementById('btn-add-extra').addEventListener('click', async () => {
         const staffId   = document.getElementById('extra-staff-id').value || null;
         const staffName = freeName.style.display !== 'none'
             ? freeName.value.trim()
             : searchInput.value.trim();
-        const realStart = parseTimeInput(document.getElementById('extra-real-start').value);
-        const realEnd   = parseTimeInput(document.getElementById('extra-real-end').value, realStart);
+        const realStart = roundQuarter(parseTimeInput(document.getElementById('extra-real-start').value));
+        const realEnd   = roundQuarter(parseTimeInput(document.getElementById('extra-real-end').value, realStart));
 
         if (!staffName)       { showToast('Nom du staff requis', true);          return; }
         // Avertir si le nom a été tapé sans être sélectionné dans la liste
