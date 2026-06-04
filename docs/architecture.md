@@ -34,7 +34,8 @@ app-planning-bar/
 ├── lib/
 │   └── utils.js                ← Helpers purs (sans Express/Mongo) — testables isolément
 ├── tests/
-│   └── utils.test.js           ← Suite node --test (20 tests)
+│   ├── utils.test.js           ← Helpers purs lib/utils.js (43 tests)
+│   └── shift-hours.test.js     ← Heures effectives d'un shift (6 tests, D-73)
 ├── public/
 │   ├── index.html              ← Interface patron/directeur
 │   ├── planning.html           ← Interface staff
@@ -47,6 +48,8 @@ app-planning-bar/
 │   ├── style.css               ← Styles globaux
 │   ├── manifest.json           ← Manifest PWA
 │   ├── sw.js                   ← Service Worker
+│   ├── lib/
+│   │   └── shift-hours.js      ← Heures effectives d'un shift — module UMD navigateur/Node (D-73)
 │   ├── vendor/                 ← Libs tierces auto-hébergées (pas de CDN runtime)
 │   │   ├── jspdf.umd.min.js        ← Export PDF (D-51)
 │   │   ├── html2canvas.min.js      ← Capture DOM pour PDF (D-51)
@@ -116,7 +119,9 @@ Le Service Worker (`sw.js`) utilise Network First pour les routes `/api/*` et `/
 
 ### 3.6 Les helpers purs vivent dans `lib/utils.js`
 
-Tout ce qui est pur (sans dépendance Express/Mongo/réseau) doit être dans `lib/utils.js` pour être testable isolément. Exports actuels : `isValidObjectId`, `hashToken`, `normalizePhone`, `computeActiveDate`, `toDateStr`. Ajouter les nouveaux helpers purs ici plutôt qu'en inline dans `server.js`.
+Tout ce qui est pur (sans dépendance Express/Mongo/réseau) doit être dans `lib/utils.js` pour être testable isolément. Exports actuels : `isValidObjectId`, `hashToken`, `normalizePhone`, `computeActiveDate`, `toDateStr`, `weekStart`, `disposWeekStart`, `isAutoPublished`, `chargeMultiplier`. Ajouter les nouveaux helpers purs ici plutôt qu'en inline dans `server.js`.
+
+**Logique partagée navigateur + Node** : quand un helper doit être consommé par le **front** (servi en statique) ET testé sous Node, il ne peut pas vivre dans `lib/utils.js` (le navigateur ne fait pas de `require`). On utilise alors un **module UMD** sous `public/lib/` : il s'expose en global navigateur (`window.X`) via `<script src>` et reste `require()`-able en Node pour les tests. Exemple de référence : `public/lib/shift-hours.js` (`window.ShiftHours`) + `tests/shift-hours.test.js`. Côté HTML, déléguer depuis une fonction de même nom pour préserver le hoisting sans toucher les call sites existants (cf. D-73, gabarit des extractions futures).
 
 ### 3.7 En production `SESSION_SECRET` est obligatoire
 
@@ -132,8 +137,8 @@ Railway termine le TLS au niveau de son proxy. `app.set('trust proxy', 1)` est a
 
 ### Session
 - `express-session` avec un `CustomMongoStore` basé sur la collection `sessions`
-- TTL 7 jours, cookie `httpOnly`, `secure` en production
-- La session contient : `_id`, `email`, `phone`, `role`, `staff_id`, `assigned_establishments`, `name`
+- **TTL 30 jours glissant** (`SESSION_TTL_MS`), cookie `httpOnly`, `secure` en production. `rolling: true` + méthode `touch()` du store → l'expiration (cookie **et** champ `expires` en base) repart à chaque visite : déconnexion seulement après 30 j d'**inactivité** (D-70). Modifier la durée uniquement via la constante `SESSION_TTL_MS` pour garder cookie et store synchronisés.
+- La session contient : `_id`, `email`, `phone`, `role`, `staff_id`, `assigned_establishments`, `establishment_id`, `name`
 
 ### Hiérarchie des rôles
 
@@ -363,8 +368,32 @@ POST HTTP direct vers l'API REST Twilio. Pas de SDK. Normalisation des numéros 
 ## 13. Tests & CI
 
 - **Runner** — `node --test` (intégré). Aucune dépendance de framework.
-- **Portée** — `lib/utils.js` dispose de 20 tests couvrant les cas limites (cutoff 0/pile/bascule mois-année, padding de dates, téléphones, tokens déterministes, ObjectId hex strict).
-- **Commande** — `npm test` exécute `node --test "tests/**/*.test.js"`.
+- **Portée** — **49 tests, 2 suites** : `tests/utils.test.js` (43 — cutoff 0/pile/bascule mois-année, padding de dates, téléphones, tokens déterministes, ObjectId hex strict) et `tests/shift-hours.test.js` (6 — heures effectives réel/planifié, pointage partiel sans mélange, `real_start=0`, shift de nuit ; cf. D-71/D-73).
+- **Commande** — `npm test` liste explicitement les fichiers (`node --test tests/utils.test.js tests/shift-hours.test.js`). ⚠️ **Ne pas** repasser au mode répertoire `node --test tests/` : non fiable selon la version Node (il tente de charger `tests` comme un module → `MODULE_NOT_FOUND`).
 - **CI** — `.github/workflows/ci.yml` sur `push`/`PR` vers `main`. Matrice Node 20.x + 22.x. Étapes : `npm ci` → syntax check (`node -c` sur server.js, script.js, init-db.js) → `npm test`.
 
 **Ajouter un test quand** : on extrait un helper pur vers `lib/`, on change une règle de date/heure, ou on corrige un bug qui pourrait régresser.
+
+---
+
+## 14. Synchronisation agenda — flux iCal (D-72)
+
+Permet au staff d'ajouter son planning à **Google Agenda / Apple Calendrier / Outlook** via un abonnement iCal. Réglage **unique** côté utilisateur, puis l'agenda se rafraîchit tout seul → plus besoin de se connecter pour consulter ses horaires.
+
+### Principe
+- **Abonnement iCal (webcal/https)**, pas d'OAuth ni d'API par fournisseur → universel (Google/Apple/Outlook) et sans autorisation tierce.
+- Chaque staff a un **token secret** stocké en clair sur son document `users` : `calendar_token` (capability **lecture seule**, faible sensibilité). Généré paresseusement au 1ᵉʳ appel de `GET /api/calendar-url`.
+
+### Routes
+- `GET /api/calendar-url` *(auth)* — crée le `calendar_token` si absent, renvoie `{ url, webcal }` (mêmes URL en `https://` et `webcal://`). Base = `PUBLIC_BASE_URL` sinon hôte de la requête.
+- `GET /api/calendar/:token([a-f0-9]+).ics` *(**public** — le token authentifie)* — renvoie un `text/calendar`. **Lecture seule**, n'expose que les shifts du staff propriétaire du token, pour la **semaine en cours + les semaines futures publiées** (auto pour la semaine courante, flag `publish_<weekStart>` pour les futures). Filtrage par groupes cohérent avec `/api/my-shifts`, Jokers exclus.
+
+### Génération du `.ics`
+- En-têtes `VCALENDAR` + bloc `VTIMEZONE` **Europe/Paris** complet (règles DST CET/CEST) ; les `DTSTART`/`DTEND` sont émis en heure locale avec `TZID=Europe/Paris`.
+- Conversion `(date 'YYYY-MM-DD' + heure décimale)` → horodatage local par **arithmétique entière** (`icsLocalDateTime`) : gère le passage minuit (`end_time ≥ 24` → jour suivant) **sans jamais dépendre du fuseau du serveur** (cf. §3.1).
+- `UID` stable par shift (`shift-<_id>@templyo`), texte échappé (`icsEscape`).
+
+### Limites connues (documentées pour le support)
+- La synchro **n'est pas instantanée** : c'est l'agenda client qui vient chercher le flux. Apple ≈ 15 min–1 h (réglable), **Google ≈ 8–24 h** (ignore largement `REFRESH-INTERVAL`). Non forçable côté serveur.
+- Un compte **sans `staff_id`** (ex. directeur) ne peut pas générer de flux (400) → suivi C-01 du backlog (masquer la carte UI).
+- Le token donne accès en lecture aux horaires : compromis normal d'un flux sans login.

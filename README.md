@@ -33,7 +33,8 @@ app-templyo/
 ├── lib/
 │   └── utils.js                   ← Helpers purs testables (isValidObjectId, hashToken, normalizePhone, computeActiveDate, toDateStr)
 ├── tests/
-│   └── utils.test.js              ← 20 tests node --test
+│   ├── utils.test.js              ← 43 tests node --test (helpers purs)
+│   └── shift-hours.test.js        ← 6 tests — heures effectives d'un shift
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                 ← CI : npm ci → syntax check → npm test (Node 20/22)
@@ -116,7 +117,7 @@ PORT=3000
 | `npm run init` | Recrée les collections et indexes MongoDB |
 | `npm run create-patron` | Crée le compte patron en CLI |
 | `npm run seed` | Insère des shifts de démonstration |
-| `npm test` | Lance les 20 tests unitaires (`node --test`) |
+| `npm test` | Lance les 49 tests unitaires (`node --test`, 2 suites) |
 
 ---
 
@@ -135,7 +136,7 @@ PORT=3000
 
 ### Authentification
 - Connexion email + mot de passe ou numéro de téléphone + mot de passe
-- Sessions serveur MongoDB — TTL 7 jours, cookie `httpOnly`
+- Sessions serveur MongoDB — TTL 30 jours **glissant** (renouvelé à chaque visite), cookie `httpOnly`
 - Invitation par email (Resend) ou SMS (Twilio) — lien activation 24h
 - Réinitialisation mot de passe par email ou SMS (expire 1h)
 - Fallback lien manuel si l'envoi échoue
@@ -157,8 +158,9 @@ PORT=3000
 - Notifications in-app (badge + historique activité)
 
 ### Vue staff (`planning.html`)
-- Mon planning : stats semaine, jours travaillés, collègues, heures par établissement
-- Delta heures vs semaine précédente
+- Mon planning : stats semaine/mois (toggle), jours travaillés, collègues, heures par établissement
+- Onglet Historique : semaines passées (jusqu'à 5), heures **réelles** (sinon planifiées) + répartition par établissement
+- **Synchro agenda** : abonnement iCal (Google / Apple / Outlook), synchro auto sans login après un réglage unique (semaines publiées)
 - Mes dispos : Soir / Midi / Personnalisé / Indisponible + note par jour
 - Onglet Pointage : saisie heures réelles pour les responsables de soirée
 - Bouton Web Push — activation/désactivation des notifications
@@ -166,6 +168,7 @@ PORT=3000
 ### Pointage (`pointage.html`)
 - Interface dédiée au compte établissement
 - Saisie et modification des heures réelles (real_start / real_end)
+- Champs préremplis aux heures planifiées + saisie restreinte au quart d'heure
 - Ré-édition possible par patron/directeur (établissement = verrouillé après enregistrement)
 - Badge « ✓ Validé » + carte verte sur les shifts pointés
 - Écart planifié vs réel coloré (vert/orange/gris)
@@ -203,7 +206,7 @@ PORT=3000
 | `staff` | Membres (couleur, email, téléphone, venues préférentiels, rôles) |
 | `shifts` | Shifts planifiés (inclut `is_joker`, `real_start`, `real_end`, `note`) |
 | `users` | Comptes de connexion |
-| `sessions` | Sessions actives (TTL automatique 7 jours) |
+| `sessions` | Sessions actives (TTL 30 jours glissant) |
 | `availabilities` | Disponibilités soumises par le staff |
 | `roles` | Rôles créés par le patron (responsable / informatif) |
 | `settings` | Paramètres polymorphes (clé `key`) : `dispo`, `performance`, `pointage`, `publish_<weekStart>`, `lock_dispos_<weekStart>` |
@@ -261,6 +264,8 @@ PORT=3000
 | PATCH | `/api/shifts/:id/pointage-resp` | Patron — désigner responsable de soirée |
 | GET/PATCH | `/api/pointage-settings` | Authentifié / Admin — `cutoff_hour` |
 | GET | `/api/recap-mensuel` | Patron |
+| GET | `/api/calendar-url` | Authentifié — URL d'abonnement iCal du staff (génère le token) |
+| GET | `/api/calendar/:token.ics` | **Public** (token = auth) — flux iCal lecture seule, semaines publiées |
 
 ### Disponibilités
 | Méthode | Route | Accès |
@@ -349,8 +354,9 @@ Tout ce qui est testable sans Express/Mongo/réseau doit aller dans `lib/utils.j
 
 ```bash
 npm test
-# Lance : node --test tests/utils.test.js
-# 20 tests — timezone, padding dates, téléphones, tokens, ObjectId
+# Lance : node --test tests/utils.test.js tests/shift-hours.test.js
+# 49 tests (2 suites) — timezone, padding dates, téléphones, tokens, ObjectId,
+# heures effectives d'un shift (réel/planifié, pointage partiel, shift de nuit)
 ```
 
 La CI GitHub Actions tourne automatiquement sur chaque push/PR vers `main` (Node 20 + 22).

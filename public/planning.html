@@ -702,6 +702,8 @@
 <div id="swap-toast" style="display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:white;padding:10px 16px;border-radius:10px;font-size:13px;z-index:2000;box-shadow:0 4px 16px rgba(0,0,0,0.2)"></div>
 -->
 
+<!-- Logique heures de shift extraite + testée (tests/shift-hours.test.js) -->
+<script src="/lib/shift-hours.js"></script>
 <script>
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -1920,17 +1922,10 @@ async function loadHistoriqueWeek() {
     }
 }
 
-// Heures effectives d'un shift : on prend les heures réelles UNIQUEMENT si le
-// pointage est complet (début ET fin saisis), sinon on retombe sur le planifié.
-// Tester real_start / real_end séparément mélangerait réel et planifié → durée fausse.
-function shiftEffectiveHours(s) {
-    const hasReal = s.real_start != null && s.real_end != null;
-    return {
-        start:  hasReal ? s.real_start : s.start_time,
-        end:    hasReal ? s.real_end   : s.end_time,
-        isReal: hasReal,
-    };
-}
+// Heures effectives d'un shift (réel si pointage complet, sinon planifié).
+// Logique extraite et testée : public/lib/shift-hours.js + tests/shift-hours.test.js
+// (module chargé via <script src="/lib/shift-hours.js"> juste avant ce bloc).
+function shiftEffectiveHours(s) { return ShiftHours.shiftEffectiveHours(s); }
 
 function buildHistStatsHtml(shifts) {
     const nbShifts = shifts.length;
