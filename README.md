@@ -82,7 +82,13 @@ npm run dev       # → http://localhost:3000
 MONGO_URI=mongodb+srv://...
 SESSION_SECRET=chaine-aleatoire-longue-minimum-32-chars
 NODE_ENV=production
+# URL publique de l'app — sert aux liens email/SMS ET aux URLs d'abonnement agenda (.ics)
 APP_URL=https://ton-app.railway.app
+
+# Domaine des URLs d'agenda (.ics) — optionnel.
+# Par défaut le calendrier utilise APP_URL, sinon l'hôte de la requête.
+# À définir seulement pour forcer un domaine différent (ex. domaine custom).
+# PUBLIC_BASE_URL=https://app.mondomaine.fr
 
 # Email
 RESEND_API_KEY=re_...

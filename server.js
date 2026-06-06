@@ -1765,7 +1765,12 @@ app.get('/api/calendar-url', checkDB, requireAuth, async (req, res) => {
             token = require('crypto').randomBytes(24).toString('hex');
             await db.collection('users').updateOne({ _id: new ObjectId(userId) }, { $set: { calendar_token: token } });
         }
-        const base = (process.env.PUBLIC_BASE_URL || (req.protocol + '://' + req.get('host'))).replace(/\/$/, '');
+        // Domaine public : PUBLIC_BASE_URL (override dédié calendrier) > APP_URL
+        // (déjà utilisée pour les liens email/SMS) > hôte de la requête (zéro-config
+        // sur Railway). Préfixe https:// garanti car la conversion webcal:// en dépend.
+        let base = process.env.PUBLIC_BASE_URL || process.env.APP_URL || (req.protocol + '://' + req.get('host'));
+        if (!/^https?:\/\//i.test(base)) base = 'https://' + base;
+        base = base.replace(/\/+$/, '');
         const httpUrl = base + '/api/calendar/' + token + '.ics';
         res.json({ url: httpUrl, webcal: httpUrl.replace(/^https?:/, 'webcal:') });
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }

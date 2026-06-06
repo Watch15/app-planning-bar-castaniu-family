@@ -396,7 +396,7 @@ Permet au staff d'ajouter son planning à **Google Agenda / Apple Calendrier / O
 - Chaque staff a un **token secret** stocké en clair sur son document `users` : `calendar_token` (capability **lecture seule**, faible sensibilité). Généré paresseusement au 1ᵉʳ appel de `GET /api/calendar-url`.
 
 ### Routes
-- `GET /api/calendar-url` *(auth)* — crée le `calendar_token` si absent, renvoie `{ url, webcal }` (mêmes URL en `https://` et `webcal://`). Base = `PUBLIC_BASE_URL` sinon hôte de la requête.
+- `GET /api/calendar-url` *(auth)* — crée le `calendar_token` si absent, renvoie `{ url, webcal }` (mêmes URL en `https://` et `webcal://`). Domaine : **`PUBLIC_BASE_URL`** (override dédié) > **`APP_URL`** (déjà utilisée pour les liens email/SMS) > **hôte de la requête** (zéro-config Railway). Préfixe `https://` garanti (la conversion `webcal://` en dépend). En pratique, définir `APP_URL` suffit pour tout ; `PUBLIC_BASE_URL` ne sert qu'à forcer un domaine différent pour les `.ics`.
 - `GET /api/calendar/:token([a-f0-9]+).ics` *(**public** — le token authentifie)* — renvoie un `text/calendar`. **Lecture seule**, n'expose que les shifts du staff propriétaire du token, pour la **semaine en cours + les semaines futures publiées** (auto pour la semaine courante, flag `publish_<weekStart>` pour les futures). Filtrage par groupes cohérent avec `/api/my-shifts`, Jokers exclus.
 
 ### Génération du `.ics`
