@@ -921,15 +921,23 @@ app.get('/api/users', checkDB, requirePatron, async (req, res) => {
             .find({}, { projection: { password_hash: 0, invite_token: 0 } })
             .toArray();
 
-        // Enrichir avec le téléphone depuis staff pour les comptes qui n'en ont pas dans users
-        const missing = users.filter(u => !u.phone && u.staff_id && isValidObjectId(u.staff_id));
-        if (missing.length > 0) {
+        // Enrichir depuis staff (source de vérité) : nom à jour + téléphone de repli.
+        // Garantit qu'une correction de nom dans l'onglet Staff se reflète ici,
+        // y compris pour les comptes créés AVANT la correction (pas de re-saisie requise).
+        const staffLinked = users.filter(u => u.staff_id && isValidObjectId(u.staff_id));
+        if (staffLinked.length > 0) {
+            const ids = [...new Set(staffLinked.map(u => u.staff_id))];
             const staffDocs = await db.collection('staff')
-                .find({ _id: { $in: missing.map(u => new ObjectId(u.staff_id)) } }, { projection: { phone: 1 } })
+                .find({ _id: { $in: ids.map(id => new ObjectId(id)) } }, { projection: { name: 1, phone: 1 } })
                 .toArray();
-            const phoneMap = {};
-            staffDocs.forEach(s => { if (s.phone) phoneMap[String(s._id)] = s.phone; });
-            users.forEach(u => { if (!u.phone && u.staff_id && phoneMap[u.staff_id]) u.phone = phoneMap[u.staff_id]; });
+            const staffMap = {};
+            staffDocs.forEach(s => { staffMap[String(s._id)] = s; });
+            users.forEach(u => {
+                const s = u.staff_id && staffMap[u.staff_id];
+                if (!s) return;
+                if (s.name)              u.name  = s.name;   // nom de référence = staff
+                if (!u.phone && s.phone) u.phone = s.phone;
+            });
         }
 
         // Directeur : ne voit pas les comptes patron ni les autres directeurs
@@ -1545,7 +1553,13 @@ app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
         );
         if (result.matchedCount === 0) return res.status(404).json({ error: 'Staff introuvable' });
         if (color) await db.collection('shifts').updateMany({ staff_id: req.params.id }, { $set: { color } });
-        if (name)  await db.collection('shifts').updateMany({ staff_id: req.params.id }, { $set: { staff_name: name } });
+        if (name) {
+            // Propager la correction de nom à toutes les copies dénormalisées
+            // (shifts, compte(s) lié(s), disponibilités) → cohérence partout.
+            await db.collection('shifts').updateMany({ staff_id: req.params.id }, { $set: { staff_name: name } });
+            await db.collection('users').updateMany({ staff_id: req.params.id }, { $set: { name } });
+            await db.collection('availabilities').updateMany({ staff_id: req.params.id }, { $set: { staff_name: name } });
+        }
         res.json({ message: 'Staff mis à jour', updated: update });
         touchLastUpdated();
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
