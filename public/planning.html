@@ -1820,9 +1820,14 @@ function initTabs() {
 // Carte « Ajouter à mon agenda » : récupère l'URL d'abonnement iCal et propose
 // les raccourcis Apple (webcal) / Google + copie manuelle pour Outlook/autres.
 function initCalSync() {
+    const card   = document.getElementById('cal-sync-card');
     const toggle = document.getElementById('cal-sync-toggle');
     const body   = document.getElementById('cal-sync-body');
-    if (!toggle || !body || toggle._bound) return;
+    if (!card || !toggle || !body) return;
+    // C-01 : sans profil staff lié (ex. directeur), aucun flux agenda perso possible
+    // (l'API /api/calendar-url renverrait 400) → on masque la carte au lieu d'afficher une erreur.
+    if (!currentUser || !currentUser.staff_id) { card.style.display = 'none'; return; }
+    if (toggle._bound) return;
     toggle._bound = true;
     let loaded = false;
 
