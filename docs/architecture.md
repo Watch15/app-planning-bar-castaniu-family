@@ -36,7 +36,8 @@ app-planning-bar/
 ├── tests/
 │   ├── utils.test.js           ← Helpers purs lib/utils.js (43 tests)
 │   ├── shift-hours.test.js     ← Heures effectives d'un shift (6 tests, D-73)
-│   └── week.test.js            ← Lundi de semaine — weekStart + currentWeekStart (15 tests, D-74/D-75)
+│   ├── week.test.js            ← Lundi de semaine — weekStart + currentWeekStart (15 tests, D-74/D-75)
+│   └── routes.test.js          ← Intégration HTTP — boot app + middlewares auth/DB sans Mongo (2 tests, D-82)
 ├── public/
 │   ├── index.html              ← Interface patron/directeur
 │   ├── planning.html           ← Interface staff
@@ -383,8 +384,9 @@ POST HTTP direct vers l'API REST Twilio. Pas de SDK. Normalisation des numéros 
 ## 13. Tests & CI
 
 - **Runner** — `node --test` (intégré). Aucune dépendance de framework.
-- **Portée** — **69 tests, 3 suites** : `tests/utils.test.js` (48 — cutoff 0/pile/bascule mois-année, padding de dates, téléphones, tokens, ObjectId, `isAutoPublished`/`isDatePublished` dont non-match d'une semaine adjacente), `tests/shift-hours.test.js` (6 — heures effectives réel/planifié, pointage partiel sans mélange, `real_start=0`, shift de nuit ; cf. D-71/D-73) et `tests/week.test.js` (15 — `weekStart` : lundi/dimanche/mercredi, bascule mois & année, idempotence, copie défensive ; `currentWeekStart` : cutoff hebdo 6h, lundi avant/après cutoff ; cf. D-74/D-75).
-- **Commande** — `npm test` liste explicitement les fichiers (`node --test tests/utils.test.js tests/shift-hours.test.js tests/week.test.js`). ⚠️ **Ne pas** repasser au mode répertoire `node --test tests/` : non fiable selon la version Node (il tente de charger `tests` comme un module → `MODULE_NOT_FOUND`).
+- **Portée** — **71 tests, 4 suites**. *Unitaires* : `tests/utils.test.js` (48 — cutoff 0/pile/bascule mois-année, padding de dates, téléphones, tokens, ObjectId, `isAutoPublished`/`isDatePublished` dont non-match d'une semaine adjacente), `tests/shift-hours.test.js` (6 — heures effectives réel/planifié, pointage partiel sans mélange, `real_start=0`, shift de nuit ; cf. D-71/D-73) et `tests/week.test.js` (15 — `weekStart` : lundi/dimanche/mercredi, bascule mois & année, idempotence, copie défensive ; `currentWeekStart` : cutoff hebdo 6h, lundi avant/après cutoff ; cf. D-74/D-75). *Intégration* : `tests/routes.test.js` (2 — D-82) démarre l'app sur un port éphémère et tape des routes **sans Mongo** (`GET /auth/me` → 401 sans session ; `GET /api/establishments` → 503 via `checkDB`).
+- **App importable (D-82)** — `server.js` exporte `app` et n'appelle `app.listen()` / `connectDB()` que sous `if (require.main === module)`. Le test force `NODE_ENV=test` + un `MONGO_URI`/`SESSION_SECRET` factices **avant** le `require` (jamais de connexion à la vraie base ; `dotenv` ne réécrit pas les vars déjà définies). Le `setInterval` du rate-limiter est `.unref()` pour ne pas bloquer la sortie du process. Pour tester une route **avec données**, il faudra un faux `db` injectable (pas encore en place) — prérequis à étendre avant R-04.
+- **Commande** — `npm test` liste explicitement les fichiers (`node --test tests/utils.test.js tests/shift-hours.test.js tests/week.test.js tests/routes.test.js`). ⚠️ **Ne pas** repasser au mode répertoire `node --test tests/` : non fiable selon la version Node (il tente de charger `tests` comme un module → `MODULE_NOT_FOUND`).
 - **CI** — `.github/workflows/ci.yml` sur `push`/`PR` vers `main`. Matrice Node 20.x + 22.x. Étapes : `npm ci` → syntax check (`node -c` sur server.js, script.js, init-db.js) → `npm test`.
 
 **Ajouter un test quand** : on extrait un helper pur vers `lib/`, on change une règle de date/heure, ou on corrige un bug qui pourrait régresser.

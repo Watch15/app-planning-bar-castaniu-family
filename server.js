@@ -107,11 +107,13 @@ function rateLimit(key, maxAttempts, windowMs) {
     rateLimitMap.set(key, entry);
     return entry.count > maxAttempts;
 }
-// Nettoyage toutes les heures pour éviter les fuites mémoire
+// Nettoyage toutes les heures pour éviter les fuites mémoire.
+// .unref() : ce timer de fond ne doit pas, à lui seul, maintenir le process en vie
+// (sinon `require('./server')` en test empêcherait Node de quitter).
 setInterval(() => {
     const now = Date.now();
     for (const [k, v] of rateLimitMap) { if (now > v.resetAt) rateLimitMap.delete(k); }
-}, 60 * 60 * 1000);
+}, 60 * 60 * 1000).unref();
 app.use(express.static('public', {
     setHeaders: (res, path) => {
         if (path.endsWith('sw.js')) {
@@ -4053,7 +4055,15 @@ app.use((err, req, res, next) => {
 // ── Lancement ─────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log('🚀 Serveur sur http://localhost:' + PORT);
-    connectDB();
-});
+
+// N'écoute / ne se connecte à Mongo QUE si lancé directement (`node server.js`).
+// Quand server.js est `require()` (tests d'intégration), on exporte l'app sans
+// démarrer le serveur ni ouvrir de connexion — le test l'écoute sur un port éphémère.
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log('🚀 Serveur sur http://localhost:' + PORT);
+        connectDB();
+    });
+}
+
+module.exports = app;
