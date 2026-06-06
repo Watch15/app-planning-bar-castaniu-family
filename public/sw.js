@@ -1,4 +1,4 @@
-const CACHE = 'templyo-' + '%%BUILD_TIME%%';
+const CACHE = 'templyo-' + '1780711334691';
 const STATIC = [
     '/login.html',
     '/set-password.html',
