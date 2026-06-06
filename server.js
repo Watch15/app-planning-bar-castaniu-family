@@ -1734,8 +1734,8 @@ function buildShiftsIcs(shifts, estabMap) {
         'METHOD:PUBLISH',
         'X-WR-CALNAME:Mes shifts — Templyo',
         'X-WR-TIMEZONE:Europe/Paris',
-        'REFRESH-INTERVAL;VALUE=DURATION:PT6H',
-        'X-PUBLISHED-TTL:PT6H',
+        'REFRESH-INTERVAL;VALUE=DURATION:PT1H',
+        'X-PUBLISHED-TTL:PT1H',
         ICS_VTIMEZONE,
     ];
 
