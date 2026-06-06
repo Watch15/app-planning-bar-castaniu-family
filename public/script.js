@@ -117,7 +117,7 @@ let currentShiftsWeek = []; // shifts de la semaine pour les couleurs
 let currentShifts  = [];
 let displayedStaff = [];
 
-let currentWeekStart = getMondayOf(new Date()); // Date du lundi courant
+let currentWeekStart = Week.currentWeekStart(new Date()); // Lundi courant (cutoff 6h)
 let selectedDate     = toDateStr(new Date());   // "YYYY-MM-DD" du jour sélectionné
 let weekSummary      = {};                       // { "YYYY-MM-DD": nbShifts }
 let weekFullData     = {};                       // { "YYYY-MM-DD": [shifts...] }
@@ -248,14 +248,9 @@ function toDateStr(d) {
     return y + '-' + m + '-' + j;
 }
 
-function getMondayOf(d) {
-    const day = d.getDay(); // 0=dim, 1=lun...
-    const diff = (day === 0) ? -6 : 1 - day;
-    const mon = new Date(d);
-    mon.setDate(d.getDate() + diff);
-    mon.setHours(0, 0, 0, 0);
-    return mon;
-}
+// Lundi de la semaine — délègue au module partagé/testé (public/lib/week.js, R-01).
+// Chargé via <script src="/lib/week.js"> avant script.js dans index.html.
+function getMondayOf(d) { return Week.weekStart(d); }
 
 function addDays(d, n) {
     const r = new Date(d);
@@ -497,7 +492,7 @@ function setupWeekNav() {
         refreshWeek();
     });
     document.getElementById('btn-today').addEventListener('click', () => {
-        currentWeekStart = getMondayOf(new Date());
+        currentWeekStart = Week.currentWeekStart(new Date());
         selectedDate = toDateStr(new Date());
         refreshWeek();
     });

@@ -9,6 +9,7 @@ const {
     weekStart,
     disposWeekStart,
     isAutoPublished,
+    isDatePublished,
     chargeMultiplier,
 } = require('../lib/utils');
 
@@ -244,6 +245,40 @@ test('isAutoPublished : semaine future = false', () => {
     const now = new Date(2026, 4, 13);
     assert.equal(isAutoPublished('2026-05-18', now), false); // lundi semaine suivante
     assert.equal(isAutoPublished('2026-06-01', now), false); // mois suivant
+});
+
+// ── isDatePublished ──────────────────────────────────────────────────────────
+
+test('isDatePublished : semaine en cours/passée = true même avec set vide', () => {
+    const now = new Date(2026, 4, 13);            // mercredi 13 mai
+    assert.equal(isDatePublished('2026-05-15', new Set(), now), true); // cette semaine
+    assert.equal(isDatePublished('2026-05-04', new Set(), now), true); // semaine passée
+});
+
+test('isDatePublished : semaine future NON publiée = false', () => {
+    const now = new Date(2026, 4, 13);
+    assert.equal(isDatePublished('2026-05-25', new Set(), now), false);
+});
+
+test('isDatePublished : semaine future publiée (lundi dans le set) = true', () => {
+    const now = new Date(2026, 4, 13);
+    const pub = new Set(['2026-05-25']);          // lundi 25 mai publié
+    assert.equal(isDatePublished('2026-05-25', pub, now), true); // le lundi lui-même
+    assert.equal(isDatePublished('2026-05-27', pub, now), true); // mercredi de la même semaine
+});
+
+test('isDatePublished : NE matche PAS une semaine adjacente publiée (fix heuristique 8j)', () => {
+    const now = new Date(2026, 4, 13);
+    // Semaine du 18 mai publiée, mais le shift est dans la semaine du 25 (non publiée).
+    // L'ancienne heuristique |25 mai - 18 mai| = 7j < 8j renvoyait true à tort.
+    const pub = new Set(['2026-05-18']);
+    assert.equal(isDatePublished('2026-05-25', pub, now), false);
+});
+
+test('isDatePublished : set absent/invalide + semaine future = false (pas de crash)', () => {
+    const now = new Date(2026, 4, 13);
+    assert.equal(isDatePublished('2026-05-25', null, now), false);
+    assert.equal(isDatePublished('2026-05-25', undefined, now), false);
 });
 
 // ── chargeMultiplier ─────────────────────────────────────────────────────────

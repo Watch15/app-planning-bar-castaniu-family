@@ -1,8 +1,12 @@
-const CACHE = 'templyo-' + '%%BUILD_TIME%%';
+const CACHE = 'templyo-' + '1780711334691';
 const STATIC = [
     '/login.html',
     '/set-password.html',
     '/script.js',
+    '/planning.js',
+    '/pointage.js',
+    '/lib/shift-hours.js',
+    '/lib/week.js',
     '/style.css',
     '/manifest.json',
     '/vendor/html2canvas.min.js',

@@ -33,7 +33,10 @@ app-templyo/
 ├── lib/
 │   └── utils.js                   ← Helpers purs testables (isValidObjectId, hashToken, normalizePhone, computeActiveDate, toDateStr)
 ├── tests/
-│   └── utils.test.js              ← 20 tests node --test
+│   ├── utils.test.js              ← 43 tests node --test (helpers purs)
+│   ├── shift-hours.test.js        ← 6 tests — heures effectives d'un shift
+│   ├── week.test.js               ← 15 tests — lundi de semaine (weekStart + currentWeekStart 6h)
+│   └── routes.test.js             ← 2 tests d'intégration HTTP (boot app, middlewares auth/DB)
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                 ← CI : npm ci → syntax check → npm test (Node 20/22)
@@ -46,6 +49,8 @@ app-templyo/
 │   ├── login.html                 ← Page de connexion (email ou téléphone)
 │   ├── set-password.html          ← Activation / réinitialisation mot de passe
 │   ├── script.js                  ← Logique patron — planning, drag & drop, modales (~6800 lignes)
+│   ├── planning.js                ← Logique staff (externalisée de planning.html)
+│   ├── pointage.js                ← Logique pointage (externalisée de pointage.html)
 │   ├── style.css                  ← Styles globaux
 │   ├── manifest.json              ← PWA manifest
 │   ├── sw.js                      ← Service Worker — cache offline + Web Push
@@ -80,7 +85,13 @@ npm run dev       # → http://localhost:3000
 MONGO_URI=mongodb+srv://...
 SESSION_SECRET=chaine-aleatoire-longue-minimum-32-chars
 NODE_ENV=production
+# URL publique de l'app — sert aux liens email/SMS ET aux URLs d'abonnement agenda (.ics)
 APP_URL=https://ton-app.railway.app
+
+# Domaine des URLs d'agenda (.ics) — optionnel.
+# Par défaut le calendrier utilise APP_URL, sinon l'hôte de la requête.
+# À définir seulement pour forcer un domaine différent (ex. domaine custom).
+# PUBLIC_BASE_URL=https://app.mondomaine.fr
 
 # Email
 RESEND_API_KEY=re_...
@@ -116,7 +127,7 @@ PORT=3000
 | `npm run init` | Recrée les collections et indexes MongoDB |
 | `npm run create-patron` | Crée le compte patron en CLI |
 | `npm run seed` | Insère des shifts de démonstration |
-| `npm test` | Lance les 20 tests unitaires (`node --test`) |
+| `npm test` | Lance les 71 tests (`node --test`, 4 suites — dont intégration HTTP) |
 
 ---
 
@@ -135,7 +146,7 @@ PORT=3000
 
 ### Authentification
 - Connexion email + mot de passe ou numéro de téléphone + mot de passe
-- Sessions serveur MongoDB — TTL 7 jours, cookie `httpOnly`
+- Sessions serveur MongoDB — TTL 30 jours **glissant** (renouvelé à chaque visite), cookie `httpOnly`
 - Invitation par email (Resend) ou SMS (Twilio) — lien activation 24h
 - Réinitialisation mot de passe par email ou SMS (expire 1h)
 - Fallback lien manuel si l'envoi échoue
@@ -157,8 +168,9 @@ PORT=3000
 - Notifications in-app (badge + historique activité)
 
 ### Vue staff (`planning.html`)
-- Mon planning : stats semaine, jours travaillés, collègues, heures par établissement
-- Delta heures vs semaine précédente
+- Mon planning : stats semaine/mois (toggle), jours travaillés, collègues, heures par établissement
+- Onglet Historique : semaines passées (jusqu'à 5), heures **réelles** (sinon planifiées) + répartition par établissement
+- **Synchro agenda** : abonnement iCal (Google / Apple / Outlook), synchro auto sans login après un réglage unique (semaines publiées)
 - Mes dispos : Soir / Midi / Personnalisé / Indisponible + note par jour
 - Onglet Pointage : saisie heures réelles pour les responsables de soirée
 - Bouton Web Push — activation/désactivation des notifications
@@ -166,6 +178,7 @@ PORT=3000
 ### Pointage (`pointage.html`)
 - Interface dédiée au compte établissement
 - Saisie et modification des heures réelles (real_start / real_end)
+- Champs préremplis aux heures planifiées + saisie restreinte au quart d'heure
 - Ré-édition possible par patron/directeur (établissement = verrouillé après enregistrement)
 - Badge « ✓ Validé » + carte verte sur les shifts pointés
 - Écart planifié vs réel coloré (vert/orange/gris)
@@ -203,7 +216,7 @@ PORT=3000
 | `staff` | Membres (couleur, email, téléphone, venues préférentiels, rôles) |
 | `shifts` | Shifts planifiés (inclut `is_joker`, `real_start`, `real_end`, `note`) |
 | `users` | Comptes de connexion |
-| `sessions` | Sessions actives (TTL automatique 7 jours) |
+| `sessions` | Sessions actives (TTL 30 jours glissant) |
 | `availabilities` | Disponibilités soumises par le staff |
 | `roles` | Rôles créés par le patron (responsable / informatif) |
 | `settings` | Paramètres polymorphes (clé `key`) : `dispo`, `performance`, `pointage`, `publish_<weekStart>`, `lock_dispos_<weekStart>` |
@@ -261,6 +274,8 @@ PORT=3000
 | PATCH | `/api/shifts/:id/pointage-resp` | Patron — désigner responsable de soirée |
 | GET/PATCH | `/api/pointage-settings` | Authentifié / Admin — `cutoff_hour` |
 | GET | `/api/recap-mensuel` | Patron |
+| GET | `/api/calendar-url` | Authentifié — URL d'abonnement iCal du staff (génère le token) |
+| GET | `/api/calendar/:token.ics` | **Public** (token = auth) — flux iCal lecture seule, semaines publiées |
 
 ### Disponibilités
 | Méthode | Route | Accès |
@@ -349,8 +364,11 @@ Tout ce qui est testable sans Express/Mongo/réseau doit aller dans `lib/utils.j
 
 ```bash
 npm test
-# Lance : node --test tests/utils.test.js
-# 20 tests — timezone, padding dates, téléphones, tokens, ObjectId
+# Lance : node --test tests/utils.test.js tests/shift-hours.test.js tests/week.test.js tests/routes.test.js
+# 71 tests (4 suites) — timezone, padding dates, téléphones, tokens, ObjectId,
+# heures effectives d'un shift (réel/planifié, pointage partiel, shift de nuit),
+# lundi de semaine (weekStart : bascule mois/année ; currentWeekStart : cutoff 6h),
+# intégration HTTP (boot app + middlewares auth/DB sans Mongo)
 ```
 
 La CI GitHub Actions tourne automatiquement sur chaque push/PR vers `main` (Node 20 + 22).

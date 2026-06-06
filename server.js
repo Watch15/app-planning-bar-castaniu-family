@@ -11,7 +11,7 @@ const helmet  = require('helmet');
 const morgan  = require('morgan');
 const {
     isValidObjectId, hashToken, normalizePhone,
-    weekStart, disposWeekStart, isAutoPublished, chargeMultiplier,
+    weekStart, currentWeekStart, disposWeekStart, isAutoPublished, isDatePublished, chargeMultiplier,
     toDateStr,
 } = require('./lib/utils');
 
@@ -107,11 +107,13 @@ function rateLimit(key, maxAttempts, windowMs) {
     rateLimitMap.set(key, entry);
     return entry.count > maxAttempts;
 }
-// Nettoyage toutes les heures pour éviter les fuites mémoire
+// Nettoyage toutes les heures pour éviter les fuites mémoire.
+// .unref() : ce timer de fond ne doit pas, à lui seul, maintenir le process en vie
+// (sinon `require('./server')` en test empêcherait Node de quitter).
 setInterval(() => {
     const now = Date.now();
     for (const [k, v] of rateLimitMap) { if (now > v.resetAt) rateLimitMap.delete(k); }
-}, 60 * 60 * 1000);
+}, 60 * 60 * 1000).unref();
 app.use(express.static('public', {
     setHeaders: (res, path) => {
         if (path.endsWith('sw.js')) {
@@ -288,6 +290,17 @@ async function sendPushToStaff(staffIds, payload) {
 
 const _weekStart       = weekStart;
 const _isAutoPublished = isAutoPublished;
+
+// Ensemble des lundis ('YYYY-MM-DD') des semaines explicitement publiées par le patron.
+// Source unique pour les call sites « ce shift est-il sur une semaine publiée ? »
+// (à combiner avec isDatePublished, qui gère l'auto-publication). R-02.
+async function fetchPublishedWeeks() {
+    if (!db) return new Set();
+    const docs = await db.collection('settings')
+        .find({ key: { $regex: '^publish_' }, published: true }, { projection: { key: 1 } })
+        .toArray();
+    return new Set(docs.map(p => p.key.replace('publish_', '')));
+}
 
 // ── Rappels automatiques dispos ───────────────────────────────────────────────
 
@@ -1664,6 +1677,168 @@ app.get('/api/my-shifts', checkDB, requireAuth, async (req, res) => {
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
+// ── Flux iCal (abonnement agenda) ──────────────────────────────────────────────
+// Permet au staff d'ajouter son planning à Google Agenda / Apple Calendrier /
+// Outlook via une URL d'abonnement. L'agenda se rafraîchit tout seul → plus besoin
+// de se connecter pour consulter ses horaires.
+
+function icsEscape(str) {
+    return String(str == null ? '' : str)
+        .replace(/\\/g, '\\\\')
+        .replace(/;/g, '\\;')
+        .replace(/,/g, '\\,')
+        .replace(/\r?\n/g, '\\n');
+}
+
+// (date 'YYYY-MM-DD' + heure flottante, ex 18.5 ou 26 pour 2h du matin) → horodatage
+// local "YYYYMMDDTHHMMSS" à interpréter avec TZID=Europe/Paris. Gère le passage minuit
+// (heure ≥ 24 → jour suivant) par arithmétique entière, sans dépendre du fuseau serveur.
+function icsLocalDateTime(dateStr, hoursFloat) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const totalMin  = Math.round(hoursFloat * 60);
+    const dayOffset = Math.floor(totalMin / 1440);
+    const rem       = ((totalMin % 1440) + 1440) % 1440;
+    const hh = Math.floor(rem / 60), mm = rem % 60;
+    const base = new Date(Date.UTC(y, m - 1, d));
+    base.setUTCDate(base.getUTCDate() + dayOffset);
+    const pad = n => String(n).padStart(2, '0');
+    return base.getUTCFullYear() + pad(base.getUTCMonth() + 1) + pad(base.getUTCDate())
+        + 'T' + pad(hh) + pad(mm) + '00';
+}
+
+const ICS_VTIMEZONE = [
+    'BEGIN:VTIMEZONE',
+    'TZID:Europe/Paris',
+    'BEGIN:DAYLIGHT',
+    'TZOFFSETFROM:+0100', 'TZOFFSETTO:+0200', 'TZNAME:CEST',
+    'DTSTART:19700329T020000', 'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU',
+    'END:DAYLIGHT',
+    'BEGIN:STANDARD',
+    'TZOFFSETFROM:+0200', 'TZOFFSETTO:+0100', 'TZNAME:CET',
+    'DTSTART:19701025T030000', 'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
+    'END:STANDARD',
+    'END:VTIMEZONE',
+].join('\r\n');
+
+function buildShiftsIcs(shifts, estabMap) {
+    const pad = n => String(n).padStart(2, '0');
+    const now = new Date();
+    const dtstamp = now.getUTCFullYear() + pad(now.getUTCMonth() + 1) + pad(now.getUTCDate())
+        + 'T' + pad(now.getUTCHours()) + pad(now.getUTCMinutes()) + pad(now.getUTCSeconds()) + 'Z';
+
+    const lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Templyo//Planning//FR',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        'X-WR-CALNAME:Mes shifts — Templyo',
+        'X-WR-TIMEZONE:Europe/Paris',
+        'REFRESH-INTERVAL;VALUE=DURATION:PT1H',
+        'X-PUBLISHED-TTL:PT1H',
+        ICS_VTIMEZONE,
+    ];
+
+    shifts.forEach(s => {
+        const estab = estabMap[s.establishment_id] || {};
+        const title = estab.name || 'Shift';
+        lines.push('BEGIN:VEVENT');
+        lines.push('UID:shift-' + String(s._id) + '@templyo');
+        lines.push('DTSTAMP:' + dtstamp);
+        lines.push('DTSTART;TZID=Europe/Paris:' + icsLocalDateTime(s.date, s.start_time));
+        lines.push('DTEND;TZID=Europe/Paris:'   + icsLocalDateTime(s.date, s.end_time));
+        lines.push('SUMMARY:' + icsEscape(title));
+        if (estab.name) lines.push('LOCATION:' + icsEscape(estab.name));
+        lines.push('END:VEVENT');
+    });
+
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n') + '\r\n';
+}
+
+// ⚠️ Fonctionnalité agenda iCal DÉSACTIVÉE (D-83) — pas encore assez fiable pour la
+// prod (synchro iCal non temps réel : un changement met jusqu'à ~1 h à se propager).
+// Le code est conservé. Pour réactiver : passer CALENDAR_ENABLED à true (ou définir
+// la variable d'env CALENDAR_ENABLED=true) ET le flag client dans public/planning.js.
+const CALENDAR_ENABLED = process.env.CALENDAR_ENABLED === 'true';
+
+// URL d'abonnement agenda du staff connecté (génère le token au 1er appel)
+app.get('/api/calendar-url', checkDB, requireAuth, async (req, res) => {
+    if (!CALENDAR_ENABLED) return res.status(404).json({ error: 'Fonctionnalité indisponible' });
+    const userId = req.session.user._id;
+    if (!req.session.user.staff_id) return res.status(400).json({ error: 'Aucun profil staff lié à ce compte' });
+    try {
+        const user = await db.collection('users').findOne({ _id: new ObjectId(userId) });
+        let token = user && user.calendar_token;
+        if (!token) {
+            token = require('crypto').randomBytes(24).toString('hex');
+            await db.collection('users').updateOne({ _id: new ObjectId(userId) }, { $set: { calendar_token: token } });
+        }
+        // Domaine public : PUBLIC_BASE_URL (override dédié calendrier) > APP_URL
+        // (déjà utilisée pour les liens email/SMS) > hôte de la requête (zéro-config
+        // sur Railway). Préfixe https:// garanti car la conversion webcal:// en dépend.
+        let base = process.env.PUBLIC_BASE_URL || process.env.APP_URL || (req.protocol + '://' + req.get('host'));
+        if (!/^https?:\/\//i.test(base)) base = 'https://' + base;
+        base = base.replace(/\/+$/, '');
+        const httpUrl = base + '/api/calendar/' + token + '.ics';
+        res.json({ url: httpUrl, webcal: httpUrl.replace(/^https?:/, 'webcal:') });
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// Flux iCal public — le token tient lieu d'authentification (lecture seule).
+// Expose les shifts du staff de la semaine en cours et des semaines futures PUBLIÉES.
+app.get('/api/calendar/:token([a-f0-9]+).ics', checkDB, async (req, res) => {
+    if (!CALENDAR_ENABLED) return res.status(404).send('Not found');
+    try {
+        const user = await db.collection('users').findOne({ calendar_token: req.params.token });
+        if (!user || !user.staff_id) return res.status(404).send('Calendrier introuvable');
+        const staffId = user.staff_id;
+
+        // Filtrage par groupes (cohérent avec /api/my-shifts)
+        const staffDoc = isValidObjectId(staffId)
+            ? await db.collection('staff').findOne({ _id: new ObjectId(staffId) })
+            : null;
+        const staffGroups = staffDoc?.groups || [];
+        let allowedEstabIds = null;
+        if (staffGroups.length > 0) {
+            const groupEstabs = await db.collection('establishments').find({
+                $or: [
+                    { groups: { $in: staffGroups } },
+                    { groups: { $size: 0 } },
+                    { groups: { $exists: false } },
+                ]
+            }).toArray();
+            allowedEstabIds = groupEstabs.map(e => e.id);
+        }
+
+        const fromStr = toDateStr(currentWeekStart(new Date())); // lundi de la semaine en cours (cutoff 6h)
+        const query = { staff_id: staffId, date: { $gte: fromStr } };
+        if (allowedEstabIds) query.establishment_id = { $in: allowedEstabIds };
+        const rawShifts = await db.collection('shifts').find(query).sort({ date: 1, start_time: 1 }).toArray();
+
+        // Ne garder que les shifts des semaines publiées (auto pour la semaine en cours,
+        // flag publish_<weekStart> pour les futures) et exclure les Jokers.
+        const publishedWeeks = await fetchPublishedWeeks();
+        const visible = rawShifts.filter(s =>
+            !s.is_joker && s.staff_id !== '__joker__' && isDatePublished(s.date, publishedWeeks)
+        );
+
+        const estabIds = [...new Set(visible.map(s => s.establishment_id))];
+        const estabs = estabIds.length
+            ? await db.collection('establishments').find({ id: { $in: estabIds } }).toArray()
+            : [];
+        const estabMap = {};
+        estabs.forEach(e => { estabMap[e.id] = e; });
+
+        res.set('Content-Type', 'text/calendar; charset=utf-8');
+        res.set('Cache-Control', 'no-cache, max-age=0');
+        res.send(buildShiftsIcs(visible, estabMap));
+    } catch (e) {
+        console.error('[' + req.method + ' ' + req.path + ']', e);
+        res.status(500).send('Erreur interne');
+    }
+});
+
 // GET tous les shifts de la semaine (remplace 7 appels /api/shifts/:id/:date)
 app.get('/api/week-full/:establishmentId', checkDB, requireAuth, async (req, res) => {
     const { from, to } = req.query;
@@ -1723,17 +1898,7 @@ app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
         if (!is_joker && staff_id !== '__joker__') {
             (async () => {
                 try {
-                    let isPublished = _isAutoPublished(date);
-                    if (!isPublished) {
-                        const allPubs = await db.collection('settings').find({
-                            key: { $regex: '^publish_' }, published: true,
-                        }).toArray();
-                        isPublished = allPubs.some(p => {
-                            const weekDate  = new Date(p.key.replace('publish_', '') + 'T12:00:00');
-                            const shiftDate = new Date(date + 'T12:00:00');
-                            return Math.abs(shiftDate - weekDate) < 8 * 24 * 60 * 60 * 1000;
-                        });
-                    }
+                    const isPublished = isDatePublished(date, await fetchPublishedWeeks());
                     if (isPublished) {
                         const estabDoc  = await db.collection('establishments').findOne({ id: establishment_id }) || {};
                         const estabName = estabDoc.name || establishment_id;
@@ -1912,17 +2077,7 @@ app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
                 async () => {
                     // B-10 : pas de push si le shift est dans le passé
                     if (capturedDate < toDateStr(new Date())) return;
-                    let isPublished = _isAutoPublished(capturedDate);
-                    if (!isPublished) {
-                        const allPubs = await db.collection('settings').find({
-                            key: { $regex: '^publish_' }, published: true,
-                        }).toArray();
-                        isPublished = allPubs.some(p => {
-                            const weekDate  = new Date(p.key.replace('publish_', '') + 'T12:00:00');
-                            const shiftDate = new Date(capturedDate + 'T12:00:00');
-                            return Math.abs(shiftDate - weekDate) < 8 * 24 * 60 * 60 * 1000;
-                        });
-                    }
+                    const isPublished = isDatePublished(capturedDate, await fetchPublishedWeeks());
                     if (!isPublished) return;
                     // Relire les horaires finaux depuis la base (après tous les resizes)
                     const finalShift = await db.collection('shifts').findOne({ _id: existing._id });
@@ -1973,15 +2128,7 @@ app.delete('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
         if (!existing.is_joker && existing.staff_id && existing.staff_id !== '__joker__') {
             (async () => {
                 try {
-                    let isPublished = _isAutoPublished(existing.date);
-                    if (!isPublished) {
-                        const allPubs = await db.collection('settings').find({ key: { $regex: '^publish_' }, published: true }).toArray();
-                        isPublished = allPubs.some(p => {
-                            const weekDate  = new Date(p.key.replace('publish_', '') + 'T12:00:00');
-                            const shiftDate = new Date(existing.date + 'T12:00:00');
-                            return Math.abs(shiftDate - weekDate) < 8 * 24 * 60 * 60 * 1000;
-                        });
-                    }
+                    const isPublished = isDatePublished(existing.date, await fetchPublishedWeeks());
                     if (!isPublished) return;
                     const estabDoc  = await db.collection('establishments').findOne({ id: existing.establishment_id }) || {};
                     const estabName = estabDoc.name || existing.establishment_id;
@@ -3916,7 +4063,15 @@ app.use((err, req, res, next) => {
 // ── Lancement ─────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log('🚀 Serveur sur http://localhost:' + PORT);
-    connectDB();
-});
+
+// N'écoute / ne se connecte à Mongo QUE si lancé directement (`node server.js`).
+// Quand server.js est `require()` (tests d'intégration), on exporte l'app sans
+// démarrer le serveur ni ouvrir de connexion — le test l'écoute sur un port éphémère.
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log('🚀 Serveur sur http://localhost:' + PORT);
+        connectDB();
+    });
+}
+
+module.exports = app;

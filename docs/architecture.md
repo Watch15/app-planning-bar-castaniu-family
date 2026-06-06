@@ -34,7 +34,10 @@ app-planning-bar/
 ├── lib/
 │   └── utils.js                ← Helpers purs (sans Express/Mongo) — testables isolément
 ├── tests/
-│   └── utils.test.js           ← Suite node --test (20 tests)
+│   ├── utils.test.js           ← Helpers purs lib/utils.js (43 tests)
+│   ├── shift-hours.test.js     ← Heures effectives d'un shift (6 tests, D-73)
+│   ├── week.test.js            ← Lundi de semaine — weekStart + currentWeekStart (15 tests, D-74/D-75)
+│   └── routes.test.js          ← Intégration HTTP — boot app + middlewares auth/DB sans Mongo (2 tests, D-82)
 ├── public/
 │   ├── index.html              ← Interface patron/directeur
 │   ├── planning.html           ← Interface staff
@@ -44,14 +47,21 @@ app-planning-bar/
 │   ├── login.html              ← Page de connexion
 │   ├── set-password.html       ← Activation / réinitialisation du mot de passe
 │   ├── script.js               ← Logique côté patron (monolithique — voir contrainte)
+│   ├── planning.js             ← Logique côté staff (externalisée de planning.html, D-80)
+│   ├── pointage.js             ← Logique du pointage (externalisée de pointage.html, D-80)
 │   ├── style.css               ← Styles globaux
 │   ├── manifest.json           ← Manifest PWA
 │   ├── sw.js                   ← Service Worker
+│   ├── lib/                    ← Code isomorphe partagé navigateur/Node (modules UMD)
+│   │   ├── shift-hours.js      ← Heures effectives d'un shift (D-73)
+│   │   └── week.js             ← Lundi de semaine — weekStart + currentWeekStart (cutoff 6h), réexporté par lib/utils.js (D-74/D-75)
 │   ├── vendor/                 ← Libs tierces auto-hébergées (pas de CDN runtime)
 │   │   ├── jspdf.umd.min.js        ← Export PDF (D-51)
 │   │   ├── html2canvas.min.js      ← Capture DOM pour PDF (D-51)
 │   │   └── xlsx.full.min.js        ← SheetJS — export Excel récap mensuel (D-52)
-│   └── icons/
+│   ├── favicon.ico             ← Favicon (PNG 32px, D-81)
+│   └── icons/                  ← Icônes PWA générées (#6C63FF + « T », D-81)
+│       ├── icon-72.png         ← badge notifications push
 │       ├── icon-192.png
 │       └── icon-512.png
 ├── docs/                       ← Documentation agents BMAD
@@ -116,7 +126,9 @@ Le Service Worker (`sw.js`) utilise Network First pour les routes `/api/*` et `/
 
 ### 3.6 Les helpers purs vivent dans `lib/utils.js`
 
-Tout ce qui est pur (sans dépendance Express/Mongo/réseau) doit être dans `lib/utils.js` pour être testable isolément. Exports actuels : `isValidObjectId`, `hashToken`, `normalizePhone`, `computeActiveDate`, `toDateStr`. Ajouter les nouveaux helpers purs ici plutôt qu'en inline dans `server.js`.
+Tout ce qui est pur (sans dépendance Express/Mongo/réseau) doit être dans `lib/utils.js` pour être testable isolément. Exports actuels : `isValidObjectId`, `hashToken`, `normalizePhone`, `computeActiveDate`, `toDateStr`, `weekStart`, `currentWeekStart`, `WEEK_CUTOFF_HOUR`, `disposWeekStart`, `isAutoPublished`, `isDatePublished`, `chargeMultiplier` (dont `weekStart`/`currentWeekStart` réexportés depuis `public/lib/week.js`). Ajouter les nouveaux helpers purs ici plutôt qu'en inline dans `server.js`.
+
+**Logique partagée navigateur + Node** : quand un helper doit être consommé par le **front** (servi en statique) ET testé sous Node, il ne peut pas vivre dans `lib/utils.js` (le navigateur ne fait pas de `require`). On utilise alors un **module UMD** sous `public/lib/` : il s'expose en global navigateur (`window.X`) via `<script src>` et reste `require()`-able en Node pour les tests. Exemples : `public/lib/shift-hours.js` (`window.ShiftHours`) + `tests/shift-hours.test.js` ; `public/lib/week.js` (`window.Week.weekStart`) + `tests/week.test.js`. Côté HTML, déléguer depuis une fonction de même nom pour préserver le hoisting sans toucher les call sites existants. **Si le helper existait déjà côté Node** (ex. `weekStart`), `lib/utils.js` le **ré-exporte** depuis le module UMD → source unique, call sites serveur inchangés (cf. D-73/D-74, gabarit des extractions futures).
 
 ### 3.7 En production `SESSION_SECRET` est obligatoire
 
@@ -126,14 +138,23 @@ Tout ce qui est pur (sans dépendance Express/Mongo/réseau) doit être dans `li
 
 Railway termine le TLS au niveau de son proxy. `app.set('trust proxy', 1)` est activé en production pour que `cookie.secure: true` soit honoré et que `req.ip` reflète le client, et non le proxy.
 
+### 3.9 Semaine « en cours » — cutoff de bascule (D-75)
+
+La plupart des fermetures se terminent vers 2h du matin. Un shift de fermeture est stocké à la **date de la veille** (`end_time` ≥ 24, ex. 26 = 2h). Pour que « cette semaine » contienne encore ce shift entre lundi 00:00 et 06:00, deux fonctions **distinctes** vivent dans `public/lib/week.js` :
+
+- `weekStart(date)` — lundi de la semaine d'une **date calendaire**. Sert au mapping shift→semaine, à la publication, aux regroupements. **Jamais** de cutoff (sinon un shift daté un lundi basculerait à tort dans la semaine précédente).
+- `currentWeekStart(now, cutoff = WEEK_CUTOFF_HOUR)` — lundi de la semaine **opérationnelle à l'instant présent** : avant `cutoff` (défaut **6h**) le lundi, on rattache à la veille. À utiliser uniquement pour « quelle semaine est-on **maintenant** » (planning par défaut, base de l'historique, flux iCal, vue patron, calendrier performance).
+
+`WEEK_CUTOFF_HOUR = 6` est centralisé dans `public/lib/week.js` (ajustable simplement, ou branchable sur un réglage via le paramètre `cutoff`). **Indépendant** du `cutoff_hour` du pointage (9h, session quotidienne). Les traitements lancés à 10h (crons de purge) sont post-cutoff → non concernés.
+
 ---
 
 ## 4. Authentification & autorisation
 
 ### Session
 - `express-session` avec un `CustomMongoStore` basé sur la collection `sessions`
-- TTL 7 jours, cookie `httpOnly`, `secure` en production
-- La session contient : `_id`, `email`, `phone`, `role`, `staff_id`, `assigned_establishments`, `name`
+- **TTL 30 jours glissant** (`SESSION_TTL_MS`), cookie `httpOnly`, `secure` en production. `rolling: true` + méthode `touch()` du store → l'expiration (cookie **et** champ `expires` en base) repart à chaque visite : déconnexion seulement après 30 j d'**inactivité** (D-70). Modifier la durée uniquement via la constante `SESSION_TTL_MS` pour garder cookie et store synchronisés.
+- La session contient : `_id`, `email`, `phone`, `role`, `staff_id`, `assigned_establishments`, `establishment_id`, `name`
 
 ### Hiérarchie des rôles
 
@@ -363,8 +384,35 @@ POST HTTP direct vers l'API REST Twilio. Pas de SDK. Normalisation des numéros 
 ## 13. Tests & CI
 
 - **Runner** — `node --test` (intégré). Aucune dépendance de framework.
-- **Portée** — `lib/utils.js` dispose de 20 tests couvrant les cas limites (cutoff 0/pile/bascule mois-année, padding de dates, téléphones, tokens déterministes, ObjectId hex strict).
-- **Commande** — `npm test` exécute `node --test "tests/**/*.test.js"`.
+- **Portée** — **71 tests, 4 suites**. *Unitaires* : `tests/utils.test.js` (48 — cutoff 0/pile/bascule mois-année, padding de dates, téléphones, tokens, ObjectId, `isAutoPublished`/`isDatePublished` dont non-match d'une semaine adjacente), `tests/shift-hours.test.js` (6 — heures effectives réel/planifié, pointage partiel sans mélange, `real_start=0`, shift de nuit ; cf. D-71/D-73) et `tests/week.test.js` (15 — `weekStart` : lundi/dimanche/mercredi, bascule mois & année, idempotence, copie défensive ; `currentWeekStart` : cutoff hebdo 6h, lundi avant/après cutoff ; cf. D-74/D-75). *Intégration* : `tests/routes.test.js` (2 — D-82) démarre l'app sur un port éphémère et tape des routes **sans Mongo** (`GET /auth/me` → 401 sans session ; `GET /api/establishments` → 503 via `checkDB`).
+- **App importable (D-82)** — `server.js` exporte `app` et n'appelle `app.listen()` / `connectDB()` que sous `if (require.main === module)`. Le test force `NODE_ENV=test` + un `MONGO_URI`/`SESSION_SECRET` factices **avant** le `require` (jamais de connexion à la vraie base ; `dotenv` ne réécrit pas les vars déjà définies). Le `setInterval` du rate-limiter est `.unref()` pour ne pas bloquer la sortie du process. Pour tester une route **avec données**, il faudra un faux `db` injectable (pas encore en place) — prérequis à étendre avant R-04.
+- **Commande** — `npm test` liste explicitement les fichiers (`node --test tests/utils.test.js tests/shift-hours.test.js tests/week.test.js tests/routes.test.js`). ⚠️ **Ne pas** repasser au mode répertoire `node --test tests/` : non fiable selon la version Node (il tente de charger `tests` comme un module → `MODULE_NOT_FOUND`).
 - **CI** — `.github/workflows/ci.yml` sur `push`/`PR` vers `main`. Matrice Node 20.x + 22.x. Étapes : `npm ci` → syntax check (`node -c` sur server.js, script.js, init-db.js) → `npm test`.
 
 **Ajouter un test quand** : on extrait un helper pur vers `lib/`, on change une règle de date/heure, ou on corrige un bug qui pourrait régresser.
+
+---
+
+## 14. Synchronisation agenda — flux iCal (D-72)
+
+> ⚠️ **DÉSACTIVÉE en prod (D-83)** — flag `CALENDAR_ENABLED` (défaut `false`, ou env `CALENDAR_ENABLED=true`). Routes `/api/calendar*` → 404, carte client masquée (flag jumeau dans `public/planning.js`). Code conservé. Réactiver : flipper les **deux** flags. Raison : synchro iCal non temps réel (jusqu'à ~1 h), pas assez fiable — à roder avant remise en prod.
+
+Permet au staff d'ajouter son planning à **Google Agenda / Apple Calendrier / Outlook** via un abonnement iCal. Réglage **unique** côté utilisateur, puis l'agenda se rafraîchit tout seul → plus besoin de se connecter pour consulter ses horaires.
+
+### Principe
+- **Abonnement iCal (webcal/https)**, pas d'OAuth ni d'API par fournisseur → universel (Google/Apple/Outlook) et sans autorisation tierce.
+- Chaque staff a un **token secret** stocké en clair sur son document `users` : `calendar_token` (capability **lecture seule**, faible sensibilité). Généré paresseusement au 1ᵉʳ appel de `GET /api/calendar-url`.
+
+### Routes
+- `GET /api/calendar-url` *(auth)* — crée le `calendar_token` si absent, renvoie `{ url, webcal }` (mêmes URL en `https://` et `webcal://`). Domaine : **`PUBLIC_BASE_URL`** (override dédié) > **`APP_URL`** (déjà utilisée pour les liens email/SMS) > **hôte de la requête** (zéro-config Railway). Préfixe `https://` garanti (la conversion `webcal://` en dépend). En pratique, définir `APP_URL` suffit pour tout ; `PUBLIC_BASE_URL` ne sert qu'à forcer un domaine différent pour les `.ics`.
+- `GET /api/calendar/:token([a-f0-9]+).ics` *(**public** — le token authentifie)* — renvoie un `text/calendar`. **Lecture seule**, n'expose que les shifts du staff propriétaire du token, pour la **semaine en cours + les semaines futures publiées** (auto pour la semaine courante, flag `publish_<weekStart>` pour les futures). Filtrage par groupes cohérent avec `/api/my-shifts`, Jokers exclus.
+
+### Génération du `.ics`
+- En-têtes `VCALENDAR` + bloc `VTIMEZONE` **Europe/Paris** complet (règles DST CET/CEST) ; les `DTSTART`/`DTEND` sont émis en heure locale avec `TZID=Europe/Paris`.
+- Conversion `(date 'YYYY-MM-DD' + heure décimale)` → horodatage local par **arithmétique entière** (`icsLocalDateTime`) : gère le passage minuit (`end_time ≥ 24` → jour suivant) **sans jamais dépendre du fuseau du serveur** (cf. §3.1).
+- `UID` stable par shift (`shift-<_id>@templyo`), texte échappé (`icsEscape`).
+
+### Limites connues (documentées pour le support)
+- La synchro **n'est pas instantanée** : c'est l'agenda client qui vient chercher le flux. Apple ≈ 15 min–1 h (réglable), **Google ≈ 8–24 h** (ignore largement `REFRESH-INTERVAL`). Non forçable côté serveur.
+- Un compte **sans `staff_id`** (ex. directeur) ne peut pas générer de flux (400) → suivi C-01 du backlog (masquer la carte UI).
+- Le token donne accès en lecture aux horaires : compromis normal d'un flux sans login.
