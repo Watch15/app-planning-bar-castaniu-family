@@ -46,6 +46,8 @@ app-planning-bar/
 │   ├── login.html              ← Page de connexion
 │   ├── set-password.html       ← Activation / réinitialisation du mot de passe
 │   ├── script.js               ← Logique côté patron (monolithique — voir contrainte)
+│   ├── planning.js             ← Logique côté staff (externalisée de planning.html, D-80)
+│   ├── pointage.js             ← Logique du pointage (externalisée de pointage.html, D-80)
 │   ├── style.css               ← Styles globaux
 │   ├── manifest.json           ← Manifest PWA
 │   ├── sw.js                   ← Service Worker

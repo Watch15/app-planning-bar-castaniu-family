@@ -48,6 +48,8 @@ app-templyo/
 │   ├── login.html                 ← Page de connexion (email ou téléphone)
 │   ├── set-password.html          ← Activation / réinitialisation mot de passe
 │   ├── script.js                  ← Logique patron — planning, drag & drop, modales (~6800 lignes)
+│   ├── planning.js                ← Logique staff (externalisée de planning.html)
+│   ├── pointage.js                ← Logique pointage (externalisée de pointage.html)
 │   ├── style.css                  ← Styles globaux
 │   ├── manifest.json              ← PWA manifest
 │   ├── sw.js                      ← Service Worker — cache offline + Web Push
