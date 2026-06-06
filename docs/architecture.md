@@ -58,7 +58,9 @@ app-planning-bar/
 │   │   ├── jspdf.umd.min.js        ← Export PDF (D-51)
 │   │   ├── html2canvas.min.js      ← Capture DOM pour PDF (D-51)
 │   │   └── xlsx.full.min.js        ← SheetJS — export Excel récap mensuel (D-52)
-│   └── icons/
+│   ├── favicon.ico             ← Favicon (PNG 32px, D-81)
+│   └── icons/                  ← Icônes PWA générées (#6C63FF + « T », D-81)
+│       ├── icon-72.png         ← badge notifications push
 │       ├── icon-192.png
 │       └── icon-512.png
 ├── docs/                       ← Documentation agents BMAD
