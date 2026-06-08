@@ -2148,11 +2148,7 @@ async function openJokerModal(shift, el) {
     }
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
 
-    const fmtH = h => {
-        const hh = Math.floor(h % 24).toString().padStart(2, '0');
-        const mm = Math.round((h % 1) * 60);
-        return hh + 'h' + (mm ? String(mm).padStart(2, '0') : '');
-    };
+    const fmtH = ShiftHours.fmtHourOfDay;
 
     function renderCandidatesList() {
         const cList = box.querySelector('#_jk-candidates');
@@ -3155,12 +3151,7 @@ function renderWeekGantt() {
     const wrap = document.getElementById('week-gantt');
     wrap.innerHTML = '';
 
-    const fmtH = h => {
-        const norm = h >= 24 ? h - 24 : h;
-        const hh = Math.floor(norm);
-        const mm = Math.round((norm - hh) * 60);
-        return String(hh).padStart(2, '0') + 'h' + (mm > 0 ? String(mm).padStart(2, '0') : '');
-    };
+    const fmtH = ShiftHours.fmtHourOfDay;
     const fmtRange = (s, e) => fmtH(s) + ' → ' + fmtH(e);
 
     // ── Bornes dynamiques ─────────────────────────────────────────────────────
@@ -4299,14 +4290,7 @@ async function loadRecapData() {
             return;
         }
 
-        const fmtH = h => {
-            if (h == null) return '—';
-            const totalMins = Math.round(Math.abs(h) * 60);
-            const hrs = Math.floor(totalMins / 60);
-            const mins = totalMins % 60;
-            const str = hrs + 'h' + (mins > 0 ? String(mins).padStart(2, '0') : '');
-            return h < 0 ? '−' + str : str;
-        };
+        const fmtH = h => ShiftHours.fmtDurationH(h, { nullText: '—', minus: '−' });
 
         let totalPlanned = 0, totalReal = 0, totalDays = 0;
         let hasAnyReal = false;
@@ -4442,14 +4426,7 @@ function exportRecapXlsx() {
         showToast('Biblioth\u00E8que Excel non charg\u00E9e', true);
         return;
     }
-    const fmtH = h => {
-        if (h == null) return '';
-        const sign = h < 0 ? '-' : '';
-        const totalMins = Math.round(Math.abs(h) * 60);
-        const hrs = Math.floor(totalMins / 60);
-        const mins = totalMins % 60;
-        return sign + hrs + 'h' + String(mins).padStart(2, '0');
-    };
+    const fmtH = h => ShiftHours.fmtDurationH(h, { nullText: '', minus: '-', padMinutes: true });
     const { month, estabLabel } = _recapLastMeta || {};
     const filteredOnEstab = estabLabel && estabLabel !== 'Tous';
 
@@ -4753,7 +4730,7 @@ async function loadNonAffectees() {
     const { from, to } = _reassignDateRange();
     const DAY_LONG = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
     const MONTHS   = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sep.', 'oct.', 'nov.', 'déc.'];
-    const fmtH = h => String(Math.floor(h % 24)).padStart(2, '0') + 'h' + (Math.round((h % 1) * 60) > 0 ? String(Math.round((h % 1) * 60)).padStart(2, '0') : '');
+    const fmtH = ShiftHours.fmtHourOfDay;
     const slotOrder = dispo => {
         if (dispo.type === 'midi') return [0, 0];
         if (dispo.type === 'soir') return [1, 0];
@@ -6489,12 +6466,7 @@ function renderStats() {
         return a + (end - start);
     }, 0);
     const nbStaff = displayedStaffIds.size;
-    const fmtH = h => {
-        const totalMins = Math.round(h * 60);
-        const hrs = Math.floor(totalMins / 60);
-        const mins = totalMins % 60;
-        return mins > 0 ? hrs + 'h' + String(mins).padStart(2,'0') : hrs + 'h';
-    };
+    const fmtH = h => ShiftHours.fmtDurationH(h);
     [
         { label: 'Staff planifié',    value: nbStaff,                                          sub: 'ce jour' },
         { label: 'Shifts',            value: currentShifts.length,                             sub: 'ce jour' },

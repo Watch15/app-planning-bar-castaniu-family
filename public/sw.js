@@ -1,4 +1,4 @@
-const CACHE = 'templyo-' + '1780711334691';
+const CACHE = 'templyo-' + '1780800000000';
 const STATIC = [
     '/login.html',
     '/set-password.html',

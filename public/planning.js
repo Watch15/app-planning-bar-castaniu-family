@@ -30,9 +30,7 @@ function addDays(d, n) {
 }
 
 function fmtHour(h) {
-    const hh = Math.floor(h % 24);
-    const mm = Math.round((h % 1) * 60);
-    return String(hh).padStart(2, '0') + 'h' + (mm > 0 ? String(mm).padStart(2, '0') : '');
+    return ShiftHours.fmtHourOfDay(h);
 }
 
 function fmtDuration(h) {
