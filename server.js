@@ -11,7 +11,7 @@ const helmet  = require('helmet');
 const morgan  = require('morgan');
 const {
     isValidObjectId, hashToken, normalizePhone,
-    weekStart, currentWeekStart, disposWeekStart, isAutoPublished, isDatePublished, chargeMultiplier,
+    weekStart, currentWeekStart, disposWeekStart, isAutoPublished, isDatePublished, normalizePublishDoc, chargeMultiplier,
     toDateStr,
 } = require('./lib/utils');
 
@@ -295,11 +295,34 @@ const _isAutoPublished = isAutoPublished;
 // Source unique pour les call sites « ce shift est-il sur une semaine publiée ? »
 // (à combiner avec isDatePublished, qui gère l'auto-publication). R-02.
 async function fetchPublishedWeeks() {
-    if (!db) return new Set();
+    if (!db) return new Map();
     const docs = await db.collection('settings')
-        .find({ key: { $regex: '^publish_' }, published: true }, { projection: { key: 1 } })
+        .find({ key: { $regex: '^publish_' } }, { projection: { key: 1, published: 1, establishments: 1 } })
         .toArray();
-    return new Set(docs.map(p => p.key.replace('publish_', '')));
+    // Map<lundi 'YYYY-MM-DD', 'ALL' | Set<estabId>> — cf. normalizePublishDoc (rétro-compat).
+    const map = new Map();
+    for (const doc of docs) {
+        const entry = normalizePublishDoc(doc);
+        if (entry) map.set(doc.key.replace('publish_', ''), entry);
+    }
+    return map;
+}
+
+// Établissements dont la saisie des dispos est ouverte : 'ALL' (legacy `open:true`)
+// ou un Set d'ids. `open:false`/absent ⇒ Set vide (aucun ouvert).
+function dispoOpenVenues(settings) {
+    if (!settings) return new Set();
+    if (Array.isArray(settings.open_venues)) return new Set(settings.open_venues);
+    if (settings.open === true) return 'ALL';
+    return new Set();
+}
+
+// Le staff (via ses `venues`) a-t-il accès à la saisie ? Ouvert si AU MOINS un de
+// ses établissements est ouvert (intersection venues ∩ open_venues ≠ ∅).
+function staffDispoOpen(settings, staffVenues) {
+    const open = dispoOpenVenues(settings);
+    if (open === 'ALL') return true;
+    return (Array.isArray(staffVenues) ? staffVenues : []).some(v => open.has(v));
 }
 
 // ── Rappels automatiques dispos ───────────────────────────────────────────────
@@ -1820,7 +1843,7 @@ app.get('/api/calendar/:token([a-f0-9]+).ics', checkDB, async (req, res) => {
         // flag publish_<weekStart> pour les futures) et exclure les Jokers.
         const publishedWeeks = await fetchPublishedWeeks();
         const visible = rawShifts.filter(s =>
-            !s.is_joker && s.staff_id !== '__joker__' && isDatePublished(s.date, publishedWeeks)
+            !s.is_joker && s.staff_id !== '__joker__' && isDatePublished(s.date, publishedWeeks, s.establishment_id)
         );
 
         const estabIds = [...new Set(visible.map(s => s.establishment_id))];
@@ -1898,7 +1921,7 @@ app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
         if (!is_joker && staff_id !== '__joker__') {
             (async () => {
                 try {
-                    const isPublished = isDatePublished(date, await fetchPublishedWeeks());
+                    const isPublished = isDatePublished(date, await fetchPublishedWeeks(), establishment_id);
                     if (isPublished) {
                         const estabDoc  = await db.collection('establishments').findOne({ id: establishment_id }) || {};
                         const estabName = estabDoc.name || establishment_id;
@@ -2077,7 +2100,7 @@ app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
                 async () => {
                     // B-10 : pas de push si le shift est dans le passé
                     if (capturedDate < toDateStr(new Date())) return;
-                    const isPublished = isDatePublished(capturedDate, await fetchPublishedWeeks());
+                    const isPublished = isDatePublished(capturedDate, await fetchPublishedWeeks(), capturedEstab);
                     if (!isPublished) return;
                     // Relire les horaires finaux depuis la base (après tous les resizes)
                     const finalShift = await db.collection('shifts').findOne({ _id: existing._id });
@@ -2128,7 +2151,7 @@ app.delete('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
         if (!existing.is_joker && existing.staff_id && existing.staff_id !== '__joker__') {
             (async () => {
                 try {
-                    const isPublished = isDatePublished(existing.date, await fetchPublishedWeeks());
+                    const isPublished = isDatePublished(existing.date, await fetchPublishedWeeks(), existing.establishment_id);
                     if (!isPublished) return;
                     const estabDoc  = await db.collection('establishments').findOne({ id: existing.establishment_id }) || {};
                     const estabName = estabDoc.name || existing.establishment_id;
@@ -2252,12 +2275,16 @@ app.get('/api/dispo-settings', checkDB, requireAuth, async (req, res) => {
 
         const forceOpenStaff = Array.isArray(settings.force_open_staff) ? settings.force_open_staff : [];
         const staffForceOpen = staffId ? forceOpenStaff.includes(staffId) : false;
+        // open : ouvert POUR CE STAFF (≥1 venue ouvert). open_venues : pour l'UI patron.
+        const staffOpen = staffDispoOpen(settings, staffDoc ? staffDoc.venues : []);
+        const openVenuesNorm = dispoOpenVenues(settings);
         res.json({
-            open: settings.open,
+            open: staffOpen,
+            open_venues: openVenuesNorm === 'ALL' ? 'ALL' : [...openVenuesNorm],
             message: settings.message,
             deadline: deadlineLocalIso,
             deadlinePassed: effectiveDeadlinePassed,
-            canSubmit: staffCanSubmit && settings.open && (!effectiveDeadlinePassed || forceOpen || staffForceOpen),
+            canSubmit: staffCanSubmit && staffOpen && (!effectiveDeadlinePassed || forceOpen || staffForceOpen),
             staffCanSubmit,
             force_open: forceOpen,
             force_open_staff: forceOpenStaff,
@@ -2286,9 +2313,21 @@ app.patch('/api/dispo-settings/force-open-staff', checkDB, requirePatron, async 
 });
 
 app.patch('/api/dispo-settings', checkDB, requirePatron, async (req, res) => {
-    const { open, message, force_open, custom_deadline, open_day } = req.body;
+    const { open, open_venues, message, force_open, custom_deadline, open_day } = req.body;
     try {
-        const update = { key: 'dispo', open: !!open, message: message || null, force_open: !!force_open };
+        // Ne mettre à jour que les champs fournis (le toggle rapide n'envoie que `open`).
+        const update = { key: 'dispo' };
+        if (open_venues !== undefined) {
+            // Source de vérité par établissement.
+            update.open_venues = open_venues === 'ALL' ? 'ALL' : (Array.isArray(open_venues) ? open_venues : []);
+            update.open = update.open_venues === 'ALL' ? true : update.open_venues.length > 0;
+        } else if (open !== undefined) {
+            // Raccourci tout/rien (rétro-compat) : aligne open_venues sur le booléen.
+            update.open = !!open;
+            update.open_venues = open ? 'ALL' : [];
+        }
+        if (message !== undefined) update.message = message || null;
+        if (force_open !== undefined) update.force_open = !!force_open;
         if (custom_deadline !== undefined) update.custom_deadline = custom_deadline || null;
         if (open_day !== undefined) update.open_day = (open_day !== null && open_day !== '') ? parseInt(open_day) : null;
         await db.collection('settings').updateOne(
@@ -2445,7 +2484,9 @@ app.post('/api/dispos', checkDB, requireAuth, async (req, res) => {
         return res.status(403).json({ error: 'Tu n\'es pas autorisé à envoyer des disponibilités.' });
     const settings = await db.collection('settings').findOne({ key: 'dispo' }) || { open: true };
     const now = new Date();
-    if (!settings.open) return res.status(403).json({ error: 'La saisie des disponibilités est fermée.' });
+    // Ouvert pour ce staff ssi au moins un de ses établissements (venues) est ouvert.
+    if (!staffDispoOpen(settings, staffDoc ? staffDoc.venues : []))
+        return res.status(403).json({ error: 'La saisie des disponibilités est fermée pour tes établissements.' });
     const effectiveDeadline = computeEffectiveDeadline(settings.custom_deadline || null, now);
     const forceOpenStaff = Array.isArray(settings.force_open_staff) ? settings.force_open_staff : [];
     const staffForceOpen = forceOpenStaff.includes(staffId);
@@ -3095,48 +3136,92 @@ app.delete('/api/shift-swaps/:id', checkDB, requireAuth, async (req, res) => {
 
 // ── Publication du planning ───────────────────────────────────────────────────
 
-// GET statut publication d'une semaine
+// Dernier jour (dimanche) de la semaine du lundi `weekStartStr`, en 'YYYY-MM-DD'.
+function weekEndStr(weekStartStr) {
+    const d = new Date(weekStartStr + 'T12:00:00');
+    d.setDate(d.getDate() + 6);
+    return toDateStr(d);
+}
+
+// GET statut publication d'une semaine.
+// - staff        → { published, auto } : publié = le staff a ≥1 shift cette semaine
+//                  dans un établissement publié (basé sur les SHIFTS, pas sur venues).
+// - patron/dir.  → { auto, establishments } : 'ALL' ou liste des établissements publiés.
 app.get('/api/publish/:weekStart', checkDB, requireAuth, async (req, res) => {
+    const weekStart = req.params.weekStart;
     try {
-        // La semaine en cours et les semaines passées sont automatiquement publiées
-        if (_isAutoPublished(req.params.weekStart)) return res.json({ published: true, auto: true });
-        const pub = await db.collection('settings').findOne({ key: 'publish_' + req.params.weekStart });
-        res.json({ published: !!(pub && pub.published) });
+        const auto = _isAutoPublished(weekStart);
+        if (req.session.user.role === 'staff') {
+            if (auto) return res.json({ published: true, auto: true });
+            const staffId = req.session.user.staff_id;
+            const pub = normalizePublishDoc(await db.collection('settings').findOne({ key: 'publish_' + weekStart }));
+            if (!pub || !staffId) return res.json({ published: false, auto: false });
+            const myShifts = await db.collection('shifts')
+                .find(
+                    { staff_id: staffId, date: { $gte: weekStart, $lte: weekEndStr(weekStart) }, is_joker: { $ne: true } },
+                    { projection: { establishment_id: 1 } }
+                ).toArray();
+            const published = myShifts.some(s => pub === 'ALL' || pub.has(s.establishment_id));
+            return res.json({ published, auto: false });
+        }
+        // Patron / directeur / établissement → liste des établissements publiés.
+        if (auto) return res.json({ auto: true, establishments: 'ALL' });
+        const pub = normalizePublishDoc(await db.collection('settings').findOne({ key: 'publish_' + weekStart }));
+        const establishments = pub === 'ALL' ? 'ALL' : (pub ? [...pub] : []);
+        res.json({ auto: false, establishments });
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-// PATCH publier/dépublier une semaine (patron)
+// PATCH publier/dépublier une semaine pour un ensemble d'établissements (patron).
+// Body : { establishments: [estabId…] | 'ALL' }  (ensemble cible complet, idempotent).
+// Rétro-compat : { published: true|false } → 'ALL' | [].
 app.patch('/api/publish/:weekStart', checkDB, requirePatron, async (req, res) => {
-    const { published } = req.body;
     const weekStart = req.params.weekStart;
+    let establishments = req.body.establishments;
+    if (establishments === undefined && typeof req.body.published === 'boolean') {
+        establishments = req.body.published ? 'ALL' : [];
+    }
+    if (establishments !== 'ALL' && !Array.isArray(establishments)) {
+        return res.status(400).json({ error: 'establishments (tableau ou "ALL") requis' });
+    }
     try {
+        // État précédent — pour ne notifier QUE les établissements nouvellement publiés.
+        const prev = normalizePublishDoc(await db.collection('settings').findOne({ key: 'publish_' + weekStart }));
+
         await db.collection('settings').updateOne(
             { key: 'publish_' + weekStart },
-            { $set: { key: 'publish_' + weekStart, published: !!published, updated_at: new Date() } },
+            { $set:   { key: 'publish_' + weekStart, establishments, updated_at: new Date() },
+              $unset: { published: '' } },   // retire le champ legacy global
             { upsert: true }
         );
 
-        // ── Notifications push à la publication ───────────────────────────────
-        if (published) {
-            // Récupérer tous les staff_ids qui ont un shift cette semaine (hors jokers)
-            const weekEnd = (() => {
-                const d = new Date(weekStart + 'T12:00:00');
-                d.setDate(d.getDate() + 6);
-                const y = d.getFullYear();
-                const m = String(d.getMonth() + 1).padStart(2, '0');
-                const j = String(d.getDate()).padStart(2, '0');
-                return y + '-' + m + '-' + j;
-            })();
+        // ── Push aux staff des établissements NOUVELLEMENT publiés ─────────────
+        let estabFilter;        // undefined => tous les établissements (ALL depuis rien)
+        let notify = true;
+        if (establishments === 'ALL') {
+            if (prev === 'ALL') notify = false;                  // déjà tout publié
+            else if (prev) estabFilter = { $nin: [...prev] };    // tous sauf déjà publiés
+        } else {
+            if (prev === 'ALL') notify = false;                  // ALL → sous-ensemble = dépublication
+            else {
+                const prevSet = prev || new Set();
+                const newly = establishments.filter(e => !prevSet.has(e));
+                if (!newly.length) notify = false;
+                else estabFilter = { $in: newly };
+            }
+        }
 
-            // B-10 : ne notifier que les staff ayant au moins un shift dans la semaine
-            // dont la date est >= aujourd'hui (les semaines passées ne déclenchent rien).
+        if (notify) {
+            // B-10 : ne notifier que les shifts dont la date est >= aujourd'hui.
             const today = toDateStr(new Date());
             const lowerBound = weekStart > today ? weekStart : today;
-            db.collection('shifts').distinct('staff_id', {
-                date: { $gte: lowerBound, $lte: weekEnd },
+            const shiftQuery = {
+                date: { $gte: lowerBound, $lte: weekEndStr(weekStart) },
                 staff_id: { $ne: '__joker__' },
                 is_joker: { $ne: true },
-            }).then(staffIds => {
+            };
+            if (estabFilter) shiftQuery.establishment_id = estabFilter;
+            db.collection('shifts').distinct('staff_id', shiftQuery).then(staffIds => {
                 if (!staffIds.length) return;
                 return sendPushToStaff(staffIds, {
                     title:   '📅 Planning disponible',
@@ -3148,7 +3233,13 @@ app.patch('/api/publish/:weekStart', checkDB, requirePatron, async (req, res) =>
             }).catch(() => { /* silencieux — ne pas bloquer */ });
         }
 
-        res.json({ message: published ? 'Planning publié' : 'Planning dépublié' });
+        const n = establishments === 'ALL' ? null : establishments.length;
+        res.json({
+            message: establishments === 'ALL' ? 'Planning publié (tous les établissements)'
+                   : n ? ('Planning publié (' + n + ' établissement' + (n > 1 ? 's' : '') + ')')
+                   : 'Planning dépublié',
+            establishments,
+        });
         touchLastUpdated();
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });

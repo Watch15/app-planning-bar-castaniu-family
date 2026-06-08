@@ -1,175 +1,175 @@
 {
-  "C:\\Users\\pierr\\app-planning-bar\\lib\\utils.js": {
+  "lib/utils.js": {
     "mtime": 1780744601.147338,
     "ast_hash": "97bcfa624f88c0cee8ccfaab14138aa9",
     "semantic_hash": "97bcfa624f88c0cee8ccfaab14138aa9"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\package.json": {
+  "package.json": {
     "mtime": 1780744601.1493392,
     "ast_hash": "8c2dc739b82d2a7fa992514600591b0b",
     "semantic_hash": "8c2dc739b82d2a7fa992514600591b0b"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\lib\\shift-hours.js": {
-    "mtime": 1780744601.1593432,
-    "ast_hash": "efdebd9c00294a2c793f38f36a362cf5",
-    "semantic_hash": "efdebd9c00294a2c793f38f36a362cf5"
+  "public/lib/shift-hours.js": {
+    "mtime": 1780907201.2000046,
+    "ast_hash": "d47707d7438481184b98b47d3b59cde4",
+    "semantic_hash": ""
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\lib\\week.js": {
+  "public/lib/week.js": {
     "mtime": 1780744601.160339,
     "ast_hash": "b57d39851ee6229a0941ae205c32077b",
     "semantic_hash": "b57d39851ee6229a0941ae205c32077b"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\manifest.json": {
+  "public/manifest.json": {
     "mtime": 1777039275.7982452,
     "ast_hash": "ff84def9ff25b1b84207ad1d15571fba",
     "semantic_hash": "ff84def9ff25b1b84207ad1d15571fba"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\planning.js": {
-    "mtime": 1780744601.170342,
-    "ast_hash": "82b0a7d476c2b07ec56cedb2873ffe08",
-    "semantic_hash": "82b0a7d476c2b07ec56cedb2873ffe08"
+  "public/planning.js": {
+    "mtime": 1780907227.9733021,
+    "ast_hash": "504bb081a6dcedb774460275a9cc8319",
+    "semantic_hash": ""
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\pointage.js": {
-    "mtime": 1780744601.1753404,
-    "ast_hash": "e64303ab5edcb3d25c6f33cf05fc2089",
-    "semantic_hash": "e64303ab5edcb3d25c6f33cf05fc2089"
+  "public/pointage.js": {
+    "mtime": 1780907268.0136163,
+    "ast_hash": "abd8dda97a055550ff4ce79402463fab",
+    "semantic_hash": ""
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\script.js": {
-    "mtime": 1780744601.179345,
-    "ast_hash": "99429f3e75c575945f853135fd7d3939",
-    "semantic_hash": "99429f3e75c575945f853135fd7d3939"
+  "public/script.js": {
+    "mtime": 1780907255.6826658,
+    "ast_hash": "0366b1d0e5a58fe79a1c308b7d712526",
+    "semantic_hash": ""
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\sw.js": {
-    "mtime": 1780744601.1813395,
-    "ast_hash": "0efcd380a84e9f5e065f989d7dea5c38",
-    "semantic_hash": "0efcd380a84e9f5e065f989d7dea5c38"
+  "public/sw.js": {
+    "mtime": 1780907287.2338617,
+    "ast_hash": "e915f2a811739beee5597d31cdead293",
+    "semantic_hash": ""
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\vendor\\html2canvas.min.js": {
+  "public/vendor/html2canvas.min.js": {
     "mtime": 1779355180.3031595,
     "ast_hash": "d0742edd178c84f1a681c5f61d871359",
     "semantic_hash": "d0742edd178c84f1a681c5f61d871359"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\vendor\\jspdf.umd.min.js": {
+  "public/vendor/jspdf.umd.min.js": {
     "mtime": 1779355180.3051524,
     "ast_hash": "1355cd3d9178829ce94b700a61e1fd23",
     "semantic_hash": "1355cd3d9178829ce94b700a61e1fd23"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\vendor\\xlsx.full.min.js": {
+  "public/vendor/xlsx.full.min.js": {
     "mtime": 1779355180.3101563,
     "ast_hash": "0c77a2658dfe38d9f1303eaa21341675",
     "semantic_hash": "0c77a2658dfe38d9f1303eaa21341675"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\scripts\\create-patron.js": {
+  "scripts/create-patron.js": {
     "mtime": 1773841180.1162362,
     "ast_hash": "79533f952eecad61e658ca100330d318",
     "semantic_hash": "79533f952eecad61e658ca100330d318"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\scripts\\init-db.js": {
+  "scripts/init-db.js": {
     "mtime": 1779290849.8055508,
     "ast_hash": "d13649874826899f154076937aa808ae",
     "semantic_hash": "d13649874826899f154076937aa808ae"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\scripts\\seed.js": {
+  "scripts/seed.js": {
     "mtime": 1773830626.2751255,
     "ast_hash": "a06d5a6e2e883b2b4a3d570fff6a9600",
     "semantic_hash": "a06d5a6e2e883b2b4a3d570fff6a9600"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\server.js": {
+  "server.js": {
     "mtime": 1780744601.184339,
     "ast_hash": "cc013c894368f4ce23b706fe3036589e",
     "semantic_hash": "cc013c894368f4ce23b706fe3036589e"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\tests\\routes.test.js": {
+  "tests/routes.test.js": {
     "mtime": 1780744601.1853397,
     "ast_hash": "dca1a6f6ccc74b2564b47f2e721fc3dd",
     "semantic_hash": "dca1a6f6ccc74b2564b47f2e721fc3dd"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\tests\\shift-hours.test.js": {
-    "mtime": 1780744601.186341,
-    "ast_hash": "272ff765d7aa55454bcb8720bd00d49a",
-    "semantic_hash": "272ff765d7aa55454bcb8720bd00d49a"
+  "tests/shift-hours.test.js": {
+    "mtime": 1780907217.994231,
+    "ast_hash": "b691fcfb0c440329ce9d783406820cbf",
+    "semantic_hash": ""
   },
-  "C:\\Users\\pierr\\app-planning-bar\\tests\\utils.test.js": {
+  "tests/utils.test.js": {
     "mtime": 1780744601.1883416,
     "ast_hash": "b016abc955bc4681b088e36bd9f51f8c",
     "semantic_hash": "b016abc955bc4681b088e36bd9f51f8c"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\tests\\week.test.js": {
+  "tests/week.test.js": {
     "mtime": 1780744601.189338,
     "ast_hash": "1bcc0bc98038e58b8a2636c98c88f892",
     "semantic_hash": "1bcc0bc98038e58b8a2636c98c88f892"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\.github\\workflows\\ci.yml": {
+  ".github/workflows/ci.yml": {
     "mtime": 1776945010.2761424,
     "ast_hash": "1125c339af850aed2ea4b11d33fb7942",
     "semantic_hash": "1125c339af850aed2ea4b11d33fb7942"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\README.md": {
+  "README.md": {
     "mtime": 1780744601.1423404,
     "ast_hash": "be4636952c6133048fa6a440bd851295",
     "semantic_hash": "be4636952c6133048fa6a440bd851295"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\docs\\architecture.md": {
+  "docs/architecture.md": {
     "mtime": 1780744601.1443412,
     "ast_hash": "5dba4cbb3a989dfa2fbc823ec30cec2d",
     "semantic_hash": "5dba4cbb3a989dfa2fbc823ec30cec2d"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\docs\\backlog.md": {
+  "docs/backlog.md": {
     "mtime": 1780744601.14634,
     "ast_hash": "eb3a5abaa1f82d486874043e2b4222df",
     "semantic_hash": "eb3a5abaa1f82d486874043e2b4222df"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\docs\\prd.md": {
+  "docs/prd.md": {
     "mtime": 1780391369.7260287,
     "ast_hash": "72966d04d9b55dd4d35e278ba5576492",
     "semantic_hash": "72966d04d9b55dd4d35e278ba5576492"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\docs\\ux-design.md": {
+  "docs/ux-design.md": {
     "mtime": 1780391369.7270286,
     "ast_hash": "b08e527857ae0b58a84a24cdd1f2fd8a",
     "semantic_hash": "b08e527857ae0b58a84a24cdd1f2fd8a"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\index.html": {
-    "mtime": 1780744601.156342,
-    "ast_hash": "4d52d084bd919d70ce3ac7193809e0b4",
-    "semantic_hash": "4d52d084bd919d70ce3ac7193809e0b4"
+  "public/index.html": {
+    "mtime": 1780907281.1742876,
+    "ast_hash": "7d1d8b83e325828e3802b3702dabad99",
+    "semantic_hash": ""
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\login.html": {
+  "public/login.html": {
     "mtime": 1780744601.1623406,
     "ast_hash": "6c7d73ec5c04ddf393010989f26e5cd8",
     "semantic_hash": "6c7d73ec5c04ddf393010989f26e5cd8"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\performance.html": {
+  "public/performance.html": {
     "mtime": 1780744601.1653397,
     "ast_hash": "32a941a19f5fd9d8e8de28615a361139",
     "semantic_hash": "32a941a19f5fd9d8e8de28615a361139"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\planning.html": {
+  "public/planning.html": {
     "mtime": 1780744601.16634,
     "ast_hash": "b5cfdd2b93998240f0c62f0964aba37e",
     "semantic_hash": "b5cfdd2b93998240f0c62f0964aba37e"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\pointage.html": {
-    "mtime": 1780744601.1723392,
-    "ast_hash": "38b6e1e1ddf91ff06361b9d780aaef6a",
-    "semantic_hash": "38b6e1e1ddf91ff06361b9d780aaef6a"
+  "public/pointage.html": {
+    "mtime": 1780907282.2681887,
+    "ast_hash": "98f90c0c2997ff395f58d784a53f5ead",
+    "semantic_hash": ""
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\politique-confidentialite.html": {
+  "public/politique-confidentialite.html": {
     "mtime": 1777644144.1339507,
     "ast_hash": "412ddfda21af6b43077481acd7433bbf",
     "semantic_hash": "412ddfda21af6b43077481acd7433bbf"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\icons\\icon-192.png": {
+  "public/icons/icon-192.png": {
     "mtime": 1780744601.1523397,
     "ast_hash": "aad6ce51026b3128424441008deaff45",
     "semantic_hash": "aad6ce51026b3128424441008deaff45"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\icons\\icon-512.png": {
+  "public/icons/icon-512.png": {
     "mtime": 1780744601.1533425,
     "ast_hash": "f62ded41adb084b0bfaca529ea4c3832",
     "semantic_hash": "f62ded41adb084b0bfaca529ea4c3832"
   },
-  "C:\\Users\\pierr\\app-planning-bar\\public\\icons\\icon-72.png": {
+  "public/icons/icon-72.png": {
     "mtime": 1780744601.1543424,
     "ast_hash": "e61fcb319e18b4f1e318234f5a48f8df",
     "semantic_hash": "e61fcb319e18b4f1e318234f5a48f8df"

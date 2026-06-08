@@ -751,56 +751,115 @@ async function loadPublishButton(dateStr) {
     try {
         const res  = await fetch('/api/publish/' + weekStart, { credentials: 'include' });
         const data = await res.json();
-        updatePublishBtn(btn, data.published, weekStart);
+        renderPublishControl(btn, data, weekStart);
     } catch { }
 }
 
-function updatePublishBtn(btn, published, weekStart) {
+// Établissements visibles côté patron (filtrés par le groupe courant s'il est actif).
+function _publishEstabs() {
+    return currentGroup
+        ? allEstablishments.filter(e => (e.groups || []).includes(currentGroup))
+        : allEstablishments.slice();
+}
+
+function renderPublishControl(btn, data, weekStart) {
+    const estabs = _publishEstabs();
+    const auto   = !!data.auto;
+    // Ensemble publié courant → Set d'ids. 'ALL'/auto = tous les établissements visibles.
+    const pubSet = (auto || data.establishments === 'ALL')
+        ? new Set(estabs.map(e => e.id))
+        : new Set(Array.isArray(data.establishments) ? data.establishments : []);
+    btn.dataset.auto = auto ? '1' : '';
+    updatePublishBtnLabel(btn, pubSet.size, estabs.length);
+    btn.onclick = (ev) => {
+        ev.stopPropagation();
+        openPublishPopover(btn, weekStart, estabs, pubSet, auto);
+    };
+}
+
+function updatePublishBtnLabel(btn, nPublished, total) {
     const label = btn.dataset.weekLabel || 'la semaine';
     const nextMonday = toDateStr(addDays(getMondayOf(new Date()), 7));
     const isNextWeek = btn.dataset.weekStart === nextMonday;
-
-    if (published) {
-        btn.textContent       = '✓ Publié — ' + label;
-        btn.style.background  = '#eafaf1';
-        btn.style.borderColor = '#2ecc71';
-        btn.style.color       = '#27ae60';
-        btn.title             = '';
+    btn.title = '';
+    if (total > 0 && nPublished >= total) {
+        btn.textContent = '✓ Publié — ' + label;
+        btn.style.background = '#eafaf1'; btn.style.borderColor = '#2ecc71'; btn.style.color = '#27ae60';
+    } else if (nPublished > 0) {
+        btn.textContent = '◑ Publié ' + nPublished + '/' + total + ' — ' + label;
+        btn.style.background = '#fef9e7'; btn.style.borderColor = '#f39c12'; btn.style.color = '#d68910';
     } else {
-        btn.textContent       = 'Publier — ' + label;
+        btn.textContent = 'Publier — ' + label;
         btn.style.background  = isNextWeek ? '#f0effe' : '#fff9e6';
         btn.style.borderColor = isNextWeek ? '#7F77DD'  : '#f39c12';
         btn.style.color       = isNextWeek ? '#534AB7'  : '#d68910';
-        btn.title             = isNextWeek ? '' : 'Le staff consulte la semaine prochaine — navigue sur la semaine du ' + nextMonday + ' pour la leur publier';
+        btn.title = isNextWeek ? '' : 'Le staff consulte la semaine prochaine — navigue sur la semaine du ' + nextMonday + ' pour la leur publier';
     }
-    btn.onclick = async () => {
-        // Si le patron n'est pas sur la semaine prochaine, lui proposer d'y aller
-        if (!isNextWeek && !published) {
-            showConfirm(
-                'Le staff consulte la semaine prochaine (<strong>' + nextMonday + '</strong>).<br><br>' +
-                'Tu es actuellement sur <strong>' + label + '</strong>.<br><br>' +
-                'Veux-tu publier <strong>cette semaine-ci</strong> quand même ?',
-                async () => doPublish(),
-            );
-            return;
-        }
-        await doPublish();
-    };
+}
 
-    async function doPublish() {
-        const newState = !published;
+function openPublishPopover(btn, weekStart, estabs, pubSet, auto) {
+    document.getElementById('_publish-pop')?.remove();
+    if (auto) { showToast('Cette semaine est publiée automatiquement'); return; }
+    // Un seul établissement → bascule directe tout/rien (pas de popover).
+    if (estabs.length <= 1) {
+        patchPublish(weekStart, pubSet.size === 0 ? 'ALL' : [], btn, estabs.length);
+        return;
+    }
+
+    const nextMonday = toDateStr(addDays(getMondayOf(new Date()), 7));
+    const isNextWeek = weekStart === nextMonday;
+    const pop = document.createElement('div');
+    pop.id = '_publish-pop';
+    pop.style.cssText = 'position:absolute;z-index:9999;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.16);padding:12px;min-width:230px;font-size:13px';
+    const rect = btn.getBoundingClientRect();
+    pop.style.top  = (window.scrollY + rect.bottom + 6) + 'px';
+    pop.style.left = (window.scrollX + Math.max(8, rect.left)) + 'px';
+    const rows = estabs.map(e =>
+        '<label style="display:flex;align-items:center;gap:8px;padding:5px 2px;cursor:pointer">' +
+            '<input type="checkbox" class="_pub-estab" value="' + e.id + '"' + (pubSet.has(e.id) ? ' checked' : '') + '>' +
+            '<span>' + escapeHtml(e.name || e.id) + '</span>' +
+        '</label>').join('');
+    pop.innerHTML =
+        '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Publier — ' + (btn.dataset.weekLabel || '') + '</div>' +
+        (isNextWeek ? '' : '<div style="font-size:10px;color:#e67e22;margin-bottom:8px">⚠️ Le staff consulte la semaine prochaine (' + nextMonday + ').</div>') +
+        rows +
+        '<div style="display:flex;gap:6px;margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px">' +
+            '<button id="_pub-all"  style="flex:1;padding:6px;background:#1a1a2e;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer">Tout publier</button>' +
+            '<button id="_pub-none" style="flex:1;padding:6px;background:#fff;color:#c0392b;border:1px solid #e0e0e0;border-radius:6px;font-size:12px;cursor:pointer">Tout dépublier</button>' +
+        '</div>';
+    document.body.appendChild(pop);
+    pop.addEventListener('click', ev => ev.stopPropagation());
+
+    const apply = () => {
+        const checked = [...pop.querySelectorAll('._pub-estab:checked')].map(c => c.value);
+        const payload = checked.length === estabs.length ? 'ALL' : checked;
+        patchPublish(weekStart, payload, btn, estabs.length);
+    };
+    pop.querySelectorAll('._pub-estab').forEach(c => c.addEventListener('change', apply));
+    pop.querySelector('#_pub-all').addEventListener('click', () => {
+        pop.querySelectorAll('._pub-estab').forEach(c => { c.checked = true; }); apply();
+    });
+    pop.querySelector('#_pub-none').addEventListener('click', () => {
+        pop.querySelectorAll('._pub-estab').forEach(c => { c.checked = false; }); apply();
+    });
+    setTimeout(() => document.addEventListener('click', function _close() {
+        pop.remove(); document.removeEventListener('click', _close);
+    }, { once: true }), 0);
+}
+
+async function patchPublish(weekStart, establishments, btn, total) {
+    try {
         const res = await fetch('/api/publish/' + weekStart, {
             credentials: 'include', method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ published: newState }),
+            body: JSON.stringify({ establishments }),
         });
         if (!res.ok) { showToast('Erreur lors de la publication', true); return; }
-        published = newState;
-        updatePublishBtn(btn, newState, weekStart);
-        showToast(newState
-            ? 'Planning publié — le staff voit ' + (btn.dataset.weekLabel || 'la semaine')
-            : 'Planning dépublié');
-    }
+        const data = await res.json();
+        const n = establishments === 'ALL' ? total : establishments.length;
+        updatePublishBtnLabel(btn, n, total);
+        showToast(data.message || 'Mis à jour');
+    } catch { showToast('Erreur lors de la publication', true); }
 }
 
 document.getElementById('day-detail-close').addEventListener('click', () => {
@@ -4878,7 +4937,10 @@ async function _isWeekPublished(weekStartStr) {
     const res = await fetch('/api/publish/' + weekStartStr, { credentials: 'include' });
     if (!res.ok) return false;
     const data = await res.json();
-    return !!(data.published || data.auto);
+    // Nouvelle forme patron : { auto, establishments } ; rétro-compat : { published }.
+    return !!(data.published || data.auto
+        || data.establishments === 'ALL'
+        || (Array.isArray(data.establishments) && data.establishments.length > 0));
 }
 
 // Même logique que _disposWeekStart côté serveur : semaine suivante.
@@ -5661,7 +5723,12 @@ async function loadDispoControl() {
         const toggle = document.getElementById('dispo-toggle');
         const label  = document.getElementById('dispo-toggle-label');
         if (!toggle || !label) return;
-        toggle.checked = settings.open;
+        // Ouverture par établissement : settings.open_venues = 'ALL' | [ids].
+        const venuesAll    = settings.open_venues === 'ALL';
+        const openVenueSet = new Set(Array.isArray(settings.open_venues) ? settings.open_venues : []);
+        const anyOpen      = venuesAll || openVenueSet.size > 0;
+        const multiEstab   = allEstablishments.length > 1;
+        toggle.checked = anyOpen;
 
         function syncToggleUI(on) {
             label.textContent = on ? 'Dispos ouvertes' : 'Saisie dispos';
@@ -5670,7 +5737,7 @@ async function loadDispoControl() {
             if (track) track.style.background = on ? 'var(--success)' : 'var(--dark-border)';
             if (thumb) thumb.style.transform   = on ? 'translateX(14px)' : 'translateX(0)';
         }
-        syncToggleUI(settings.open);
+        syncToggleUI(anyOpen);
 
         const panel = document.getElementById('dispo-advanced-panel');
         if (!panel) return;
@@ -5705,6 +5772,19 @@ async function loadDispoControl() {
             cutoffOpenOpts += '<option value="' + h + '"' + (cutoffOpenHourVal === h ? ' selected' : '') + '>' + h + 'h00</option>';
         }
 
+        // Saisie ouverte par établissement (affiché uniquement en multi-établissement).
+        const venuesSection = multiEstab
+            ? '<div style="margin-bottom:10px;border-top:1px solid #f0f0f0;padding-top:10px">' +
+                  '<div style="font-size:11px;color:#aaa;margin-bottom:6px">Établissements — saisie ouverte</div>' +
+                  allEstablishments.map(e =>
+                      '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#555;padding:3px 2px;cursor:pointer">' +
+                          '<input type="checkbox" class="_dispo-venue" value="' + e.id + '"' + ((venuesAll || openVenueSet.has(e.id)) ? ' checked' : '') + '>' +
+                          escapeHtml(e.name || e.id) +
+                      '</label>').join('') +
+                  '<div style="font-size:10px;color:#bbb;margin-top:3px">Un staff peut saisir si au moins un de ses établissements est coché</div>' +
+              '</div>'
+            : '';
+
         panel.innerHTML =
             '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Paramètres dispos</div>' +
             '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#555;margin-bottom:8px;cursor:pointer">' +
@@ -5730,6 +5810,7 @@ async function loadDispoControl() {
                 '</select>' +
                 '<div style="font-size:10px;color:#bbb;margin-top:3px">Jour où le rappel d\'ouverture est envoyé à 10h</div>' +
             '</div>' +
+            venuesSection +
             '<div style="margin-bottom:10px;border-top:1px solid #f0f0f0;padding-top:10px">' +
                 '<div style="font-size:11px;color:#aaa;margin-bottom:6px">Fenêtre de saisie pointage</div>' +
                 '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
@@ -5779,11 +5860,22 @@ async function loadDispoControl() {
                     pad(target.getHours()) + ':' +
                     pad(target.getMinutes()) + ':00';
             }
+            // Multi-établissement → open_venues depuis les cases ; sinon raccourci global.
+            let dispoBody;
+            if (multiEstab) {
+                const checkedVenues = [...document.querySelectorAll('._dispo-venue:checked')].map(c => c.value);
+                const openVenuesOut = checkedVenues.length === allEstablishments.length ? 'ALL' : checkedVenues;
+                dispoBody = { open_venues: openVenuesOut, force_open: forceOpen, custom_deadline: customDeadline, open_day: document.getElementById('dispo-open-day').value };
+                toggle.checked = checkedVenues.length > 0;
+                syncToggleUI(checkedVenues.length > 0);
+            } else {
+                dispoBody = { open: toggle.checked, force_open: forceOpen, custom_deadline: customDeadline, open_day: document.getElementById('dispo-open-day').value };
+            }
             await Promise.all([
                 fetch('/api/dispo-settings', {
                     credentials: 'include', method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ open: toggle.checked, force_open: forceOpen, custom_deadline: customDeadline, open_day: document.getElementById('dispo-open-day').value }),
+                    body: JSON.stringify(dispoBody),
                 }),
                 fetch('/api/pointage-settings', {
                     credentials: 'include', method: 'PATCH',
@@ -5796,13 +5888,18 @@ async function loadDispoControl() {
         });
 
         toggle.onchange = async () => {
+            const on = toggle.checked;
+            // Raccourci tout/rien : ouvre ou ferme TOUS les établissements.
             await fetch('/api/dispo-settings', {
                 credentials: 'include', method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ open: toggle.checked }),
+                body: JSON.stringify({ open_venues: on ? 'ALL' : [] }),
             });
-            syncToggleUI(toggle.checked);
-            showToast(toggle.checked ? 'Saisie des dispos ouverte' : 'Saisie des dispos fermée');
+            syncToggleUI(on);
+            document.querySelectorAll('._dispo-venue').forEach(c => { c.checked = on; });
+            showToast(on
+                ? (multiEstab ? 'Saisie ouverte (tous les établissements)' : 'Saisie des dispos ouverte')
+                : 'Saisie des dispos fermée');
         };
     } catch { }
 }

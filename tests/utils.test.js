@@ -10,6 +10,7 @@ const {
     disposWeekStart,
     isAutoPublished,
     isDatePublished,
+    normalizePublishDoc,
     chargeMultiplier,
 } = require('../lib/utils');
 
@@ -247,38 +248,81 @@ test('isAutoPublished : semaine future = false', () => {
     assert.equal(isAutoPublished('2026-06-01', now), false); // mois suivant
 });
 
-// ── isDatePublished ──────────────────────────────────────────────────────────
+// ── normalizePublishDoc ──────────────────────────────────────────────────────
 
-test('isDatePublished : semaine en cours/passée = true même avec set vide', () => {
+test('normalizePublishDoc : doc absent → null (rien publié)', () => {
+    assert.equal(normalizePublishDoc(null), null);
+    assert.equal(normalizePublishDoc(undefined), null);
+});
+
+test('normalizePublishDoc : legacy { published:true } sans establishments → ALL', () => {
+    assert.equal(normalizePublishDoc({ published: true }), 'ALL');
+});
+
+test('normalizePublishDoc : establishments:"ALL" → ALL', () => {
+    assert.equal(normalizePublishDoc({ establishments: 'ALL' }), 'ALL');
+});
+
+test('normalizePublishDoc : tableau d\'établissements → Set', () => {
+    const r = normalizePublishDoc({ establishments: ['A', 'B'] });
+    assert.ok(r instanceof Set);
+    assert.equal(r.has('A'), true);
+    assert.equal(r.has('B'), true);
+    assert.equal(r.has('C'), false);
+});
+
+test('normalizePublishDoc : tableau vide → Set vide (rien publié)', () => {
+    const r = normalizePublishDoc({ establishments: [] });
+    assert.ok(r instanceof Set);
+    assert.equal(r.size, 0);
+});
+
+// ── isDatePublished (par établissement) ──────────────────────────────────────
+
+test('isDatePublished : semaine en cours/passée = true pour tout établissement', () => {
     const now = new Date(2026, 4, 13);            // mercredi 13 mai
-    assert.equal(isDatePublished('2026-05-15', new Set(), now), true); // cette semaine
-    assert.equal(isDatePublished('2026-05-04', new Set(), now), true); // semaine passée
+    assert.equal(isDatePublished('2026-05-15', new Map(), 'A', now), true); // cette semaine
+    assert.equal(isDatePublished('2026-05-04', new Map(), 'A', now), true); // semaine passée
 });
 
 test('isDatePublished : semaine future NON publiée = false', () => {
     const now = new Date(2026, 4, 13);
-    assert.equal(isDatePublished('2026-05-25', new Set(), now), false);
+    assert.equal(isDatePublished('2026-05-25', new Map(), 'A', now), false);
 });
 
-test('isDatePublished : semaine future publiée (lundi dans le set) = true', () => {
+test('isDatePublished : ALL publie tous les établissements', () => {
     const now = new Date(2026, 4, 13);
-    const pub = new Set(['2026-05-25']);          // lundi 25 mai publié
-    assert.equal(isDatePublished('2026-05-25', pub, now), true); // le lundi lui-même
-    assert.equal(isDatePublished('2026-05-27', pub, now), true); // mercredi de la même semaine
+    const pub = new Map([['2026-05-25', 'ALL']]);
+    assert.equal(isDatePublished('2026-05-25', pub, 'A', now), true);
+    assert.equal(isDatePublished('2026-05-27', pub, 'Z', now), true); // n'importe quel étab
+});
+
+test('isDatePublished : Set partiel ne publie QUE les établissements listés', () => {
+    const now = new Date(2026, 4, 13);
+    const pub = new Map([['2026-05-25', new Set(['A'])]]); // semaine du 25 : seul A publié
+    assert.equal(isDatePublished('2026-05-25', pub, 'A', now), true);  // A publié
+    assert.equal(isDatePublished('2026-05-27', pub, 'A', now), true);  // mercredi même semaine, A
+    assert.equal(isDatePublished('2026-05-25', pub, 'B', now), false); // B non publié
 });
 
 test('isDatePublished : NE matche PAS une semaine adjacente publiée (fix heuristique 8j)', () => {
     const now = new Date(2026, 4, 13);
-    // Semaine du 18 mai publiée, mais le shift est dans la semaine du 25 (non publiée).
-    // L'ancienne heuristique |25 mai - 18 mai| = 7j < 8j renvoyait true à tort.
-    const pub = new Set(['2026-05-18']);
-    assert.equal(isDatePublished('2026-05-25', pub, now), false);
+    const pub = new Map([['2026-05-18', new Set(['A'])]]);
+    assert.equal(isDatePublished('2026-05-25', pub, 'A', now), false);
 });
 
-test('isDatePublished : set absent/invalide + semaine future = false (pas de crash)', () => {
+test('isDatePublished : map absente/invalide + semaine future = false (pas de crash)', () => {
     const now = new Date(2026, 4, 13);
-    assert.equal(isDatePublished('2026-05-25', null, now), false);
-    assert.equal(isDatePublished('2026-05-25', undefined, now), false);
+    assert.equal(isDatePublished('2026-05-25', null, 'A', now), false);
+    assert.equal(isDatePublished('2026-05-25', undefined, 'A', now), false);
+    assert.equal(isDatePublished('2026-05-25', new Set(['x']), 'A', now), false); // Set ≠ Map
+});
+
+test('isDatePublished : establishmentId absent + Set partiel = false', () => {
+    const now = new Date(2026, 4, 13);
+    const pub = new Map([['2026-05-25', new Set(['A'])]]);
+    assert.equal(isDatePublished('2026-05-25', pub, null, now), false);
+    assert.equal(isDatePublished('2026-05-25', pub, undefined, now), false);
 });
 
 // ── chargeMultiplier ─────────────────────────────────────────────────────────
