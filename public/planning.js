@@ -1518,6 +1518,22 @@ async function loadDisposTab() {
     // Jours de repos à masquer
     const restDays = dispoSettings.rest_days || [];
 
+    // Jours couverts par un congé posé (non refusé) → bloqués pour les dispos
+    const congeDates = new Set();
+    try {
+        const cRes = await fetch('/api/conges/mine', { credentials: 'include' });
+        if (cRes.ok) {
+            const myConges = await cRes.json();
+            for (let i = 0; i < 7; i++) {
+                const ds = toDateStr(addDays(nextMonday, i));
+                if (myConges.some(c => c.status !== 'rejected' && c.start_date <= ds && ds <= c.end_date)) {
+                    congeDates.add(ds);
+                    delete dispoSelections[ds]; // pas de dispo soumise pour un jour de congé
+                }
+            }
+        }
+    } catch { /* silencieux */ }
+
     // Pré-remplir depuis la semaine précédente si aucune dispo soumise
     if (!alreadySubmitted && existingDispos.length === 0) {
         const pRes = await fetch('/api/dispos/previous?week_start=' + from, { credentials: 'include' });
@@ -1539,7 +1555,9 @@ async function loadDisposTab() {
     for (let i = 0; i < 7; i++) {
         const d    = addDays(nextMonday, i);
         const date = toDateStr(d);
-        if (restDays.includes(d.getDay())) {
+        if (congeDates.has(date)) {
+            formEl.appendChild(createCongeDayCard(d));
+        } else if (restDays.includes(d.getDay())) {
             formEl.appendChild(createRestDayCard(d));
         } else {
             formEl.appendChild(createDispoCard(date, d));
@@ -1713,6 +1731,18 @@ function createRestDayCard(d) {
         '<div class="dispo-day-header">' +
             '<div class="dispo-day-name">' + DAY_NAMES[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + '</div>' +
             '<span class="dispo-rest-badge">Repos</span>' +
+        '</div>';
+    return card;
+}
+
+// Jour couvert par un congé posé : carte en lecture seule, pas de saisie de dispo.
+function createCongeDayCard(d) {
+    const card = document.createElement('div');
+    card.className = 'dispo-card dispo-card-rest';
+    card.innerHTML =
+        '<div class="dispo-day-header">' +
+            '<div class="dispo-day-name">' + DAY_NAMES[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + '</div>' +
+            '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;background:#d1fae5;color:#065f46">🌴 Congé</span>' +
         '</div>';
     return card;
 }

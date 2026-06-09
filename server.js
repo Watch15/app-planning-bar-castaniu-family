@@ -2528,6 +2528,19 @@ app.post('/api/dispos', checkDB, requireAuth, async (req, res) => {
     const { dispos } = req.body;
     if (!Array.isArray(dispos) || dispos.length === 0) return res.status(400).json({ error: 'Aucune disponibilité fournie' });
     try {
+        // Un jour couvert par un congé posé (non refusé) ne peut pas recevoir de dispo.
+        const dates = dispos.map(d => d.date).filter(Boolean).sort();
+        if (dates.length) {
+            const conges = await db.collection('time_off')
+                .find({ staff_id: staffId, status: { $ne: 'rejected' },
+                        start_date: { $lte: dates[dates.length - 1] }, end_date: { $gte: dates[0] } })
+                .toArray();
+            const blocked = [...new Set(dispos
+                .filter(d => conges.some(c => congeCoversDate(c, d.date)))
+                .map(d => d.date))].sort();
+            if (blocked.length)
+                return res.status(409).json({ error: 'Impossible d\'envoyer des dispos sur des jours de congé : ' + blocked.join(', ') + '.' });
+        }
         const ops = dispos.map(d => ({
             updateOne: {
                 filter: { staff_id: staffId, date: d.date, type: d.type || 'custom' },

@@ -170,6 +170,9 @@ Mécanique **distincte des disponibilités** : long terme, personnelle (vaut sur
 - **Intégration planning** : un staff en congé approuvé un jour donné est **grisé + badge
   🌴 Congé** dans la barre staff, et son assignation à un shift ce jour-là requiert une
   **confirmation explicite** (blocage doux).
+- **Blocage dispos ↔ congés** : un jour couvert par un congé **posé** (non refusé) du staff
+  n'accepte plus de disponibilité — la carte du jour passe en lecture seule (« 🌴 Congé ») dans
+  le formulaire dispos, et `POST /api/dispos` refuse toute date couverte par un congé.
 - **Récap mensuel** : une colonne **🌴 Congés** (jours de congé sur le mois) est ajoutée au
   récap et à l'export Excel. **Seuls les congés demandés au patron et validés** (mode
   `request` + statut `approved`) sont comptés — les déclarations informatives sont exclues.
