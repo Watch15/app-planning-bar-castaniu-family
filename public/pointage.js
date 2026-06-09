@@ -7,10 +7,7 @@ function toDateStr(d) {
 }
 
 function fmtH(h) {
-    if (h == null) return '--:--';
-    const hh = Math.floor(h % 24);
-    const mm = Math.round((h % 1) * 60);
-    return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+    return ShiftHours.fmtClock(h);
 }
 
 // Arrondit une heure (float) au quart d'heure le plus proche

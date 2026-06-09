@@ -34,5 +34,47 @@
         return end - start;
     }
 
-    return { shiftEffectiveHours, shiftDurationHours };
+    // ── Formatage des heures ──────────────────────────────────────────────────
+    // Ces helpers étaient dupliqués (~8 copies) dans script.js / planning.js /
+    // pointage.js. Trois familles distinctes, à ne PAS confondre :
+    //   - fmtHourOfDay / fmtClock : une HEURE D'HORLOGE (0-24h), bornée à 24h.
+    //   - fmtDurationH            : une DURÉE / un CUMUL (peut dépasser 24h,
+    //                               peut être négatif), JAMAIS bornée à 24h.
+
+    // Heure d'horloge → "14h" / "14h30". Bornée à 24h (un créneau à 25h donne
+    // "01h"). Minutes omises quand pile à l'heure. Badges planning, ticks timeline.
+    function fmtHourOfDay(h) {
+        if (h == null) return '';
+        const norm = h % 24;
+        const hh = Math.floor(norm);
+        const mm = Math.round((norm - hh) * 60);
+        return String(hh).padStart(2, '0') + 'h' + (mm > 0 ? String(mm).padStart(2, '0') : '');
+    }
+
+    // Heure d'horloge format ":" → "14:00", null → "--:--". Champs <input type=time>
+    // et libellés planifiés du pointage. Affiche toujours les minutes.
+    function fmtClock(h) {
+        if (h == null) return '--:--';
+        const hh = Math.floor(h % 24);
+        const mm = Math.round((h % 1) * 60);
+        return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+    }
+
+    // Durée / cumul d'heures → "7h", "37h30", écart "-1h30". NE borne PAS à 24h.
+    // opts : { nullText (défaut ''), minus (signe négatif, défaut '-'),
+    //          padMinutes (toujours afficher MM, ex. export CSV) }.
+    function fmtDurationH(h, opts) {
+        opts = opts || {};
+        if (h == null) return opts.nullText != null ? opts.nullText : '';
+        const sign = h < 0 ? (opts.minus || '-') : '';
+        const totalMins = Math.round(Math.abs(h) * 60);
+        const hrs = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
+        const body = opts.padMinutes
+            ? hrs + 'h' + String(mins).padStart(2, '0')
+            : hrs + 'h' + (mins > 0 ? String(mins).padStart(2, '0') : '');
+        return sign + body;
+    }
+
+    return { shiftEffectiveHours, shiftDurationHours, fmtHourOfDay, fmtClock, fmtDurationH };
 });

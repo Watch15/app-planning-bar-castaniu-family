@@ -11,7 +11,8 @@
       "Bash(curl -sL -o \"C:/Users/pierr/app-planning-bar/public/vendor/html2canvas.min.js\" \"https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js\")",
       "Bash(node *)",
       "PowerShell(node --check server.js; if \\($?\\) { \"OK\" })",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(C:/Python314/python.exe *)"
     ]
   }
 }

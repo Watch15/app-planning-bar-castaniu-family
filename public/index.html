@@ -781,6 +781,10 @@
             border: 1px dashed #9ca3af;
         }
         .gantt-legend-meta { font-size: 9.5px; color: #8892a4; font-weight: 500; margin-left: 2px; }
+        /* Panneau paramètres dispos : forcer fond clair + texte foncé. Règle CSS
+           (pas seulement inline) pour survivre aux réécritures de cssText (ex. vue
+           mobile openDispoSettingsMobile) — sinon le texte hérite du blanc du header. */
+        #dispo-advanced-panel { color: var(--text-primary); background: var(--light-card); }
     </style>
 </head>
 <body>
@@ -831,8 +835,8 @@
                     <span id="dispo-toggle-track" style="position:absolute;inset:0;background:var(--dark-border);border-radius:9px;transition:background 0.2s"></span>
                     <span id="dispo-toggle-thumb" style="position:absolute;top:3px;left:3px;width:12px;height:12px;background:#fff;border-radius:50%;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></span>
                 </label>
-                <button id="dispo-settings-btn" title="Paramètres dispos" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--dark-muted);padding:0;line-height:1;transition:color 0.15s" onmouseover="this.style.color='rgba(255,255,255,0.8)'" onmouseout="this.style.color=''">⚙</button>
-                <div id="dispo-advanced-panel" style="display:none;position:absolute;top:36px;left:0;background:var(--light-card);border:1.5px solid var(--light-border);border-radius:10px;padding:12px 14px;z-index:200;min-width:260px;box-shadow:var(--shadow-lg)"></div>
+                <button id="dispo-settings-btn" title="Paramètres dispos" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--dark-muted);padding:0;line-height:1;transition:color 0.15s" onmouseover="this.style.color='rgba(255,255,255,0.8)'" onmouseout="this.style.color='var(--dark-muted)'">⚙</button>
+                <div id="dispo-advanced-panel" style="display:none;position:absolute;top:36px;left:0;background:var(--light-card);color:var(--text-primary);border:1.5px solid var(--light-border);border-radius:10px;padding:12px 14px;z-index:200;min-width:260px;box-shadow:var(--shadow-lg)"></div>
             </div>
         </div>
         <div class="header-right">
@@ -1303,6 +1307,7 @@
 <script src="/vendor/html2canvas.min.js"></script>
 <script src="/vendor/jspdf.umd.min.js"></script>
 <script src="/vendor/xlsx.full.min.js"></script>
+<script src="/lib/shift-hours.js"></script>
 <script src="/lib/week.js"></script>
 <script src="script.js"></script>
 <script>
@@ -1353,7 +1358,7 @@ function openDispoSettingsMobile() {
     // avant d'afficher le panneau — sinon le handler global de loadDispoControl
     // masque immédiatement le panneau qu'on vient d'ouvrir.
     setTimeout(() => {
-        panel.style.cssText = 'display:block;position:fixed;top:60px;left:16px;right:16px;min-width:auto;z-index:600;background:white;border:1.5px solid #e8eaed;border-radius:12px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);overflow-y:auto;max-height:calc(100vh - 80px)';
+        panel.style.cssText = 'display:block;position:fixed;top:60px;left:16px;right:16px;min-width:auto;z-index:600;background:white;color:var(--text-primary);border:1.5px solid #e8eaed;border-radius:12px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);overflow-y:auto;max-height:calc(100vh - 80px)';
         setTimeout(() => {
             function _hidePanel(e) {
                 if (!panel.contains(e.target)) {
