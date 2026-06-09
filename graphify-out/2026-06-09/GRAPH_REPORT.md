@@ -1,16 +1,16 @@
-# Graph Report - app-planning-bar  (2026-06-09)
+# Graph Report - app-planning-bar  (2026-06-08)
 
 ## Corpus Check
-- 25 files · ~130,237 words
+- 25 files · ~130,074 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 725 nodes · 1171 edges · 47 communities (34 shown, 13 thin omitted)
+- 725 nodes · 1171 edges · 48 communities (35 shown, 13 thin omitted)
 - Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 81 edges (avg confidence: 0.81)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `00dae563`
+- Built from commit: `3bc3dd59`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -35,6 +35,7 @@
 - [[_COMMUNITY_Account Management UI|Account Management UI]]
 - [[_COMMUNITY_Patron Creation Script|Patron Creation Script]]
 - [[_COMMUNITY_Establishment Management|Establishment Management]]
+- [[_COMMUNITY_Staff Notes Sidebar|Staff Notes Sidebar]]
 - [[_COMMUNITY_html2canvas Helpers|html2canvas Helpers]]
 - [[_COMMUNITY_html2canvas Color|html2canvas Color]]
 - [[_COMMUNITY_Session Management|Session Management]]
@@ -95,7 +96,7 @@
 - **Sûreté timezone via toDateStr** — architecture_timezone_rule, architecture_todatestr, architecture_push_past_shift_guard [EXTRACTED 0.85]
 - **Cycle de vie feature iCal (livrée puis désactivée)** — backlog_f09_ical, architecture_ical_feed, architecture_calendar_enabled_flag [EXTRACTED 0.90]
 
-## Communities (47 total, 13 thin omitted)
+## Communities (48 total, 13 thin omitted)
 
 ### Community 0 - "Planning Board UI"
 Cohesion: 0.06
@@ -115,7 +116,7 @@ Nodes (36): Ae(), mr(), QB(), re(), se(), SUPPORT_WORD_BREAKING(), w(), _() (+28
 
 ### Community 4 - "Main Planning Script (State)"
 Cohesion: 0.04
-Nodes (41): allEstablishments, allGroups, allRoles, allStaff, AUTO_COLORS, buildEstablishmentSelect(), clearTapSelection(), confirmAllForStaff() (+33 more)
+Nodes (45): allEstablishments, allGroups, allRoles, allStaff, AUTO_COLORS, buildEstablishmentSelect(), clearTapSelection(), confirmAllForStaff() (+37 more)
 
 ### Community 5 - "Express Server & API"
 Cohesion: 0.05
@@ -138,24 +139,24 @@ Cohesion: 0.12
 Nodes (19): acknowledgeOffDispo(), buildStaffDisplayNames(), checkAuth(), init(), initDropZone(), initNotifListeners(), initStaffSearch(), initTimelineBodyTap() (+11 more)
 
 ### Community 10 - "Shift CRUD & Rendering"
-Cohesion: 0.27
-Nodes (13): assignStaffToJoker(), createShift(), deleteShift(), onMove(), onTouchEnd(), onTouchMove(), onUp(), removeStaffFromDay() (+5 more)
+Cohesion: 0.22
+Nodes (17): assignStaffToJoker(), createShift(), deleteShift(), generatePrintGantt(), _ignoreNonAffectee(), _nonAffecteesAfterRemove(), onUp(), openPublishPopover() (+9 more)
 
 ### Community 11 - "Shared Utils & Validation"
 Cohesion: 0.22
 Nodes (15): chargeMultiplier(), computeActiveDate(), crypto, disposWeekStart(), hashToken(), isAutoPublished(), isDatePublished(), isValidObjectId() (+7 more)
 
 ### Community 12 - "Week View Rendering"
-Cohesion: 0.19
-Nodes (13): applyVenueHours(), applyViewMode(), buildDisplayedStaff(), extendDisplayForRealHours(), formatDateLong(), loadDayDetail(), loadEstablishments(), parseDate() (+5 more)
+Cohesion: 0.16
+Nodes (15): applyVenueHours(), applyViewMode(), buildDisplayedStaff(), extendDisplayForRealHours(), formatDateLong(), loadDayDetail(), loadEstablishments(), parseDate() (+7 more)
 
 ### Community 13 - "PWA Manifest"
 Cohesion: 0.18
 Nodes (10): background_color, description, display, icons, name, orientation, short_name, shortcuts (+2 more)
 
 ### Community 14 - "Staff Card Styling"
-Cohesion: 0.18
-Nodes (14): buildRoleFilters(), createShiftEl(), createStaffRow(), displayName(), escapeHtml(), loadStaffNotesList(), normalizeStr(), openNotifPanel() (+6 more)
+Cohesion: 0.25
+Nodes (11): applyCardNameContrast(), createShiftEl(), createStaffRow(), displayName(), escapeHtml(), openNotifPanel(), openReplaceStaffModal(), openTransferShiftModal() (+3 more)
 
 ### Community 15 - "Week Calculation Module"
 Cohesion: 0.33
@@ -174,8 +175,12 @@ Cohesion: 0.33
 Nodes (6): ask(), bcrypt, main(), { MongoClient }, readline, rl
 
 ### Community 19 - "Establishment Management"
-Cohesion: 0.14
-Nodes (18): addEstablishment(), applyCardNameContrast(), generatePrintGantt(), _ignoreNonAffectee(), loadGroups(), _nonAffecteesAfterRemove(), openEstablishmentsModal(), openPublishPopover() (+10 more)
+Cohesion: 0.33
+Nodes (6): addEstablishment(), loadGroups(), openEstablishmentsModal(), renderEstablishmentsList(), renderGroupFilter(), renderTabs()
+
+### Community 20 - "Staff Notes Sidebar"
+Cohesion: 0.40
+Nodes (5): buildRoleFilters(), loadStaffNotesList(), normalizeStr(), renderSidebar(), renderStaffNotesList()
 
 ### Community 21 - "html2canvas Helpers"
 Cohesion: 0.40
@@ -245,7 +250,7 @@ _Questions this graph is uniquely positioned to answer:_
   _High betweenness centrality (0.019) - this node is a cross-community bridge._
 - **Why does `server.js (serveur Express monolithique)` connect `Timeline Rendering` to `Architecture & Design Rationale`, `html2canvas Internals A`?**
   _High betweenness centrality (0.016) - this node is a cross-community bridge._
-- **Why does `fmtH()` connect `Time Clock (Pointage)` to `Shift CRUD & Rendering`, `Staff Card Styling`?**
+- **Why does `fmtH()` connect `Time Clock (Pointage)` to `Shift CRUD & Rendering`, `Week View Rendering`?**
   _High betweenness centrality (0.015) - this node is a cross-community bridge._
 - **Are the 19 inferred relationships involving `m()` (e.g. with `Ee()` and `Ae()`) actually correct?**
   _`m()` has 19 INFERRED edges - model-reasoned connections that need verification._

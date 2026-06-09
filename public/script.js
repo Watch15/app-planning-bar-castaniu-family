@@ -784,23 +784,24 @@ function updatePublishBtnLabel(btn, nPublished, total) {
     btn.title = '';
     if (total > 0 && nPublished >= total) {
         btn.textContent = '✓ Publié — ' + label;
-        btn.style.background = '#eafaf1'; btn.style.borderColor = '#2ecc71'; btn.style.color = '#27ae60';
+        btn.style.background = '#d1fae5'; btn.style.borderColor = '#10b981'; btn.style.color = '#065f46';
     } else if (nPublished > 0) {
-        btn.textContent = '◑ Publié ' + nPublished + '/' + total + ' — ' + label;
-        btn.style.background = '#fef9e7'; btn.style.borderColor = '#f39c12'; btn.style.color = '#d68910';
+        btn.textContent = 'Publié ' + nPublished + '/' + total + ' — ' + label;
+        btn.style.background = '#fef3c7'; btn.style.borderColor = '#f59e0b'; btn.style.color = '#92400e';
     } else {
         btn.textContent = 'Publier — ' + label;
-        btn.style.background  = isNextWeek ? '#f0effe' : '#fff9e6';
-        btn.style.borderColor = isNextWeek ? '#7F77DD'  : '#f39c12';
-        btn.style.color       = isNextWeek ? '#534AB7'  : '#d68910';
+        btn.style.background  = isNextWeek ? '#f0effe' : '#fff8ec';
+        btn.style.borderColor = isNextWeek ? '#6C63FF' : '#f59e0b';
+        btn.style.color       = isNextWeek ? '#534AB7' : '#92400e';
         btn.title = isNextWeek ? '' : 'Le staff consulte la semaine prochaine — navigue sur la semaine du ' + nextMonday + ' pour la leur publier';
     }
 }
 
+// Modale de publication par établissement — alignée sur la DA (cf. openChangeRoleModal).
 function openPublishPopover(btn, weekStart, estabs, pubSet, auto) {
-    document.getElementById('_publish-pop')?.remove();
+    document.getElementById('_publish-overlay')?.remove();
     if (auto) { showToast('Cette semaine est publiée automatiquement'); return; }
-    // Un seul établissement → bascule directe tout/rien (pas de popover).
+    // Un seul établissement → bascule directe tout/rien (pas de modale).
     if (estabs.length <= 1) {
         patchPublish(weekStart, pubSet.size === 0 ? 'ALL' : [], btn, estabs.length);
         return;
@@ -808,43 +809,59 @@ function openPublishPopover(btn, weekStart, estabs, pubSet, auto) {
 
     const nextMonday = toDateStr(addDays(getMondayOf(new Date()), 7));
     const isNextWeek = weekStart === nextMonday;
-    const pop = document.createElement('div');
-    pop.id = '_publish-pop';
-    pop.style.cssText = 'position:absolute;z-index:9999;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.16);padding:12px;min-width:230px;font-size:13px';
-    const rect = btn.getBoundingClientRect();
-    pop.style.top  = (window.scrollY + rect.bottom + 6) + 'px';
-    pop.style.left = (window.scrollX + Math.max(8, rect.left)) + 'px';
-    const rows = estabs.map(e =>
-        '<label style="display:flex;align-items:center;gap:8px;padding:5px 2px;cursor:pointer">' +
-            '<input type="checkbox" class="_pub-estab" value="' + e.id + '"' + (pubSet.has(e.id) ? ' checked' : '') + '>' +
-            '<span>' + escapeHtml(e.name || e.id) + '</span>' +
-        '</label>').join('');
-    pop.innerHTML =
-        '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Publier — ' + (btn.dataset.weekLabel || '') + '</div>' +
-        (isNextWeek ? '' : '<div style="font-size:10px;color:#e67e22;margin-bottom:8px">⚠️ Le staff consulte la semaine prochaine (' + nextMonday + ').</div>') +
-        rows +
-        '<div style="display:flex;gap:6px;margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px">' +
-            '<button id="_pub-all"  style="flex:1;padding:6px;background:#1a1a2e;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer">Tout publier</button>' +
-            '<button id="_pub-none" style="flex:1;padding:6px;background:#fff;color:#c0392b;border:1px solid #e0e0e0;border-radius:6px;font-size:12px;cursor:pointer">Tout dépublier</button>' +
-        '</div>';
-    document.body.appendChild(pop);
-    pop.addEventListener('click', ev => ev.stopPropagation());
+    const sel = new Set(pubSet); // copie locale modifiable
 
-    const apply = () => {
-        const checked = [...pop.querySelectorAll('._pub-estab:checked')].map(c => c.value);
-        const payload = checked.length === estabs.length ? 'ALL' : checked;
-        patchPublish(weekStart, payload, btn, estabs.length);
+    const overlay = document.createElement('div');
+    overlay.id = '_publish-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+
+    const rows = () => estabs.map(e => {
+        const on = sel.has(e.id);
+        return '<button class="_pub-row" data-id="' + e.id + '" style="' +
+            'width:100%;display:flex;align-items:center;gap:10px;text-align:left;padding:11px 13px;margin-bottom:7px;cursor:pointer;font-family:inherit;' +
+            'border-radius:10px;border:1.5px solid ' + (on ? '#10b981' : '#e8eaed') + ';background:' + (on ? '#ecfdf5' : '#fff') + ';transition:all .12s">' +
+            '<span style="width:18px;height:18px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;' +
+                'border:1.5px solid ' + (on ? '#10b981' : '#cfd4dc') + ';background:' + (on ? '#10b981' : '#fff') + ';color:#fff">' + (on ? '✓' : '') + '</span>' +
+            '<span style="flex:1;font-size:13px;font-weight:600;color:' + (on ? '#065f46' : '#1a1a2e') + '">' + escapeHtml(e.name || e.id) + '</span>' +
+            '<span style="font-size:11px;font-weight:600;color:' + (on ? '#10b981' : '#b8bdc7') + '">' + (on ? 'Publié' : 'Masqué') + '</span>' +
+        '</button>';
+    }).join('');
+
+    const persist = () => {
+        const arr = [...sel];
+        patchPublish(weekStart, arr.length === estabs.length ? 'ALL' : arr, btn, estabs.length);
     };
-    pop.querySelectorAll('._pub-estab').forEach(c => c.addEventListener('change', apply));
-    pop.querySelector('#_pub-all').addEventListener('click', () => {
-        pop.querySelectorAll('._pub-estab').forEach(c => { c.checked = true; }); apply();
-    });
-    pop.querySelector('#_pub-none').addEventListener('click', () => {
-        pop.querySelectorAll('._pub-estab').forEach(c => { c.checked = false; }); apply();
-    });
-    setTimeout(() => document.addEventListener('click', function _close() {
-        pop.remove(); document.removeEventListener('click', _close);
-    }, { once: true }), 0);
+
+    const draw = () => {
+        overlay.innerHTML =
+            '<div id="_pubcard" style="background:#fff;border-radius:14px;padding:22px;max-width:400px;width:100%;box-shadow:var(--shadow-xl);font-family:var(--font)">' +
+                '<p style="font-size:15px;font-weight:700;color:#1a1a2e;margin-bottom:3px">Publier le planning</p>' +
+                '<p style="font-size:12px;color:#8892a4;margin-bottom:14px">' + (btn.dataset.weekLabel || '') + ' · semaine du ' + weekStart + '</p>' +
+                (isNextWeek ? '' : '<div style="font-size:11px;color:#92400e;background:#fef3c7;border-radius:8px;padding:9px 11px;margin-bottom:14px">⚠️ Le staff consulte la <b>semaine prochaine</b> (' + nextMonday + ').</div>') +
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">' +
+                    '<span style="font-size:11px;font-weight:600;color:#8892a4;text-transform:uppercase;letter-spacing:.4px">Établissements</span>' +
+                    '<div style="display:flex;gap:6px">' +
+                        '<button id="_pub-all"  style="padding:4px 11px;font-size:11px;font-weight:600;border-radius:6px;border:1px solid #e8eaed;background:#fff;color:#534AB7;cursor:pointer;font-family:inherit">Tout</button>' +
+                        '<button id="_pub-none" style="padding:4px 11px;font-size:11px;font-weight:600;border-radius:6px;border:1px solid #e8eaed;background:#fff;color:#8892a4;cursor:pointer;font-family:inherit">Aucun</button>' +
+                    '</div>' +
+                '</div>' +
+                rows() +
+                '<button id="_pub-done" style="width:100%;margin-top:13px;padding:11px;border-radius:8px;border:none;background:#1a1a2e;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Terminé</button>' +
+            '</div>';
+        overlay.querySelector('#_pubcard').addEventListener('click', ev => ev.stopPropagation());
+        overlay.querySelectorAll('._pub-row').forEach(r => r.addEventListener('click', () => {
+            const id = r.dataset.id;
+            if (sel.has(id)) sel.delete(id); else sel.add(id);
+            persist(); draw();
+        }));
+        overlay.querySelector('#_pub-all').addEventListener('click', () => { estabs.forEach(e => sel.add(e.id)); persist(); draw(); });
+        overlay.querySelector('#_pub-none').addEventListener('click', () => { sel.clear(); persist(); draw(); });
+        overlay.querySelector('#_pub-done').addEventListener('click', () => overlay.remove());
+    };
+
+    overlay.addEventListener('click', () => overlay.remove()); // clic hors carte = fermer
+    document.body.appendChild(overlay);
+    draw();
 }
 
 async function patchPublish(weekStart, establishments, btn, total) {
@@ -5775,13 +5792,14 @@ async function loadDispoControl() {
         // Saisie ouverte par établissement (affiché uniquement en multi-établissement).
         const venuesSection = multiEstab
             ? '<div style="margin-bottom:10px;border-top:1px solid #f0f0f0;padding-top:10px">' +
-                  '<div style="font-size:11px;color:#aaa;margin-bottom:6px">Établissements — saisie ouverte</div>' +
-                  allEstablishments.map(e =>
-                      '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#555;padding:3px 2px;cursor:pointer">' +
-                          '<input type="checkbox" class="_dispo-venue" value="' + e.id + '"' + ((venuesAll || openVenueSet.has(e.id)) ? ' checked' : '') + '>' +
-                          escapeHtml(e.name || e.id) +
-                      '</label>').join('') +
-                  '<div style="font-size:10px;color:#bbb;margin-top:3px">Un staff peut saisir si au moins un de ses établissements est coché</div>' +
+                  '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Établissements — saisie ouverte</div>' +
+                  '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+                      allEstablishments.map(e =>
+                          '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#333;padding:5px 9px;border:1px solid #e8eaed;border-radius:8px;background:#fff;cursor:pointer">' +
+                              '<input type="checkbox" class="_dispo-venue" value="' + e.id + '"' + ((venuesAll || openVenueSet.has(e.id)) ? ' checked' : '') + ' style="cursor:pointer;accent-color:#6C63FF"> ' + escapeHtml(e.name || e.id) +
+                          '</label>').join('') +
+                  '</div>' +
+                  '<div style="font-size:10px;color:#bbb;margin-top:6px">Un staff peut saisir si au moins un de ses établissements est coché</div>' +
               '</div>'
             : '';
 

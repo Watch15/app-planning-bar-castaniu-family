@@ -35,13 +35,13 @@
     "semantic_hash": ""
   },
   "public/script.js": {
-    "mtime": 1780965204.1162999,
-    "ast_hash": "fb32188444ef2130ef95dc5843be58fd",
+    "mtime": 1780964217.002584,
+    "ast_hash": "8b54b572a7f8c082412cc4286ecda785",
     "semantic_hash": ""
   },
   "public/sw.js": {
-    "mtime": 1780965218.934289,
-    "ast_hash": "19e5eb52688e94985c1ae87ea0943ddc",
+    "mtime": 1780964235.015357,
+    "ast_hash": "6f47591415b59da00159be798be8312a",
     "semantic_hash": ""
   },
   "public/vendor/html2canvas.min.js": {
@@ -130,8 +130,8 @@
     "semantic_hash": "b08e527857ae0b58a84a24cdd1f2fd8a"
   },
   "public/index.html": {
-    "mtime": 1780964747.9464557,
-    "ast_hash": "d92cdf8e3a24a280c710c7a0c22f4b09",
+    "mtime": 1780913344.4058075,
+    "ast_hash": "83ab74766c14189565b2e04b9c863193",
     "semantic_hash": ""
   },
   "public/login.html": {
