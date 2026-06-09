@@ -1576,8 +1576,8 @@ app.post('/api/staff/bulk', checkDB, requirePatron, async (req, res) => {
 app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { color, name, email, venues, can_submit_dispos, groups, rest_days, hourly_rate, fixed_rate } = req.body;
-    if (!color && !name && email === undefined && venues === undefined && can_submit_dispos === undefined && req.body.roles === undefined && groups === undefined && req.body.name_color === undefined && rest_days === undefined && req.body.nickname === undefined && hourly_rate === undefined && fixed_rate === undefined)
-        return res.status(400).json({ error: 'color, name, email, venues, roles, groups, name_color, nickname, can_submit_dispos, hourly_rate, fixed_rate ou rest_days requis' });
+    if (!color && !name && email === undefined && venues === undefined && can_submit_dispos === undefined && req.body.roles === undefined && groups === undefined && req.body.name_color === undefined && rest_days === undefined && req.body.nickname === undefined && hourly_rate === undefined && fixed_rate === undefined && req.body.conge_modes === undefined)
+        return res.status(400).json({ error: 'color, name, email, venues, roles, groups, name_color, nickname, can_submit_dispos, conge_modes, hourly_rate, fixed_rate ou rest_days requis' });
     try {
         const update = {};
         if (color)                             update.color             = color;
@@ -1587,6 +1587,11 @@ app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
         if (req.body.roles !== undefined)      update.roles             = req.body.roles;
         if (can_submit_dispos !== undefined)   update.can_submit_dispos = !!can_submit_dispos;
         if (groups !== undefined)              update.groups            = Array.isArray(groups) ? groups : [];
+        if (req.body.conge_modes !== undefined) {
+            if (!['both', 'request', 'info'].includes(req.body.conge_modes))
+                return res.status(400).json({ error: 'conge_modes invalide (both|request|info)' });
+            update.conge_modes = req.body.conge_modes;
+        }
         if (Array.isArray(rest_days))          update.rest_days         = rest_days.map(Number).filter(n => n >= 0 && n <= 6);
         if (req.body.name_color !== undefined) update.name_color        = req.body.name_color || null;
         if (req.body.nickname   !== undefined) update.nickname          = req.body.nickname   || null;
@@ -2318,6 +2323,7 @@ app.get('/api/dispo-settings', checkDB, requireAuth, async (req, res) => {
             custom_deadline: customDeadline,
             open_day: settings.open_day ?? null,
             rest_days: staffDoc ? (staffDoc.rest_days || []) : [],
+            conge_modes: staffDoc ? (staffDoc.conge_modes || 'both') : 'both',
         });
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
@@ -2794,6 +2800,15 @@ app.post('/api/conges', checkDB, requireAuth, async (req, res) => {
     if (end_date < today)
         return res.status(400).json({ error: 'La période de congé doit être à venir.' });
     try {
+        // Le patron choisit par staff les modes de congé autorisés (both|request|info)
+        const staffDoc = isValidObjectId(staffId)
+            ? await db.collection('staff').findOne({ _id: new ObjectId(staffId) }) : null;
+        const allowedModes = (staffDoc && staffDoc.conge_modes) || 'both';
+        if (allowedModes !== 'both' && allowedModes !== mode) {
+            return res.status(403).json({ error: allowedModes === 'request'
+                ? 'Seules les demandes de congé soumises au patron sont autorisées pour ton profil.'
+                : 'Seules les déclarations de congé informatives sont autorisées pour ton profil.' });
+        }
         // Pas de chevauchement avec un congé existant non refusé du même staff
         // (les congés déjà terminés ne peuvent pas chevaucher une période à venir)
         const existing = await db.collection('time_off')

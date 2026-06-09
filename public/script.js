@@ -6459,6 +6459,7 @@ function renderStaffManageList() {
                 : '');
 
         const canSubmit    = staff.can_submit_dispos !== false; // true par défaut
+        const congeModes   = ['both', 'request', 'info'].includes(staff.conge_modes) ? staff.conge_modes : 'both';
         const staffGroups  = staff.groups || [];
         // Chips groupes disponibles
         const groupChips = allGroups.length
@@ -6514,6 +6515,14 @@ function renderStaffManageList() {
                     '<input type="checkbox" class="staff-can-submit" ' + (canSubmit ? 'checked' : '') + '>' +
                     'Peut envoyer ses dispos' +
                 '</label>' +
+                '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">' +
+                    '<span style="font-size:11px;color:#aaa">🌴 Congés autorisés :</span>' +
+                    '<select class="staff-conge-modes" style="font-size:11px;padding:3px 6px;border:1px solid #e0e0e0;border-radius:4px;font-family:inherit;color:#555">' +
+                        '<option value="both"'    + (congeModes === 'both'    ? ' selected' : '') + '>Les deux</option>' +
+                        '<option value="request"' + (congeModes === 'request' ? ' selected' : '') + '>Demande au patron</option>' +
+                        '<option value="info"'    + (congeModes === 'info'    ? ' selected' : '') + '>Informatif</option>' +
+                    '</select>' +
+                '</div>' +
             '</div>' +
             '<button class="staff-manage-save">Enregistrer</button>' +
             '<button class="staff-manage-delete" title="Supprimer">×</button>';
@@ -6590,6 +6599,7 @@ function renderStaffManageList() {
             const newVenues     = Array.from(row.querySelectorAll('.venue-pref-btn.active')).map(b => b.dataset.venue);
             const newRoles      = Array.from(row.querySelectorAll('.role-assign-btn.active')).map(b => b.dataset.role);
             const newCanSubmit  = row.querySelector('.staff-can-submit').checked;
+            const newCongeModes = row.querySelector('.staff-conge-modes')?.value || 'both';
             const newGroups     = Array.from(row.querySelectorAll('.staff-group-btn.active')).map(b => b.dataset.group);
             const rateMode = row.querySelector('.staff-rate-mode:checked')?.value || 'hourly';
             const hRaw = row.querySelector('.staff-manage-hourly-rate')?.value;
@@ -6609,7 +6619,7 @@ function renderStaffManageList() {
                     method:      'PATCH',
                     credentials: 'include',
                     headers:     { 'Content-Type': 'application/json' },
-                    body:        JSON.stringify({ name: newName, color: newColor, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups, name_color: effectiveNameColor, nickname: newNickname, hourly_rate: newHourlyRate, fixed_rate: newFixedRate }),
+                    body:        JSON.stringify({ name: newName, color: newColor, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, conge_modes: newCongeModes, groups: newGroups, name_color: effectiveNameColor, nickname: newNickname, hourly_rate: newHourlyRate, fixed_rate: newFixedRate }),
                 });
                 if (!res.ok) throw new Error((await res.json()).error);
 
@@ -6619,6 +6629,7 @@ function renderStaffManageList() {
                 staff.venues            = newVenues;
                 staff.roles             = newRoles;
                 staff.can_submit_dispos = newCanSubmit;
+                staff.conge_modes       = newCongeModes;
                 staff.groups            = newGroups;
                 staff.name_color = effectiveNameColor;
                 staff.hourly_rate = newHourlyRate;

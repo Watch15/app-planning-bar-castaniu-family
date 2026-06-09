@@ -148,6 +148,10 @@ Mécanique **distincte des disponibilités** : long terme, personnelle (vaut sur
   immédiatement). Liste de ses congés à venir avec statut (en attente / validé / refusé) et
   annulation possible. Si la saisie des dispos est désactivée pour le staff, l'onglet ne
   montre que les congés.
+- **Droits par staff** : dans l'onglet 👥 Staff, le patron choisit par personne les modes de
+  congé autorisés — **Les deux** (défaut), **Demande au patron** seulement, ou **Informatif**
+  seulement (champ `conge_modes`). Le formulaire staff n'affiche que les modes permis et le
+  serveur refuse un mode non autorisé.
 - **Côté patron** : les congés sont un **onglet 🌴 Congés de la modale Dispos** (pas de
   bouton header dédié — la pastille du bouton « Dispos » agrège dispos + congés en attente).
   L'onglet offre une **recherche par nom**, des **filtres de statut** (Tous / ⏳ En attente /

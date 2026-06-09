@@ -139,6 +139,7 @@ async function init() {
         const sRes = await fetch('/api/dispo-settings', { credentials: 'include' });
         if (sRes.ok) {
             const s = await sRes.json();
+            applyCongeModes(s.conge_modes || 'both');
             if (s.staffCanSubmit === false) {
                 // La saisie des dispos est désactivée : on garde l'onglet (les congés y
                 // vivent désormais) mais on masque la sous-vue Dispos et son sous-onglet,
@@ -1730,6 +1731,22 @@ function setCongeStatus(text, type) {
     if (!el) return;
     el.textContent = text || '';
     el.style.color = type === 'error' ? '#c0392b' : (type === 'success' ? '#1a7a4a' : '#666');
+}
+
+// Restreint les modes de congé proposés selon le réglage patron (both|request|info).
+function applyCongeModes(modes) {
+    const reqInput  = document.querySelector('input[name="conge-mode"][value="request"]');
+    const infoInput = document.querySelector('input[name="conge-mode"][value="info"]');
+    if (!reqInput || !infoInput) return;
+    const reqLabel  = reqInput.closest('label');
+    const infoLabel = infoInput.closest('label');
+    const showReq  = modes !== 'info';   // 'both' ou 'request'
+    const showInfo = modes !== 'request'; // 'both' ou 'info'
+    if (reqLabel)  reqLabel.style.display  = showReq  ? '' : 'none';
+    if (infoLabel) infoLabel.style.display = showInfo ? '' : 'none';
+    // Sélectionne le mode autorisé (le premier visible)
+    if (!showReq)       infoInput.checked = true;
+    else if (!showInfo) reqInput.checked  = true;
 }
 
 function initCongesForm() {
