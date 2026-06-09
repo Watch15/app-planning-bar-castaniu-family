@@ -781,6 +781,10 @@
             border: 1px dashed #9ca3af;
         }
         .gantt-legend-meta { font-size: 9.5px; color: #8892a4; font-weight: 500; margin-left: 2px; }
+        /* Panneau paramètres dispos : forcer fond clair + texte foncé. Règle CSS
+           (pas seulement inline) pour survivre aux réécritures de cssText (ex. vue
+           mobile openDispoSettingsMobile) — sinon le texte hérite du blanc du header. */
+        #dispo-advanced-panel { color: var(--text-primary); background: var(--light-card); }
     </style>
 </head>
 <body>
@@ -1354,7 +1358,7 @@ function openDispoSettingsMobile() {
     // avant d'afficher le panneau — sinon le handler global de loadDispoControl
     // masque immédiatement le panneau qu'on vient d'ouvrir.
     setTimeout(() => {
-        panel.style.cssText = 'display:block;position:fixed;top:60px;left:16px;right:16px;min-width:auto;z-index:600;background:white;border:1.5px solid #e8eaed;border-radius:12px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);overflow-y:auto;max-height:calc(100vh - 80px)';
+        panel.style.cssText = 'display:block;position:fixed;top:60px;left:16px;right:16px;min-width:auto;z-index:600;background:white;color:var(--text-primary);border:1.5px solid #e8eaed;border-radius:12px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);overflow-y:auto;max-height:calc(100vh - 80px)';
         setTimeout(() => {
             function _hidePanel(e) {
                 if (!panel.contains(e.target)) {
