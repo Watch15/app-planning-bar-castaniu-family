@@ -2706,6 +2706,89 @@ app.get('/api/dispos/with-dispo', checkDB, requirePatron, async (req, res) => {
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
+// KPI de complétion des dispos pour la semaine cible [from,to], scopé selon le rôle :
+// patron = tous les bars, directeur = ses bars assignés, responsable = les établissements
+// de ses shifts de la semaine en cours. Renvoie le global + une déclinaison par bar.
+app.get('/api/dispos/kpi', checkDB, requireAuth, async (req, res) => {
+    const { from, to } = req.query;
+    if (!from || !to) return res.status(400).json({ error: 'from et to requis' });
+    const user = req.session.user;
+    try {
+        const allEstabs = await db.collection('establishments').find({}, { projection: { id: 1, name: 1 } }).toArray();
+        let scope, scopeEstabIds;
+        if (user.role === 'patron') {
+            scope = 'patron';
+            scopeEstabIds = allEstabs.map(e => String(e.id));
+        } else if (user.role === 'directeur') {
+            scope = 'directeur';
+            scopeEstabIds = (user.assigned_establishments || []).map(String);
+        } else {
+            // Responsable : staff possédant un rôle de type 'responsable'
+            if (!user.staff_id || !isValidObjectId(user.staff_id)) return res.status(403).json({ error: 'Accès refusé' });
+            const staffDoc = await db.collection('staff').findOne({ _id: new ObjectId(user.staff_id) });
+            const responsableRoles = await db.collection('roles').find({ type: 'responsable' }).toArray();
+            const responsableIds = responsableRoles.map(r => String(r._id));
+            const staffRoles = (staffDoc && staffDoc.roles) || [];
+            if (!staffRoles.some(r => responsableIds.includes(r))) return res.json({ authorized: false });
+            // Établissements distincts de ses shifts de la semaine EN COURS
+            const monday = currentWeekStart(new Date());
+            const sun = new Date(monday); sun.setDate(sun.getDate() + 6);
+            const myShifts = await db.collection('shifts').find(
+                { staff_id: user.staff_id, date: { $gte: toDateStr(monday), $lte: toDateStr(sun) } },
+                { projection: { establishment_id: 1 } }
+            ).toArray();
+            scope = 'responsable';
+            scopeEstabIds = [...new Set(myShifts.map(s => String(s.establishment_id)).filter(Boolean))];
+        }
+
+        const estabNameById = {};
+        allEstabs.forEach(e => { estabNameById[String(e.id)] = e.name; });
+        const scopeSet = new Set(scopeEstabIds);
+
+        // Staff autorisés = compte actif + can_submit_dispos !== false
+        const activeUsers = await db.collection('users').find(
+            { role: 'staff', active: true, staff_id: { $ne: null } },
+            { projection: { staff_id: 1 } }
+        ).toArray();
+        const activeIds = [...new Set(activeUsers.map(u => u.staff_id).filter(id => id && isValidObjectId(id)))];
+        const eligible = activeIds.length
+            ? await db.collection('staff').find(
+                { _id: { $in: activeIds.map(id => new ObjectId(id)) }, can_submit_dispos: { $ne: false } },
+                { projection: { venues: 1 } }
+            ).toArray()
+            : [];
+
+        // Qui a envoyé ≥ 1 dispo sur la période
+        const dispos = await db.collection('availabilities').find(
+            { date: { $gte: from, $lte: to }, type: { $ne: 'week_note' } },
+            { projection: { staff_id: 1 } }
+        ).toArray();
+        const sentSet = new Set(dispos.map(d => String(d.staff_id)));
+
+        const by = scopeEstabIds.map(eid => ({ establishment_id: eid, establishment_name: estabNameById[eid] || eid, sent: 0, total: 0 }));
+        const byId = {};
+        by.forEach(b => { byId[b.establishment_id] = b; });
+
+        const overallSet = new Set();
+        const overallSentSet = new Set();
+        eligible.forEach(s => {
+            const sid = String(s._id);
+            const venues = Array.isArray(s.venues) ? s.venues.map(String) : [];
+            const inScope = venues.filter(v => scopeSet.has(v));
+            // Le patron compte tout staff autorisé dans le global, même sans établissement.
+            const inOverall = scope === 'patron' ? true : inScope.length > 0;
+            if (inOverall) { overallSet.add(sid); if (sentSet.has(sid)) overallSentSet.add(sid); }
+            inScope.forEach(v => { byId[v].total++; if (sentSet.has(sid)) byId[v].sent++; });
+        });
+
+        res.json({
+            authorized: true, scope,
+            overall: { sent: overallSentSet.size, total: overallSet.size },
+            by_establishment: by.sort((a, b) => a.establishment_name.localeCompare(b.establishment_name)),
+        });
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
 app.post('/api/dispos/reopen-for-correction', checkDB, requirePatron, async (req, res) => {
     const { staff_id, from, to } = req.body;
     if (!staff_id || !from || !to)

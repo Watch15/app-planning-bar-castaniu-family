@@ -290,6 +290,7 @@ async function init() {
 
     loadDisposBadge();
     loadCongesBadge();
+    loadDisposKpi();
     // loadSwapsBadge(); // F-05 désactivé
     loadNotifBadge();
     _notifPollTimer = setInterval(() => { loadNotifBadge(); /* loadSwapsBadge(); */ }, 30000);
@@ -4829,6 +4830,57 @@ async function loadDisposBadge() {
     } catch { }
 }
 
+// ── KPI complétion des dispos (carte vue planning) ───────────────────────────
+
+function _kpiProgressBar(sent, total, big) {
+    const pct = total > 0 ? Math.round((sent / total) * 100) : 0;
+    const color = total === 0 ? '#cbd5e1' : (pct >= 100 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444');
+    const h = big ? 10 : 7;
+    return '<div style="display:flex;align-items:center;gap:8px">' +
+        '<div style="flex:1;height:' + h + 'px;background:#eef0f4;border-radius:6px;overflow:hidden">' +
+            '<div style="height:100%;width:' + pct + '%;background:' + color + ';border-radius:6px;transition:width .3s"></div>' +
+        '</div>' +
+        '<span style="font-size:' + (big ? '13' : '12') + 'px;font-weight:700;color:#1a1a2e;white-space:nowrap">' + sent + '/' + total + '</span>' +
+    '</div>';
+}
+
+async function loadDisposKpi() {
+    const card = document.getElementById('dispos-kpi-card');
+    if (!card) return;
+    try {
+        const nextMonday = getMondayOf(addDays(new Date(), 7));
+        const from = toDateStr(nextMonday);
+        const to   = toDateStr(addDays(nextMonday, 6));
+        const res  = await fetch('/api/dispos/kpi?from=' + from + '&to=' + to, { credentials: 'include' });
+        if (!res.ok) { card.style.display = 'none'; return; }
+        const data = await res.json();
+        if (!data.authorized) { card.style.display = 'none'; return; }
+
+        const o   = data.overall || { sent: 0, total: 0 };
+        const pct = o.total > 0 ? Math.round((o.sent / o.total) * 100) : 0;
+        let html = '<div style="background:var(--light-card,#fff);border:1px solid var(--light-border,#e8eaed);border-radius:14px;padding:14px 16px;margin:0 0 12px">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">' +
+                '<span style="font-size:13px;font-weight:700;color:var(--text-primary,#1a1a2e)">🗓️ Dispos envoyées — semaine prochaine</span>' +
+                '<span style="font-size:12px;color:var(--text-secondary,#777)">' + pct + '%</span>' +
+            '</div>' +
+            _kpiProgressBar(o.sent, o.total, true);
+        const bars = (data.by_establishment || []).filter(b => b.total > 0 || b.sent > 0);
+        if (bars.length) {
+            html += '<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">';
+            bars.forEach(b => {
+                html += '<div style="display:flex;align-items:center;gap:10px">' +
+                    '<span style="flex:0 0 96px;font-size:12px;color:var(--text-secondary,#777);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(b.establishment_name) + '">' + escapeHtml(b.establishment_name) + '</span>' +
+                    '<div style="flex:1">' + _kpiProgressBar(b.sent, b.total, false) + '</div>' +
+                '</div>';
+            });
+            html += '</div>';
+        }
+        html += '</div>';
+        card.innerHTML = html;
+        card.style.display = '';
+    } catch { card.style.display = 'none'; }
+}
+
 // ── Congés / vacances — côté patron (onglet de la modale Dispos) ─────────────
 
 let _congesFilter = 'all';            // all | pending | approved
@@ -7348,6 +7400,7 @@ async function silentRefresh() {
     try { await loadAllStaff(); } catch { /* silencieux */ }
     try { loadDisposBadge(); } catch { /* silencieux */ }
     try { loadCongesBadge(); } catch { /* silencieux */ }
+    try { loadDisposKpi(); } catch { /* silencieux */ }
     try { loadNotifBadge(); } catch { /* silencieux */ }
 }
 
