@@ -4410,7 +4410,7 @@ async function loadRecapData() {
 
         const fmtH = h => ShiftHours.fmtDurationH(h, { nullText: '—', minus: '−' });
 
-        let totalPlanned = 0, totalReal = 0, totalDays = 0;
+        let totalPlanned = 0, totalReal = 0, totalDays = 0, totalConge = 0;
         let hasAnyReal = false;
 
         // Colonnes par établissement (uniquement quand on n'a pas filtré sur un seul)
@@ -4436,6 +4436,7 @@ async function loadRecapData() {
                 '<th colspan="' + estabCols.length + '" style="text-align:center;padding:6px;border-bottom:1px solid #e0e0e0;border-left:2px solid #e0e0e0;color:#555">Détail planifié</th>' +
                 '<th colspan="' + estabCols.length + '" style="text-align:center;padding:6px;border-bottom:1px solid #e0e0e0;border-left:2px solid #e0e0e0;color:#2980b9">Détail réel</th>' +
                 '<th rowspan="2" style="text-align:center;padding:8px 6px;vertical-align:bottom;border-bottom:2px solid #e0e0e0;border-left:2px solid #e0e0e0">Jours</th>' +
+                '<th rowspan="2" style="text-align:center;padding:8px 6px;vertical-align:bottom;border-bottom:2px solid #e0e0e0" title="Jours de congé validés">🌴 Congés</th>' +
                 '<th rowspan="2" style="text-align:center;padding:8px 6px;vertical-align:bottom;border-bottom:2px solid #e0e0e0">H. planifiées</th>' +
                 '<th rowspan="2" style="text-align:center;padding:8px 6px;vertical-align:bottom;border-bottom:2px solid #e0e0e0">H. réelles</th>' +
                 '<th rowspan="2" style="text-align:center;padding:8px 6px;vertical-align:bottom;border-bottom:2px solid #e0e0e0">Écart</th>' +
@@ -4452,6 +4453,7 @@ async function loadRecapData() {
             tableHTML += '<tr style="background:#f8f8f8;border-bottom:2px solid #e0e0e0">' +
                 '<th style="text-align:left;padding:8px 10px">Nom</th>' +
                 '<th style="text-align:center;padding:8px 6px">Jours</th>' +
+                '<th style="text-align:center;padding:8px 6px" title="Jours de congé validés">🌴 Congés</th>' +
                 '<th style="text-align:center;padding:8px 6px">H. planifiées</th>' +
                 '<th style="text-align:center;padding:8px 6px">H. réelles</th>' +
                 '<th style="text-align:center;padding:8px 6px">Écart</th>' +
@@ -4498,8 +4500,13 @@ async function loadRecapData() {
                 if (h != null) estabRealTotals[i] += h;
                 tableHTML += '<td style="text-align:center;padding:8px 6px;color:#2980b9' + (i === 0 ? ';border-left:2px solid #e0e0e0' : '') + '">' + (h != null ? fmtH(h) : '') + '</td>';
             });
+            totalConge += s.conge_days || 0;
+            const congeStr = s.conge_days > 0
+                ? '<span style="color:#10b981;font-weight:600">' + s.conge_days + ' j</span>'
+                : '<span style="color:#ccc">—</span>';
             tableHTML +=
                 '<td style="text-align:center;padding:8px 6px;border-left:2px solid #e0e0e0">' + s.days + '</td>' +
+                '<td style="text-align:center;padding:8px 6px">' + congeStr + '</td>' +
                 '<td style="text-align:center;padding:8px 6px">' + fmtH(s.planned_hours) + '</td>' +
                 '<td style="text-align:center;padding:8px 6px">' + realStr + '</td>' +
                 '<td style="text-align:center;padding:8px 6px">' + ecartStr + '</td>' +
@@ -4522,6 +4529,7 @@ async function loadRecapData() {
         });
         tableHTML +=
             '<td style="text-align:center;padding:8px 6px;border-left:2px solid #e0e0e0">' + totalDays + '</td>' +
+            '<td style="text-align:center;padding:8px 6px">' + (totalConge > 0 ? totalConge + ' j' : '—') + '</td>' +
             '<td style="text-align:center;padding:8px 6px">' + fmtH(totalPlanned) + '</td>' +
             '<td style="text-align:center;padding:8px 6px">' + (hasAnyReal ? fmtH(totalReal) : '—') + '</td>' +
             '<td style="text-align:center;padding:8px 6px">' + totalEcartStr + '</td>' +
@@ -4564,7 +4572,7 @@ function exportRecapXlsx() {
     const header = ['Nom']
         .concat(estabCols.map(e => 'Plan. ' + e.name))
         .concat(estabCols.map(e => 'R\u00E9el ' + e.name))
-        .concat(['Jours', 'Heures planifi\u00E9es', 'Heures r\u00E9elles', '\u00C9cart', 'Partiel']);
+        .concat(['Jours', 'Cong\u00E9s (j)', 'Heures planifi\u00E9es', 'Heures r\u00E9elles', '\u00C9cart', 'Partiel']);
 
     const rows = [
         ['R\u00E9capitulatif mensuel ' + (month || ''), '\u00C9tablissement : ' + (estabLabel || 'Tous')],
@@ -4572,13 +4580,14 @@ function exportRecapXlsx() {
         header,
     ];
 
-    let totalPlanned = 0, totalReal = 0, totalDays = 0, hasAnyReal = false;
+    let totalPlanned = 0, totalReal = 0, totalDays = 0, totalConge = 0, hasAnyReal = false;
     const estabPlannedTotals = estabCols.map(() => 0);
     const estabRealTotals    = estabCols.map(() => 0);
 
     _recapLastData.forEach(s => {
         totalPlanned += s.planned_hours;
         totalDays    += s.days;
+        totalConge   += s.conge_days || 0;
         if (s.real_hours != null) { totalReal += s.real_hours; hasAnyReal = true; }
 
         const byEstabPlanned = {};
@@ -4601,6 +4610,7 @@ function exportRecapXlsx() {
         });
         row.push(
             s.days,
+            s.conge_days > 0 ? s.conge_days : '',
             fmtH(s.planned_hours),
             s.real_hours != null ? fmtH(s.real_hours) : '',
             s.ecart != null ? fmtH(s.ecart) : '',
@@ -4615,6 +4625,7 @@ function exportRecapXlsx() {
     estabRealTotals.forEach(t => totalRow.push(t > 0 ? fmtH(t) : ''));
     totalRow.push(
         totalDays,
+        totalConge > 0 ? totalConge : '',
         fmtH(totalPlanned),
         hasAnyReal ? fmtH(totalReal) : '',
         totalEcart != null ? fmtH(totalEcart) : '',

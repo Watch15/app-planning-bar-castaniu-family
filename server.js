@@ -12,7 +12,7 @@ const morgan  = require('morgan');
 const {
     isValidObjectId, hashToken, normalizePhone,
     weekStart, currentWeekStart, disposWeekStart, isAutoPublished, isDatePublished, normalizePublishDoc, chargeMultiplier,
-    toDateStr, datesOverlap, congeCoversDate,
+    toDateStr, datesOverlap, congeCoversDate, congeDaysInRange,
 } = require('./lib/utils');
 
 // Sentry — initialisation conditionnelle (ne se charge que si SENTRY_DSN fourni).
@@ -3606,6 +3606,54 @@ app.get('/api/recap-mensuel', checkDB, requirePatron, async (req, res) => {
                 total_shifts:  entry.shifts.length,
                 by_establishment,
             };
+        });
+
+        // ── Congés validés du mois ────────────────────────────────────────────
+        // Les congés sont personnels (non rattachés à un établissement). Si un
+        // établissement est filtré, on ne compte que les congés des staff qui y
+        // sont rattachés (venues). On agrège les jours de congé par staff sur le mois.
+        const conges = await db.collection('time_off').find({
+            status:     'approved',
+            start_date: { $lte: lastDay },
+            end_date:   { $gte: firstDay },
+        }).toArray();
+
+        const congeDaysByStaff = {};
+        conges.forEach(c => {
+            const sm = staffMap[String(c.staff_id)];
+            if (establishment_id) {
+                const venues = (sm && Array.isArray(sm.venues)) ? sm.venues.map(String) : [];
+                if (!venues.includes(String(establishment_id))) return;
+            }
+            const d = congeDaysInRange(c, firstDay, lastDay);
+            if (d > 0) congeDaysByStaff[c.staff_id] = (congeDaysByStaff[c.staff_id] || 0) + d;
+        });
+
+        const resultMap = {};
+        result.forEach(r => { r.conge_days = 0; resultMap[r.staff_id] = r; });
+        Object.entries(congeDaysByStaff).forEach(([staffId, d]) => {
+            if (resultMap[staffId]) {
+                resultMap[staffId].conge_days = d;
+            } else {
+                // Staff en congé sans aucun shift ce mois-ci : on l'ajoute quand même
+                const sm = staffMap[staffId];
+                result.push({
+                    staff_id:      staffId,
+                    staff_name:    sm ? sm.name : '—',
+                    color:         sm ? sm.color : '#888',
+                    days:          0,
+                    planned_hours: 0,
+                    real_hours:    null,
+                    ecart:         null,
+                    all_pointed:   false,
+                    partial:       false,
+                    extra_count:   0,
+                    extra_hours:   0,
+                    total_shifts:  0,
+                    by_establishment: [],
+                    conge_days:    d,
+                });
+            }
         });
 
         result.sort((a, b) => a.staff_name.localeCompare(b.staff_name));
