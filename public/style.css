@@ -401,6 +401,9 @@ a:hover { color: var(--accent-soft); }
 .staff-role-badge { padding: 1px 6px; border-radius: var(--radius-sm); font-size: 10px; font-weight: 600; white-space: nowrap; }
 .staff-role-badge.responsable { background: #fff3e0; color: #e67e22; }
 .staff-role-badge.informatif  { background: #ede9fe; color: var(--accent-soft); }
+.staff-card.staff-card-onleave { opacity: 0.55; background: #f3f4f6; border-style: dashed; }
+.staff-card.staff-card-onleave:hover { opacity: 0.8; }
+.staff-leave-badge { padding: 1px 6px; border-radius: var(--radius-sm); font-size: 10px; font-weight: 600; white-space: nowrap; background: #d1fae5; color: #065f46; }
 .color-controls {
   display: flex; align-items: center; gap: 4px; margin-left: 6px;
   opacity: 0; transition: opacity var(--transition); pointer-events: none;

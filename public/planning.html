@@ -633,6 +633,7 @@
 <div class="tabs-bar">
     <button class="tab-btn active" data-tab="planning"><span class="tab-full">Mon planning</span><span class="tab-short">Planning</span></button>
     <button class="tab-btn" data-tab="dispos" id="tab-dispos"><span class="tab-full">Mes dispos</span><span class="tab-short">Dispos</span></button>
+    <button class="tab-btn" data-tab="conges" id="tab-conges"><span class="tab-full">Mes congés</span><span class="tab-short">Congés</span></button>
     <button class="tab-btn" data-tab="historique">Historique</button>
 </div>
 
@@ -677,6 +678,39 @@
     <button id="btn-submit-dispos" class="btn-submit-dispos">
         Envoyer mes dispos
     </button>
+</div>
+
+<!-- ── Vue congés / vacances ── -->
+<div id="view-conges" style="display:none">
+    <div class="greeting">
+        <div class="greeting-name">Mes congés</div>
+        <div class="greeting-sub">Signale tes vacances à l'avance pour une planification plus claire</div>
+    </div>
+    <div style="padding:0 20px 20px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <label style="flex:1 1 130px;font-size:13px;color:#444;font-weight:600">Du
+                <input type="date" id="conge-start" style="width:100%;margin-top:4px;border:1.5px solid #e8eaed;border-radius:10px;padding:10px;font-size:14px;font-family:inherit">
+            </label>
+            <label style="flex:1 1 130px;font-size:13px;color:#444;font-weight:600">Au
+                <input type="date" id="conge-end" style="width:100%;margin-top:4px;border:1.5px solid #e8eaed;border-radius:10px;padding:10px;font-size:14px;font-family:inherit">
+            </label>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#444;cursor:pointer">
+                <input type="radio" name="conge-mode" value="request" checked style="margin-top:2px">
+                <span><b>Demande de congé</b> — soumise au patron pour validation</span>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#444;cursor:pointer">
+                <input type="radio" name="conge-mode" value="info" style="margin-top:2px">
+                <span><b>À titre informatif</b> — visible immédiatement, sans validation</span>
+            </label>
+        </div>
+        <textarea id="conge-reason" placeholder="Motif (optionnel)" maxlength="500" style="width:100%;border:1.5px solid #e8eaed;border-radius:10px;padding:10px;font-size:14px;font-family:inherit;min-height:54px;resize:vertical"></textarea>
+        <button id="btn-submit-conge" class="btn-submit-dispos" style="position:static;margin:0;border-radius:10px;padding:14px 16px">Envoyer</button>
+        <div id="conge-status" style="font-size:13px;min-height:18px"></div>
+    </div>
+    <div style="padding:0 20px 8px;font-size:13px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:0.4px">Mes congés à venir</div>
+    <div id="conge-list" style="padding:0 20px 40px;display:flex;flex-direction:column;gap:10px"></div>
 </div>
 
 <!-- ── Vue historique ── -->

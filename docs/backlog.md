@@ -34,6 +34,7 @@ Ajouter les nouveaux éléments avec une description courte, un contexte et une 
 | ~~F-04~~ | ~~**Récap mensuel heures (export CSV)**~~ | Dashboard / Export | ✅ Done — CSV livré en D-17, **migré vers Excel `.xlsx`** + ventilation par établissement en D-52 |
 | F-09 | **Abonnement agenda iCal (Google/Apple/Outlook)** | Staff / Agenda | ⏸️ Livré (D-72) puis **DÉSACTIVÉ (D-83)** — flag `CALENDAR_ENABLED=false`, pas assez fiable (synchro non temps réel). Code conservé, à roder sur `dev` avant réactivation |
 | F-05 | **Échange de shifts avec validation patron** | Shifts / Notifications | ⏸️ Code livré (D-18) mais **désactivé en attente validation client** — collection `shift_swaps` conservée, 7 routes commentées via `/* */` dans `server.js` lignes 2186→2422 et 2488→2550. Modales front/back fonctionnelles, à réactiver d'un seul retrait de commentaires |
+| F-10 | **Congés / vacances déclarés à l'avance par le staff** | Staff / Planning | ✅ Done — collection `time_off` dédiée (long terme, non purgée, valable sur tous les établissements du staff). Le staff pose une **demande** (validation patron) ou une **déclaration informative** par **plage de dates** depuis l'onglet « Congés » de `planning.html`. Côté patron : modale 🌴 Congés (badge + valider/refuser) et dans le planning, le staff en congé est **grisé + badge 🌴**, avec **confirmation requise** avant assignation. Endpoints `/api/conges*`, helpers purs `datesOverlap`/`congeCoversDate` (testés). |
 
 ---
 

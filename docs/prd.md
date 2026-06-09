@@ -12,7 +12,7 @@ Templyo est une application web SaaS de planification du personnel multi-établi
 |---|---|
 | `patron` | Super-admin. Accès complet à tous les établissements, tout le personnel, tous les paramètres. |
 | `directeur` | Manager limité aux établissements qui lui sont assignés. Peut gérer le planning et le personnel de ses établissements. |
-| `staff` | Employé. Accès en lecture seule à son planning et envoi de disponibilités. |
+| `staff` | Employé. Accès en lecture seule à son planning, envoi de disponibilités et déclaration de congés. |
 | `etablissement` | Compte par établissement pour le pointage sur place (`pointage.html`). |
 
 ---
@@ -137,6 +137,24 @@ Paramétrage global :
 - `force_open_staff[]` : réouverture **individuelle** par staff (E-15) — bypass de la deadline pour les `staff_id` listés ; chaque entrée est purgée automatiquement à la prochaine soumission réussie du staff
 - 3 rappels push automatiques quotidiens à 10h via `checkDispoRappels()` : Trigger 1 (ouverture le `open_day`), J-2, J-1
 - Garde anti-doublon : `notif_sent_open_week` mémorise la `weekStart` cible — Trigger 1 ne part qu'une fois par semaine cible
+
+### 3.9.bis Congés / vacances (F-10)
+Mécanique **distincte des disponibilités** : long terme, personnelle (vaut sur tous les
+établissements du staff), et **non purgée** au changement de semaine. Collection dédiée
+`time_off` ; ne dépend ni de la deadline ni de l'ouverture hebdomadaire des dispos.
+- **Côté staff** (`planning.html`, onglet « Congés ») : saisie d'une **plage de dates**
+  (du… au…) en deux modes — **Demande de congé** (soumise au patron pour validation) ou
+  **À titre informatif** (visible immédiatement). Liste de ses congés à venir avec statut
+  (en attente / validé / refusé) et annulation possible.
+- **Côté patron** : bouton header **🌴 Congés** avec badge des demandes en attente, modale
+  à deux onglets (⏳ En attente / 📅 Tous les congés) pour **valider** ou **refuser** ;
+  notification push au staff à la décision.
+- **Intégration planning** : un staff en congé approuvé un jour donné est **grisé + badge
+  🌴 Congé** dans la barre staff, et son assignation à un shift ce jour-là requiert une
+  **confirmation explicite** (blocage doux).
+- Endpoints : `POST /api/conges`, `GET /api/conges/mine`, `DELETE /api/conges/:id`,
+  `GET /api/conges` (patron, filtre `from`/`to`/`status`), `GET /api/conges/pending-count`,
+  `PATCH /api/conges/:id/decision`. Helpers purs testés : `datesOverlap`, `congeCoversDate`.
 
 ### 3.10 Publication
 - « Publier la semaine » rend le planning visible au staff

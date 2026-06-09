@@ -12,7 +12,7 @@ const morgan  = require('morgan');
 const {
     isValidObjectId, hashToken, normalizePhone,
     weekStart, currentWeekStart, disposWeekStart, isAutoPublished, isDatePublished, normalizePublishDoc, chargeMultiplier,
-    toDateStr,
+    toDateStr, datesOverlap, congeCoversDate,
 } = require('./lib/utils');
 
 // Sentry — initialisation conditionnelle (ne se charge que si SENTRY_DSN fourni).
@@ -281,6 +281,33 @@ async function sendPushToStaff(staffIds, payload) {
     } catch (e) {
         console.error('❌ sendPushToStaff error:', e.message);
     }
+}
+
+// Push direct vers les patrons/directeurs (comptes de gestion, pas de staff_id
+// garanti). Utilisé p. ex. pour signaler une nouvelle demande de congé.
+async function notifyPatrons(payload) {
+    if (!db) return;
+    try {
+        const patrons = await db.collection('users')
+            .find({ role: { $in: ['patron', 'directeur'] } }, { projection: { _id: 1 } })
+            .toArray();
+        const userIds = patrons.map(u => String(u._id));
+        if (userIds.length === 0) return;
+        if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+        const subs = await db.collection('push_subscriptions')
+            .find({ user_id: { $in: userIds } }).toArray();
+        if (subs.length === 0) return;
+        const payloadStr = JSON.stringify(payload);
+        const stale = [];
+        await Promise.allSettled(subs.map(async sub => {
+            try { await webpush.sendNotification(sub.subscription, payloadStr); }
+            catch (err) {
+                if (err.statusCode === 410 || err.statusCode === 404) stale.push(sub._id);
+                else console.error('❌ notifyPatrons push error:', err.statusCode, err.message);
+            }
+        }));
+        if (stale.length > 0) await db.collection('push_subscriptions').deleteMany({ _id: { $in: stale } });
+    } catch (e) { console.error('❌ notifyPatrons error:', e.message); }
 }
 
 
@@ -2742,6 +2769,132 @@ app.patch('/api/dispos/:id/ignore', checkDB, requirePatron, async (req, res) => 
         );
         if (result.matchedCount === 0) return res.status(404).json({ error: 'Dispo introuvable' });
         res.json({ message: 'Dispo ignorée' });
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// ── Congés / vacances (collection `time_off`) ────────────────────────────────
+// Mécanique dédiée, distincte des dispos : long terme, personnelle (vaut sur tous
+// les établissements du staff), NON purgée au changement de semaine.
+//   { staff_id, staff_name, start_date, end_date, mode:'request'|'info',
+//     status:'pending'|'approved'|'rejected', reason, created_at, decided_at, decided_by }
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// POST — un staff pose une demande de congé (mode 'request' → validation patron)
+// ou une déclaration informative (mode 'info' → visible immédiatement).
+app.post('/api/conges', checkDB, requireAuth, async (req, res) => {
+    const staffId = req.session.user.staff_id;
+    if (!staffId) return res.status(400).json({ error: 'Aucun profil staff lié' });
+    const { start_date, end_date, reason } = req.body;
+    const mode = req.body.mode === 'info' ? 'info' : 'request';
+    if (!ISO_DATE_RE.test(start_date) || !ISO_DATE_RE.test(end_date))
+        return res.status(400).json({ error: 'Dates invalides (format YYYY-MM-DD)' });
+    if (end_date < start_date)
+        return res.status(400).json({ error: 'La date de fin doit être après la date de début.' });
+    const today = toDateStr(new Date());
+    if (end_date < today)
+        return res.status(400).json({ error: 'La période de congé doit être à venir.' });
+    try {
+        // Pas de chevauchement avec un congé existant non refusé du même staff
+        // (les congés déjà terminés ne peuvent pas chevaucher une période à venir)
+        const existing = await db.collection('time_off')
+            .find({ staff_id: staffId, status: { $ne: 'rejected' }, end_date: { $gte: today } }).toArray();
+        const clash = existing.find(c => datesOverlap(start_date, end_date, c.start_date, c.end_date));
+        if (clash)
+            return res.status(409).json({ error: 'Cette période chevauche un congé déjà enregistré (' + clash.start_date + ' → ' + clash.end_date + ').' });
+        const status = mode === 'info' ? 'approved' : 'pending';
+        const doc = {
+            staff_id: staffId, staff_name: req.session.user.name || '',
+            start_date, end_date, mode, status,
+            reason: (reason || '').toString().trim().slice(0, 500),
+            created_at: new Date(), decided_at: null, decided_by: null,
+        };
+        const { insertedId } = await db.collection('time_off').insertOne(doc);
+        res.status(201).json({ message: mode === 'info' ? 'Congé enregistré' : 'Demande de congé envoyée', _id: insertedId });
+        touchLastUpdated();
+        if (mode === 'request') {
+            notifyPatrons({
+                title: 'Templyo — Demande de congé',
+                body:  (doc.staff_name || 'Un staff') + ' demande un congé du ' + start_date + ' au ' + end_date,
+                tag:   'demande-conge',
+                url:   '/index.html#conges',
+            }).catch(e => console.error('[notify conge request]', e.message));
+        }
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// GET — les congés du staff connecté (en cours + à venir)
+app.get('/api/conges/mine', checkDB, requireAuth, async (req, res) => {
+    const staffId = req.session.user.staff_id;
+    if (!staffId) return res.status(400).json({ error: 'Aucun profil staff lié' });
+    try {
+        const today = toDateStr(new Date());
+        const conges = await db.collection('time_off')
+            .find({ staff_id: staffId, end_date: { $gte: today } })
+            .sort({ start_date: 1 }).toArray();
+        res.json(conges);
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// DELETE — le staff annule SON congé (uniquement à venir)
+app.delete('/api/conges/:id', checkDB, requireAuth, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    const staffId = req.session.user.staff_id;
+    if (!staffId) return res.status(400).json({ error: 'Aucun profil staff lié' });
+    try {
+        const conge = await db.collection('time_off').findOne({ _id: new ObjectId(req.params.id) });
+        if (!conge) return res.status(404).json({ error: 'Congé introuvable' });
+        if (conge.staff_id !== staffId) return res.status(403).json({ error: 'Ce congé ne t\'appartient pas.' });
+        const today = toDateStr(new Date());
+        if (conge.end_date < today) return res.status(400).json({ error: 'Un congé déjà passé ne peut plus être annulé.' });
+        await db.collection('time_off').deleteOne({ _id: new ObjectId(req.params.id) });
+        res.json({ message: 'Congé annulé' });
+        touchLastUpdated();
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// GET — liste patron (filtre ?from&to&status). Sert la vue gestion ET le planning.
+app.get('/api/conges', checkDB, requirePatron, async (req, res) => {
+    const { from, to, status } = req.query;
+    try {
+        const query = {};
+        // Chevauchement avec [from, to] : start <= to ET end >= from
+        if (to)   query.start_date = { $lte: to };
+        if (from) query.end_date   = { $gte: from };
+        if (status) query.status = status;
+        const conges = await db.collection('time_off').find(query).sort({ start_date: 1 }).toArray();
+        res.json(conges);
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// GET — compteur de demandes en attente (badge patron)
+app.get('/api/conges/pending-count', checkDB, requirePatron, async (req, res) => {
+    try {
+        const count = await db.collection('time_off').countDocuments({ status: 'pending' });
+        res.json({ count });
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// PATCH — le patron valide ou refuse une demande de congé
+app.patch('/api/conges/:id/decision', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    const decision = req.body.decision;
+    if (decision !== 'approved' && decision !== 'rejected')
+        return res.status(400).json({ error: 'decision invalide (approved|rejected)' });
+    try {
+        const conge = await db.collection('time_off').findOne({ _id: new ObjectId(req.params.id) });
+        if (!conge) return res.status(404).json({ error: 'Congé introuvable' });
+        await db.collection('time_off').updateOne(
+            { _id: new ObjectId(req.params.id) },
+            { $set: { status: decision, decided_at: new Date(), decided_by: req.session.user.name || 'patron' } }
+        );
+        res.json({ message: decision === 'approved' ? 'Congé validé' : 'Congé refusé' });
+        touchLastUpdated();
+        sendPushToStaff([conge.staff_id], {
+            title: decision === 'approved' ? 'Templyo — Congé validé' : 'Templyo — Congé refusé',
+            body:  (decision === 'approved' ? '✅ Ton congé du ' : '❌ Ta demande de congé du ') + conge.start_date + ' au ' + conge.end_date + (decision === 'approved' ? ' est validé.' : ' a été refusée.'),
+            tag:   'decision-conge',
+            url:   '/planning.html#conges',
+        }).catch(e => console.error('[notify conge decision]', e.message));
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 

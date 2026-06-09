@@ -111,6 +111,8 @@ let currentVenueId    = null;
 let currentGroup      = null; // groupe actif ('Bar', 'Cuisine', null = Tous)
 let allGroups         = []; // groupes disponibles
 let confirmedDispos   = []; // dispos confirmées du jour affiché
+let dayLeaves         = []; // congés approuvés couvrant le jour affiché
+let dayLeaveStaffIds  = new Set(); // staff_id (string) en congé le jour affiché
 let allEstablishments = []; // tous les établissements
 let allRoles          = []; // rôles créés par le patron
 let currentShiftsWeek = []; // shifts de la semaine pour les couleurs
@@ -287,6 +289,7 @@ async function init() {
     await Promise.all([loadEstablishments(), loadAllStaff(), loadRoles(), loadGroups()]);
 
     loadDisposBadge();
+    loadCongesBadge();
     // loadSwapsBadge(); // F-05 désactivé
     loadNotifBadge();
     _notifPollTimer = setInterval(() => { loadNotifBadge(); /* loadSwapsBadge(); */ }, 30000);
@@ -297,6 +300,17 @@ async function init() {
 
     const btnDispos = document.getElementById('btn-dispos');
     if (btnDispos) btnDispos.addEventListener('click', openDisposPanel);
+
+    const btnConges = document.getElementById('btn-conges');
+    if (btnConges) btnConges.addEventListener('click', openCongesPanel);
+    const congesClose = document.getElementById('conges-modal-close');
+    if (congesClose) congesClose.addEventListener('click', () => {
+        document.getElementById('conges-modal').style.display = 'none';
+    });
+    const congesTabPending = document.getElementById('conges-tab-btn-pending');
+    if (congesTabPending) congesTabPending.addEventListener('click', () => switchCongesTab('pending'));
+    const congesTabAll = document.getElementById('conges-tab-btn-all');
+    if (congesTabAll) congesTabAll.addEventListener('click', () => switchCongesTab('all'));
 
     // F-05 échanges désactivé
     // const btnSwaps = document.getElementById('btn-swaps');
@@ -698,15 +712,23 @@ async function loadDayDetail(dateStr) {
 
     currentShifts  = [];
     confirmedDispos = [];
+    dayLeaves = [];
+    dayLeaveStaffIds = new Set();
     try {
-        const [shiftsRes, disposRes] = await Promise.all([
+        const [shiftsRes, disposRes, congesRes] = await Promise.all([
             fetch('/api/shifts/' + currentVenueId + '/' + dateStr, { credentials: 'include' }),
             fetch('/api/dispos/confirmed?from=' + dateStr + '&to=' + dateStr, { credentials: 'include' }),
+            fetch('/api/conges?from=' + dateStr + '&to=' + dateStr + '&status=approved', { credentials: 'include' }),
         ]);
         if (shiftsRes.ok) currentShifts   = await shiftsRes.json();
         if (disposRes.ok) confirmedDispos = await disposRes.json();
+        if (congesRes.ok) {
+            dayLeaves = await congesRes.json();
+            dayLeaveStaffIds = new Set(dayLeaves.map(c => String(c.staff_id)));
+        }
     } catch { /* silencieux */ }
 
+    renderSidebar(); // refléter les congés du jour dans la sidebar
     buildDisplayedStaff();
     extendDisplayForRealHours();
     renderTimelineHeader();
@@ -990,17 +1012,21 @@ function renderSidebar() {
         // Filtrage par rôle (le filtre searchVal est déjà appliqué avant le forEach)
         if (_staffFilterRole && !staffRoleIds.includes(_staffFilterRole)) return;
 
+        const onLeave = dayLeaveStaffIds.has(String(staff._id));
+
         const card = document.createElement('div');
-        card.className       = 'staff-card' + (isPref ? ' staff-pref' : '');
+        card.className       = 'staff-card' + (isPref ? ' staff-pref' : '') + (onLeave ? ' staff-card-onleave' : '');
         card.draggable       = true;
         card.dataset.staffId = staff._id;
         card.dataset.name    = staff.name.toLowerCase();
         card.dataset.roles   = staffRoleIds.join(',');
+        if (onLeave) card.title = staff.name + ' est en congé ce jour';
 
         card.innerHTML =
             (isPref ? '<span class="staff-pref-dot" title="Affecté à cet établissement">★</span>' : '') +
             '<span class="staff-dot" style="background:' + staff.color + '"></span>' +
             '<span class="staff-info-name"' + (staff.name_color ? ' style="color:' + staff.name_color + '"' : '') + '>' + displayName(staff._id, staff.name) + '</span>' +
+            (onLeave ? '<span class="staff-leave-badge" title="En congé ce jour">🌴 Congé</span>' : '') +
             (firstRole
                 ? '<span class="staff-role-badge ' + firstRole.type + '">' + firstRole.name + '</span>'
                 : '') +
@@ -2408,6 +2434,16 @@ async function createShift(staff, startTime, endTime) {
     try {
         // Pour un Joker : staff_id = '__joker__', nom unique (Joker 1, Joker 2…)
         const staffId   = staff.isJoker ? '__joker__' : staff._id;
+
+        // Blocage congé : confirmation requise avant d'assigner un staff en congé ce jour
+        if (staffId !== '__joker__' && dayLeaveStaffIds.has(String(staffId))) {
+            const proceed = await new Promise(resolve => {
+                showConfirm(
+                    '🌴 <strong>' + staff.name + '</strong> est en congé ce jour. L\'assigner quand même ?',
+                    () => resolve(true), () => resolve(false));
+            });
+            if (!proceed) return;
+        }
 
         // Avertissement non bloquant si jour de repos
         if (staffId !== '__joker__') {
@@ -4771,6 +4807,128 @@ async function loadDisposBadge() {
     } catch { }
 }
 
+// ── Congés / vacances — côté patron ──────────────────────────────────────────
+
+let _congesTab = 'pending';
+
+async function loadCongesBadge() {
+    try {
+        const res = await fetch('/api/conges/pending-count', { credentials: 'include' });
+        if (!res.ok) return;
+        const { count } = await res.json();
+        const badge = document.getElementById('conges-badge');
+        if (!badge) return;
+        badge.textContent   = count;
+        badge.style.display = count > 0 ? 'flex' : 'none';
+    } catch { }
+}
+
+function openCongesPanel() {
+    document.getElementById('conges-modal').style.display = 'flex';
+    switchCongesTab('pending');
+}
+
+function switchCongesTab(tab) {
+    _congesTab = tab;
+    const btnPending = document.getElementById('conges-tab-btn-pending');
+    const btnAll     = document.getElementById('conges-tab-btn-all');
+    [[btnPending, tab === 'pending'], [btnAll, tab === 'all']].forEach(([btn, active]) => {
+        if (!btn) return;
+        btn.style.borderBottomColor = active ? 'var(--accent)' : 'transparent';
+        btn.style.color   = active ? 'var(--accent)' : 'var(--text-secondary)';
+        btn.style.fontWeight = active ? '600' : '500';
+    });
+    loadCongesList();
+}
+
+const _CONGE_STATUS_PATRON = {
+    pending:  { label: 'En attente', cls: 'badge--warning' },
+    approved: { label: 'Validé',     cls: 'badge--success' },
+    rejected: { label: 'Refusé',     cls: 'badge--danger'  },
+};
+
+function _fmtCongeDateFr(iso) {
+    const MONTHS = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'];
+    const [, m, d] = iso.split('-').map(Number);
+    return d + ' ' + MONTHS[m - 1];
+}
+
+async function loadCongesList() {
+    const list = document.getElementById('conges-list');
+    if (!list) return;
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:#aaa;font-size:13px">Chargement…</div>';
+    try {
+        const today = toDateStr(new Date());
+        // En attente : toutes les demandes pending. Tous : congés à venir, tous statuts.
+        const qs = _congesTab === 'pending' ? 'status=pending' : 'from=' + today;
+        const res = await fetch('/api/conges?' + qs, { credentials: 'include' });
+        if (!res.ok) throw new Error();
+        renderCongesListPatron(await res.json());
+    } catch {
+        list.innerHTML = '<div style="padding:24px;text-align:center;color:#c0392b;font-size:13px">Erreur de chargement.</div>';
+    }
+}
+
+function renderCongesListPatron(conges) {
+    const list = document.getElementById('conges-list');
+    if (!list) return;
+    if (!conges.length) {
+        list.innerHTML = '<div style="padding:24px;text-align:center;color:#999;font-size:13px">' +
+            (_congesTab === 'pending' ? 'Aucune demande en attente.' : 'Aucun congé à venir.') + '</div>';
+        return;
+    }
+    list.innerHTML = '';
+    conges.forEach(c => {
+        const st = _CONGE_STATUS_PATRON[c.status] || _CONGE_STATUS_PATRON.pending;
+        const range = _fmtCongeDateFr(c.start_date) + (c.start_date === c.end_date ? '' : ' → ' + _fmtCongeDateFr(c.end_date));
+        const row = document.createElement('div');
+        row.style.cssText = 'padding:12px 16px;border-bottom:1px solid var(--light-border);display:flex;flex-direction:column;gap:6px';
+        const head = document.createElement('div');
+        head.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:space-between';
+        head.innerHTML =
+            '<span style="font-weight:600;color:var(--text-primary);font-size:14px">' + escapeHtml(c.staff_name || '?') + '</span>' +
+            '<span class="badge ' + st.cls + '">' + st.label + '</span>';
+        row.appendChild(head);
+        const meta = document.createElement('div');
+        meta.style.cssText = 'font-size:13px;color:var(--text-secondary)';
+        meta.textContent = '🌴 ' + range + ' · ' + (c.mode === 'info' ? 'Informatif' : 'Demande') + (c.reason ? ' · ' + c.reason : '');
+        row.appendChild(meta);
+        if (c.status === 'pending') {
+            const actions = document.createElement('div');
+            actions.style.cssText = 'display:flex;gap:8px;margin-top:4px';
+            const reject = document.createElement('button');
+            reject.textContent = 'Refuser';
+            reject.style.cssText = 'padding:6px 14px;border-radius:8px;border:1px solid var(--danger);background:white;color:var(--danger);font-size:13px;font-weight:600;cursor:pointer';
+            reject.addEventListener('click', () => decideConge(c._id, 'rejected'));
+            const approve = document.createElement('button');
+            approve.textContent = 'Valider';
+            approve.style.cssText = 'padding:6px 14px;border-radius:8px;border:none;background:#10b981;color:white;font-size:13px;font-weight:600;cursor:pointer';
+            approve.addEventListener('click', () => decideConge(c._id, 'approved'));
+            actions.appendChild(reject);
+            actions.appendChild(approve);
+            row.appendChild(actions);
+        }
+        list.appendChild(row);
+    });
+}
+
+async function decideConge(id, decision) {
+    try {
+        const res  = await fetch('/api/conges/' + id + '/decision', {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ decision }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showToast(data.message);
+        loadCongesList();
+        loadCongesBadge();
+        // Rafraîchir l'indicateur de congé sur le jour affiché si concerné
+        if (selectedDate) loadDayDetail(selectedDate);
+    } catch (e) { showToast(e.message || 'Erreur', true); }
+}
+
 let _reassignCount = 0;
 
 function _reassignDateRange() {
@@ -7115,6 +7273,7 @@ async function silentRefresh() {
     try { await refreshWeek(); } catch { /* silencieux */ }
     try { await loadAllStaff(); } catch { /* silencieux */ }
     try { loadDisposBadge(); } catch { /* silencieux */ }
+    try { loadCongesBadge(); } catch { /* silencieux */ }
     try { loadNotifBadge(); } catch { /* silencieux */ }
 }
 

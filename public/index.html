@@ -816,6 +816,10 @@
                 <button class="btn-manage-staff" id="btn-dispos">📋 Dispos</button>
                 <span id="dispos-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--danger);color:white;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;align-items:center;justify-content:center;pointer-events:none;z-index:1;border:1.5px solid var(--dark-bg)">0</span>
             </div>
+            <div style="position:relative;display:inline-block">
+                <button class="btn-manage-staff" id="btn-conges" title="Demandes de congés à valider">🌴 Congés</button>
+                <span id="conges-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--danger);color:white;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;align-items:center;justify-content:center;pointer-events:none;z-index:1;border:1.5px solid var(--dark-bg)">0</span>
+            </div>
             <!-- F-05 échanges désactivé
             <div style="position:relative;display:inline-block">
                 <button class="btn-manage-staff" id="btn-swaps" title="Échanges de shifts à valider">⇄ Échanges</button>
@@ -1199,6 +1203,21 @@
             <button class="btn-cancel" id="confirm-dispo-cancel" style="border-color:var(--danger);color:var(--danger)">Refuser</button>
             <button class="btn-confirm" id="confirm-dispo-btn">Confirmer</button>
         </div>
+    </div>
+</div>
+
+<!-- Modale congés / vacances -->
+<div class="modal-overlay" id="conges-modal" style="display:none">
+    <div class="modal" style="width:520px;max-width:95vw">
+        <div class="modal-header">
+            <span class="modal-title">🌴 Congés</span>
+            <button class="modal-close" id="conges-modal-close">&times;</button>
+        </div>
+        <div style="display:flex;gap:0;border-bottom:2px solid var(--light-border);padding:0 12px">
+            <button id="conges-tab-btn-pending" style="background:none;border:none;border-bottom:2px solid var(--accent);padding:10px 12px;min-height:40px;font-size:13px;font-weight:600;color:var(--accent);cursor:pointer;white-space:nowrap">⏳ En attente</button>
+            <button id="conges-tab-btn-all" style="background:none;border:none;border-bottom:2px solid transparent;padding:10px 12px;min-height:40px;font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer;white-space:nowrap">📅 Tous les congés</button>
+        </div>
+        <div id="conges-list" style="max-height:60vh;overflow-y:auto;padding:8px 0"></div>
     </div>
 </div>
 

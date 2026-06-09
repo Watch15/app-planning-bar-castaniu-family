@@ -120,6 +120,11 @@ async function init() {
         loadHistoriqueWeek();
     });
 
+    document.querySelector('[data-tab="conges"]').addEventListener('click', () => {
+        loadCongesTab();
+    });
+    initCongesForm();
+
     // Vérifier les droits dispos + groupes du staff en parallèle
     try {
         const sRes = await fetch('/api/dispo-settings', { credentials: 'include' });
@@ -1082,7 +1087,7 @@ function openContactSheet(name, phone) {
 
 function showTab(tab) {
     // Cacher toutes les vues connues
-    const views = ['view-planning', 'view-dispos', 'view-next-week', 'view-historique', 'view-resp-dashboard'];
+    const views = ['view-planning', 'view-dispos', 'view-conges', 'view-next-week', 'view-historique', 'view-resp-dashboard'];
     views.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
@@ -1674,6 +1679,130 @@ async function submitDispos() {
         showMsg(e.message, 'error');
         btn.disabled    = false;
         btn.textContent = 'Envoyer mes dispos';
+    }
+}
+
+// ── Congés / vacances ────────────────────────────────────────────────────────
+
+function fmtCongeDate(iso) {
+    const [, m, d] = iso.split('-').map(Number);
+    return d + ' ' + MONTH_NAMES[m - 1];
+}
+
+function setCongeStatus(text, type) {
+    const el = document.getElementById('conge-status');
+    if (!el) return;
+    el.textContent = text || '';
+    el.style.color = type === 'error' ? '#c0392b' : (type === 'success' ? '#1a7a4a' : '#666');
+}
+
+function initCongesForm() {
+    const btn = document.getElementById('btn-submit-conge');
+    if (!btn || btn._bound) return;
+    btn._bound = true;
+    const todayStr = toDateStr(new Date());
+    const startEl = document.getElementById('conge-start');
+    const endEl   = document.getElementById('conge-end');
+    if (startEl) startEl.min = todayStr;
+    if (endEl)   endEl.min   = todayStr;
+    if (startEl) startEl.addEventListener('change', () => {
+        if (endEl && (!endEl.value || endEl.value < startEl.value)) endEl.value = startEl.value;
+        if (endEl) endEl.min = startEl.value || todayStr;
+    });
+    btn.addEventListener('click', submitConge);
+}
+
+async function submitConge() {
+    const btn    = document.getElementById('btn-submit-conge');
+    const start  = document.getElementById('conge-start').value;
+    const end    = document.getElementById('conge-end').value;
+    const reason = document.getElementById('conge-reason').value || '';
+    const mode   = (document.querySelector('input[name="conge-mode"]:checked') || {}).value || 'request';
+    if (!start || !end) { setCongeStatus('Choisis une date de début et de fin.', 'error'); return; }
+    if (end < start)    { setCongeStatus('La date de fin doit être après la date de début.', 'error'); return; }
+    btn.disabled = true;
+    const prev = btn.textContent;
+    btn.textContent = 'Envoi…';
+    try {
+        const res = await fetch('/api/conges', {
+            credentials: 'include', method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ start_date: start, end_date: end, mode, reason }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setCongeStatus(data.message, 'success');
+        document.getElementById('conge-reason').value = '';
+        loadCongesTab();
+    } catch (e) {
+        setCongeStatus(e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = prev;
+    }
+}
+
+async function loadCongesTab() {
+    const list = document.getElementById('conge-list');
+    if (!list) return;
+    list.innerHTML = '<div style="color:#aaa;font-size:13px">Chargement…</div>';
+    try {
+        const res = await fetch('/api/conges/mine', { credentials: 'include' });
+        if (!res.ok) throw new Error();
+        renderCongesList(await res.json());
+    } catch {
+        list.innerHTML = '<div style="color:#c0392b;font-size:13px">Erreur de chargement.</div>';
+    }
+}
+
+const _CONGE_STATUS = {
+    pending:  { label: 'En attente', cls: 'badge--warning' },
+    approved: { label: 'Validé',     cls: 'badge--success' },
+    rejected: { label: 'Refusé',     cls: 'badge--danger'  },
+};
+
+function renderCongesList(conges) {
+    const list = document.getElementById('conge-list');
+    if (!list) return;
+    if (!conges.length) {
+        list.innerHTML = '<div style="color:#999;font-size:13px">Aucun congé à venir.</div>';
+        return;
+    }
+    list.innerHTML = '';
+    conges.forEach(c => {
+        const st = _CONGE_STATUS[c.status] || _CONGE_STATUS.pending;
+        const card = document.createElement('div');
+        card.style.cssText = 'border:1px solid #e8eaed;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px';
+        const range = fmtCongeDate(c.start_date) + (c.start_date === c.end_date ? '' : ' → ' + fmtCongeDate(c.end_date));
+        const head = document.createElement('div');
+        head.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px';
+        head.innerHTML = '<span style="font-weight:600;color:#1a1a2e">🌴 ' + range + '</span>' +
+            '<span class="badge ' + st.cls + '">' + st.label + '</span>';
+        card.appendChild(head);
+        const meta = document.createElement('div');
+        meta.style.cssText = 'font-size:12px;color:#888';
+        meta.textContent = (c.mode === 'info' ? 'Informatif' : 'Demande') + (c.reason ? ' · ' + c.reason : '');
+        card.appendChild(meta);
+        if (c.status !== 'rejected') {
+            const cancel = document.createElement('button');
+            cancel.textContent = 'Annuler';
+            cancel.style.cssText = 'align-self:flex-start;background:none;border:none;color:#c0392b;font-size:12px;font-weight:600;cursor:pointer;padding:0;text-decoration:underline';
+            cancel.addEventListener('click', () => cancelConge(c._id));
+            card.appendChild(cancel);
+        }
+        list.appendChild(card);
+    });
+}
+
+async function cancelConge(id) {
+    try {
+        const res  = await fetch('/api/conges/' + id, { credentials: 'include', method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setCongeStatus(data.message, 'success');
+        loadCongesTab();
+    } catch (e) {
+        setCongeStatus(e.message, 'error');
     }
 }
 
