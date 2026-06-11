@@ -110,9 +110,9 @@
     "semantic_hash": "be4636952c6133048fa6a440bd851295"
   },
   "docs/architecture.md": {
-    "mtime": 1780744601.1443412,
-    "ast_hash": "5dba4cbb3a989dfa2fbc823ec30cec2d",
-    "semantic_hash": "5dba4cbb3a989dfa2fbc823ec30cec2d"
+    "mtime": 1781165590.4689052,
+    "ast_hash": "bc633014d781e976d0d2f470e7b96221",
+    "semantic_hash": ""
   },
   "docs/backlog.md": {
     "mtime": 1781002753.3475814,
@@ -130,8 +130,8 @@
     "semantic_hash": "b08e527857ae0b58a84a24cdd1f2fd8a"
   },
   "public/index.html": {
-    "mtime": 1781001902.8516233,
-    "ast_hash": "6545887a64a0b8d5f783f56971af37f8",
+    "mtime": 1781165387.0069797,
+    "ast_hash": "73b1db4a41fcd15335cef0cdb0dc6d44",
     "semantic_hash": ""
   },
   "public/login.html": {
@@ -140,13 +140,13 @@
     "semantic_hash": "6c7d73ec5c04ddf393010989f26e5cd8"
   },
   "public/performance.html": {
-    "mtime": 1780744601.1653397,
-    "ast_hash": "32a941a19f5fd9d8e8de28615a361139",
-    "semantic_hash": "32a941a19f5fd9d8e8de28615a361139"
+    "mtime": 1781165363.5713813,
+    "ast_hash": "acba5e42006cba7455415a214b7ea71a",
+    "semantic_hash": ""
   },
   "public/planning.html": {
-    "mtime": 1780995441.7297447,
-    "ast_hash": "48ed0c0b2e46d2fc30d5a4ca1cef824a",
+    "mtime": 1781165392.5399237,
+    "ast_hash": "786106bd4dc294cf1fe562c4304b4401",
     "semantic_hash": ""
   },
   "public/pointage.html": {
@@ -177,6 +177,21 @@
   "tests/conges.test.js": {
     "mtime": 1780998532.9374382,
     "ast_hash": "bee18c794493986587399b57ee5c7e41",
+    "semantic_hash": ""
+  },
+  "public/index-init.js": {
+    "mtime": 1781165387.00598,
+    "ast_hash": "4ecd08a3915485857d092d37d276571e",
+    "semantic_hash": ""
+  },
+  "public/performance.js": {
+    "mtime": 1781165363.5628717,
+    "ast_hash": "4753608c0e1502f5c784fef91bf129ec",
+    "semantic_hash": ""
+  },
+  "public/sw-register.js": {
+    "mtime": 1781165373.271657,
+    "ast_hash": "7d6f1a2af5ac63f088ef532c8dea34d8",
     "semantic_hash": ""
   }
 }

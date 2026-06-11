@@ -49,6 +49,9 @@ app-planning-bar/
 │   ├── script.js               ← Logique côté patron (monolithique — voir contrainte)
 │   ├── planning.js             ← Logique côté staff (externalisée de planning.html, D-80)
 │   ├── pointage.js             ← Logique du pointage (externalisée de pointage.html, D-80)
+│   ├── performance.js          ← Logique pilotage éco (externalisée de performance.html, D-84)
+│   ├── index-init.js           ← Glue UI patron : drawer mobile, FAB staff, sync badge (externalisée d'index.html, D-84)
+│   ├── sw-register.js          ← Enregistrement du Service Worker, partagé index/planning (D-84)
 │   ├── style.css               ← Styles globaux
 │   ├── manifest.json           ← Manifest PWA
 │   ├── sw.js                   ← Service Worker
@@ -369,7 +372,14 @@ POST HTTP direct vers l'API REST Twilio. Pas de SDK. Normalisation des numéros 
 | `worker-src`  | `'self'` | Service Worker |
 | `object-src`, `frame-ancestors` | `'none'` | pas de plugins / pas d'embedding |
 
-`'unsafe-inline'` pourra être retiré une fois les styles/scripts inline extraits.
+`'unsafe-inline'` pourra être retiré de `script-src` une fois **tous** les blocs `<script>` inline extraits (CSP `unsafe-inline` est tout-ou-rien : un seul bloc inline restant casse la page si on le retire).
+
+**État de l'extraction des scripts inline (D-84)** :
+- ✅ Extraits : `performance.html` → `performance.js`, `index.html` → `index-init.js` (+ `sw-register.js`), `planning.html` → `sw-register.js`.
+- ⏳ Restants (flux auth, 2ᵉ passe) : `login.html` (~170 l. inline) et `set-password.html` (~78 l. inline).
+- Le retrait effectif de `'unsafe-inline'` de `script-src` n'aura lieu qu'**après** la 2ᵉ passe, une fois `login.html`/`set-password.html` externalisés.
+- `script-src-attr 'unsafe-inline'` restera nécessaire tant que des handlers `onclick=` inline subsistent dans le HTML généré (chantier distinct).
+- `style-src 'unsafe-inline'` reste requis (usage massif d'attributs `style=""`, cf. U-06).
 
 ---
 
