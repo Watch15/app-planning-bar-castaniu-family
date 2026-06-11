@@ -1049,6 +1049,33 @@ body.observateur #staff-bar-overlay {
   display: none !important;
 }
 
+/* ── Récap : sous-onglets (Récap / Calendrier congés) ───────────────────────*/
+.recap-subtabs { display: flex; gap: 6px; margin: 4px 0 12px; border-bottom: 1px solid var(--light-border); }
+.recap-subtab {
+  padding: 8px 14px; border: none; background: none; cursor: pointer;
+  font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--text-muted);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.recap-subtab:hover { color: var(--text-primary); }
+.recap-subtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Calendrier congés : une ligne par jour */
+.conge-day-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 7px 10px; border-radius: 8px; border: 1px solid transparent;
+}
+.conge-day-row.has-conge { background: var(--warning-bg, #fff8ec); border-color: #f0d9a8; }
+.conge-day-date { flex: 0 0 96px; font-size: 12px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+.conge-day-date.weekend { color: var(--accent); }
+.conge-day-people { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; }
+.conge-pill {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+  padding: 2px 8px; border-radius: 20px; background: var(--light-bg); color: var(--text-primary);
+}
+.conge-pill .conge-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.conge-pill .conge-tag { font-size: 10px; color: var(--text-muted); }
+.conge-day-empty { font-size: 12px; color: #cbd5e1; }
+
 /* ── Modale « Copier la semaine » ───────────────────────────────────────────*/
 .cw-mode-grid { display: flex; gap: 8px; margin-top: 6px; }
 .cw-mode-btn {

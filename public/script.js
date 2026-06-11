@@ -4426,12 +4426,24 @@ function openRecapModal() {
         });
     }
 
-    // Listener charger (une seule fois)
+    // Listener charger (une seule fois) — recharge le sous-onglet actif
     const btnLoad = document.getElementById('recap-load');
     if (!btnLoad._bound) {
         btnLoad._bound = true;
-        btnLoad.addEventListener('click', loadRecapData);
+        btnLoad.addEventListener('click', () => {
+            if (_recapSub === 'conges') loadCongesCalendar();
+            else loadRecapData();
+        });
     }
+
+    // Sous-onglets Récap | Calendrier congés (bind une fois)
+    const subtabs = document.getElementById('recap-subtabs');
+    if (subtabs && !subtabs._bound) {
+        subtabs._bound = true;
+        subtabs.querySelectorAll('.recap-subtab').forEach(b =>
+            b.addEventListener('click', () => showRecapSub(b.dataset.sub)));
+    }
+    showRecapSub('recap'); // réinitialise sur le récap à chaque ouverture
 
     // Listener imprimer
     const btnPrint = document.getElementById('recap-print');
@@ -4460,6 +4472,83 @@ function openRecapModal() {
 
 let _recapLastData = null;
 let _recapLastMeta = null;
+let _recapSub      = 'recap'; // 'recap' (table) | 'conges' (calendrier congés)
+
+// Bascule entre la table récap et le calendrier des congés.
+function showRecapSub(sub) {
+    _recapSub = sub;
+    document.querySelectorAll('#recap-subtabs .recap-subtab')
+        .forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
+    const isRecap  = sub === 'recap';
+    const recapC   = document.getElementById('recap-content');
+    const congesC  = document.getElementById('recap-conges-content');
+    if (recapC)  recapC.style.display  = isRecap ? '' : 'none';
+    if (congesC) congesC.style.display = isRecap ? 'none' : '';
+    // Excel / Imprimer ne concernent que la table récap
+    const exportBtn = document.getElementById('recap-export-csv');
+    const printBtn  = document.getElementById('recap-print');
+    if (exportBtn) exportBtn.style.display = isRecap ? '' : 'none';
+    if (printBtn)  printBtn.style.display  = isRecap ? '' : 'none';
+    if (!isRecap) loadCongesCalendar();
+}
+
+// Calendrier des congés du mois : réutilise GET /api/conges (congés validés/déclarés).
+async function loadCongesCalendar() {
+    const month = document.getElementById('recap-month').value;
+    const c     = document.getElementById('recap-conges-content');
+    if (!c) return;
+    c.innerHTML = '<div style="padding:24px;text-align:center;color:#ccc;font-size:13px">Chargement…</div>';
+    const [y, m] = month.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    const from = month + '-01';
+    const to   = month + '-' + String(lastDay).padStart(2, '0');
+    try {
+        // status=approved → congés réellement posés (déclarations 'info' + demandes validées)
+        const res = await fetch('/api/conges?from=' + from + '&to=' + to + '&status=approved', { credentials: 'include' });
+        const conges = res.ok ? await res.json() : [];
+        renderCongesCalendar(month, conges);
+    } catch {
+        c.innerHTML = '<div style="padding:24px;text-align:center;color:#e74c3c;font-size:13px">Erreur de chargement</div>';
+    }
+}
+
+function renderCongesCalendar(month, conges) {
+    const c = document.getElementById('recap-conges-content');
+    if (!c) return;
+    const [y, m] = month.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const pad = n => String(n).padStart(2, '0');
+    const colorOf = sid => (allStaff.find(s => String(s._id) === String(sid)) || {}).color || '#888';
+
+    const totalPeople = new Set(conges.map(g => g.staff_id)).size;
+    let html = '<div style="font-size:12px;color:var(--text-muted);margin:2px 0 12px">' +
+        'Congés de toute l’équipe (indépendant de l’établissement) — ' +
+        conges.length + ' période(s), ' + totalPeople + ' personne(s).</div>';
+    html += '<div style="display:flex;flex-direction:column;gap:4px">';
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = y + '-' + pad(m) + '-' + pad(day);
+        const wd = new Date(y, m - 1, day).getDay();
+        const isWeekend = wd === 0 || wd === 6;
+        const people = conges.filter(g => g.start_date <= dateStr && g.end_date >= dateStr);
+        let pills;
+        if (people.length) {
+            pills = people.map(p =>
+                '<span class="conge-pill"><span class="conge-dot" style="background:' + escapeHtml(colorOf(p.staff_id)) + '"></span>' +
+                escapeHtml(p.staff_name || '—') +
+                (p.mode === 'info' ? '<span class="conge-tag">info</span>' : '') +
+                '</span>'
+            ).join('');
+        } else {
+            pills = '<span class="conge-day-empty">—</span>';
+        }
+        html += '<div class="conge-day-row' + (people.length ? ' has-conge' : '') + '">' +
+            '<span class="conge-day-date' + (isWeekend ? ' weekend' : '') + '">' + DAY_NAMES_SHORT[wd] + ' ' + day + '</span>' +
+            '<span class="conge-day-people">' + pills + '</span>' +
+        '</div>';
+    }
+    html += '</div>';
+    c.innerHTML = html;
+}
 
 async function loadRecapData() {
     const month = document.getElementById('recap-month').value;

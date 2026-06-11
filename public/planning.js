@@ -1564,19 +1564,14 @@ async function loadDisposTab() {
         }
     }
 
-    // Si déjà soumises → lecture seule
+    // Déjà soumises mais deadline encore ouverte (ce code ne tourne que si canSubmit) :
+    // la saisie reste MODIFIABLE jusqu'à la deadline. On informe simplement le staff.
     if (alreadySubmitted) {
-        formEl.querySelectorAll('.dispo-type-btn, .dispo-time-input, .dispo-note-input').forEach(el => {
-            el.disabled = true;
-            el.style.opacity = '0.6';
-            el.style.cursor  = 'not-allowed';
-            el.style.pointerEvents = 'none';
-        });
         const notice = document.createElement('div');
-        notice.style.cssText = 'background:#fff8e1;border:1px solid #f9c74f;border-radius:10px;padding:12px 16px;font-size:13px;color:#7a5c00;margin-bottom:4px;line-height:1.5;';
-        notice.textContent = 'Tes disponibilités ont déjà été envoyées. Contacte ton responsable pour toute modification.';
+        notice.style.cssText = 'background:#eef2ff;border:1px solid #c5beff;border-radius:10px;padding:12px 16px;font-size:13px;color:#3730a3;margin-bottom:4px;line-height:1.5;';
+        notice.textContent = '✏️ Tes disponibilités ont été envoyées. Tu peux encore les modifier jusqu’au ' + fmtDate + '.';
         formEl.insertBefore(notice, formEl.firstChild);
-        btnSubmit.style.display = 'none';
+        btnSubmit.textContent = 'Mettre à jour mes dispos';
     }
 
     // Bloc note globale semaine
@@ -1817,6 +1812,9 @@ async function submitDispos() {
         if (!res.ok) throw new Error(data.error);
         showMsg(data.message, 'success');
         btn.textContent = 'Dispos envoyées ✓';
+        // Reste modifiable jusqu'à la deadline → on réactive le bouton pour
+        // permettre d'autres ajustements sans recharger la page.
+        setTimeout(() => { btn.disabled = false; btn.textContent = 'Mettre à jour mes dispos'; }, 1800);
     } catch (e) {
         showMsg(e.message, 'error');
         btn.disabled    = false;
