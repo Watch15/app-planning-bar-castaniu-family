@@ -374,12 +374,12 @@ POST HTTP direct vers l'API REST Twilio. Pas de SDK. Normalisation des numéros 
 
 `'unsafe-inline'` pourra être retiré de `script-src` une fois **tous** les blocs `<script>` inline extraits (CSP `unsafe-inline` est tout-ou-rien : un seul bloc inline restant casse la page si on le retire).
 
-**État de l'extraction des scripts inline (D-84)** :
-- ✅ Extraits : `performance.html` → `performance.js`, `index.html` → `index-init.js` (+ `sw-register.js`), `planning.html` → `sw-register.js`.
-- ⏳ Restants (flux auth, 2ᵉ passe) : `login.html` (~170 l. inline) et `set-password.html` (~78 l. inline).
-- Le retrait effectif de `'unsafe-inline'` de `script-src` n'aura lieu qu'**après** la 2ᵉ passe, une fois `login.html`/`set-password.html` externalisés.
-- `script-src-attr 'unsafe-inline'` restera nécessaire tant que des handlers `onclick=` inline subsistent dans le HTML généré (chantier distinct).
-- `style-src 'unsafe-inline'` reste requis (usage massif d'attributs `style=""`, cf. U-06).
+**Extraction des scripts inline — TERMINÉE (D-84 + D-85)** :
+- ✅ Tous les blocs `<script>` inline ont été externalisés : `performance.html` → `performance.js` ; `index.html` → `index-init.js` (+ `sw-register.js`) ; `planning.html` → `sw-register.js` ; `login.html` → `login.js` (+ `sw-register.js`) ; `set-password.html` → `set-password.js`.
+- ✅ `'unsafe-inline'` **retiré** de `script-src` (D-85) → un `<script>` injecté ne s'exécute plus.
+- ⏳ `script-src-attr 'unsafe-inline'` reste nécessaire tant que des handlers `onclick=` inline subsistent dans le HTML généré (chantier distinct, plus lourd : conversion en `addEventListener`).
+- ⏳ `style-src 'unsafe-inline'` reste requis (usage massif d'attributs `style=""`, cf. U-06).
+- ⚠️ Invariant à préserver : **ne jamais réintroduire de bloc `<script>` inline** dans un `.html` — il serait silencieusement bloqué par la CSP. Mettre tout JS dans un fichier `.js` servi en statique.
 
 ---
 

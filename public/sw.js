@@ -7,6 +7,8 @@ const CACHE = 'templyo-' + '%%BUILD_TIME%%';
 const STATIC = [
     '/login.html',
     '/set-password.html',
+    '/login.js',
+    '/set-password.js',
     '/script.js',
     '/planning.js',
     '/pointage.js',

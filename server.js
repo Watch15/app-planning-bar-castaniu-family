@@ -36,13 +36,16 @@ if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1);
 
 // Sécurité — headers HTTP (helmet). CSP adaptée au stack : vanilla JS sans
 // bundler, Google Fonts, Service Worker, pas de CDN externe.
-// `unsafe-inline` sur style/script reste nécessaire tant qu'on n'a pas extrait
-// les <style>/<script> inline des HTML et les style="" des templates JS.
+// `script-src` n'autorise plus `'unsafe-inline'` : tous les blocs <script> inline
+// ont été externalisés (D-84/D-85) → un <script> injecté ne s'exécute plus.
+// `script-src-attr 'unsafe-inline'` reste requis pour les handlers onclick= inline
+// du HTML généré (chantier distinct). `style-src 'unsafe-inline'` reste requis
+// (usage massif d'attributs style="", cf. U-06).
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc:  ["'self'"],
-            scriptSrc:      ["'self'", "'unsafe-inline'"],
+            scriptSrc:      ["'self'"],
             scriptSrcAttr:  ["'unsafe-inline'"],
             styleSrc:    ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
             fontSrc:     ["'self'", 'https://fonts.gstatic.com', 'data:'],
