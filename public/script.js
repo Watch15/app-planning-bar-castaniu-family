@@ -279,6 +279,10 @@ async function init() {
     if (!me) return;
 
     currentUser = me;
+    // Observateur : accès vue patron mais lecture seule sur le PLANNING. Le serveur
+    // bloque toute écriture planning (403) ; ici on masque en plus les contrôles de
+    // construction du planning (publier, palette staff) via la classe body.observateur.
+    if (me.role === 'observateur') document.body.classList.add('observateur');
     renderUserBadge(me);
     renderDateDisplay();
 
@@ -468,8 +472,8 @@ async function checkAuth() {
             // Redirections selon le rôle
             if (data.user?.role === 'staff')        { window.location.href = '/planning.html'; return null; }
             if (data.user?.role === 'etablissement') { window.location.href = '/pointage.html'; return null; }
-            // patron et directeur sont autorisés
-            if (data.user?.role !== 'patron' && data.user?.role !== 'directeur') {
+            // patron, directeur et observateur sont autorisés sur la vue patron
+            if (data.user?.role !== 'patron' && data.user?.role !== 'directeur' && data.user?.role !== 'observateur') {
                 window.location.href = '/login.html'; return null;
             }
             return data.user;
@@ -487,12 +491,12 @@ function renderUserBadge(user) {
     const avatar = document.getElementById('user-avatar');
     const fullName  = user.name || user.email || '';
     const firstName = fullName.split(' ')[0];
-    const roleLabel = user.role === 'patron' ? ' · Patron' : ' · Directeur';
-    if (badge)  badge.textContent  = firstName + roleLabel;
+    const roleName  = user.role === 'patron' ? 'Patron' : user.role === 'observateur' ? 'Observateur' : 'Directeur';
+    if (badge)  badge.textContent  = firstName + ' · ' + roleName;
     if (avatar) avatar.textContent = firstName.charAt(0).toUpperCase();
     // Brand mobile (header-left) — affiche le rôle en sous-texte
     const mobSub = document.getElementById('mobile-brand-sub');
-    if (mobSub) mobSub.textContent = user.role === 'patron' ? 'Patron · ' + firstName : 'Directeur · ' + firstName;
+    if (mobSub) mobSub.textContent = roleName + ' · ' + firstName;
 }
 
 function renderDateDisplay() {
@@ -3766,9 +3770,10 @@ function populateBarsCheckboxes() {
     if (currentUser.role !== 'patron') {
         const row = document.getElementById('new-account-bars-row');
         if (row) row.style.display = 'none';
-        // Masquer l'option Patron bar du select si non-admin
-        const opt = document.querySelector('#new-account-role option[value="patron"]');
-        if (opt) opt.style.display = 'none';
+        // Masquer les options de rôles privilégiés (Patron, Observateur) si non-admin :
+        // seul le patron peut créer ces comptes (le serveur le refuse aussi).
+        document.querySelectorAll('#new-account-role option[value="patron"], #new-account-role option[value="observateur"]')
+            .forEach(opt => { opt.style.display = 'none'; });
         return;
     }
     container.innerHTML = '';
@@ -4065,9 +4070,10 @@ function openChangeRoleModal(user) {
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
 
     const roles = [
-        { value: 'patron',    label: 'Patron',    desc: 'Accès total à tous les bars' },
-        { value: 'directeur', label: 'Directeur', desc: 'Accès limité aux bars assignés' },
-        { value: 'staff',     label: 'Staff',     desc: 'Accès lecture seule au planning' },
+        { value: 'patron',      label: 'Patron',      desc: 'Accès total à tous les bars' },
+        { value: 'directeur',   label: 'Directeur',   desc: 'Accès limité aux bars assignés' },
+        { value: 'observateur', label: 'Observateur', desc: 'Vue patron, mais ne modifie pas le planning' },
+        { value: 'staff',       label: 'Staff',       desc: 'Accès lecture seule au planning' },
     ];
 
     const btns = roles.map(r =>
@@ -4845,8 +4851,8 @@ function _kpiProgressBar(sent, total, big) {
     '</div>';
 }
 
-let _kpiData = null;          // dernière réponse /api/dispos/kpi
-let _kpiMissingOpen = false;  // liste des non-envoyeurs dépliée ?
+let _kpiData = null;            // dernière réponse /api/dispos/kpi
+const _kpiEstabOpen = {};       // establishment_id (ou '__none__') → liste des manquants dépliée ?
 
 async function loadDisposKpi() {
     const card = document.getElementById('dispos-kpi-card');
@@ -4864,49 +4870,61 @@ async function loadDisposKpi() {
     } catch { card.style.display = 'none'; }
 }
 
+// Ligne établissement dépliable : barre + chevron, puis liste des manquants de CET
+// établissement au clic. `id` sert de clé d'état d'ouverture (estab id ou '__none__').
+function _kpiEstabRow(id, name, sent, total, miss) {
+    const open      = !!_kpiEstabOpen[id];
+    const clickable = miss.length > 0;
+    const chevron   = clickable ? (open ? '▾' : '▸') : '✓';
+    const chevColor = miss.length ? '#ef4444' : '#10b981';
+    let h = '<div class="kpi-estab-row"' + (clickable ? ' data-estab="' + escapeHtml(id) + '" style="cursor:pointer"' : ' style="cursor:default"') + '>' +
+        '<div style="display:flex;align-items:center;gap:10px">' +
+            '<span style="flex:0 0 92px;font-size:12px;color:var(--text-secondary,#777);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(name) + '">' + escapeHtml(name) + '</span>' +
+            '<div style="flex:1">' + _kpiProgressBar(sent, total, false) + '</div>' +
+            '<span style="flex:0 0 14px;font-size:12px;color:' + chevColor + ';text-align:right">' + chevron + '</span>' +
+        '</div>';
+    if (open && miss.length) {
+        h += '<div style="margin:6px 0 2px 102px;display:flex;flex-direction:column;gap:5px">';
+        miss.forEach(m => {
+            h += '<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-primary,#1a1a2e)">' +
+                '<span style="width:8px;height:8px;border-radius:50%;background:' + escapeHtml(m.color || '#888') + ';flex-shrink:0;display:inline-block"></span>' +
+                '<span style="font-weight:600">' + escapeHtml(m.name) + '</span>' +
+            '</div>';
+        });
+        h += '</div>';
+    }
+    return h + '</div>';
+}
+
 function renderDisposKpiCard() {
     const card = document.getElementById('dispos-kpi-card');
     if (!card || !_kpiData) return;
     const data = _kpiData;
     const o    = data.overall || { sent: 0, total: 0 };
     const pct  = o.total > 0 ? Math.round((o.sent / o.total) * 100) : 0;
-    const missing = data.missing || [];
     const weekLabel = 'semaine du ' + currentWeekStart.getDate() + ' ' + MONTH_NAMES[currentWeekStart.getMonth()];
 
     let html = '<div style="background:var(--light-card,#fff);border:1px solid var(--light-border,#e8eaed);border-radius:14px;padding:14px 16px;margin:0 0 12px">';
-    // En-tête cliquable
-    html += '<div id="dispos-kpi-toggle" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;cursor:pointer" title="Voir qui n\'a pas envoyé">' +
+    // En-tête : titre + % global (non interactif — le détail est par établissement)
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">' +
             '<span style="font-size:13px;font-weight:700;color:var(--text-primary,#1a1a2e)">🗓️ Dispos envoyées — ' + weekLabel + '</span>' +
-            '<span style="font-size:12px;color:var(--text-secondary,#777);white-space:nowrap">' + pct + '% ' + (_kpiMissingOpen ? '▾' : '▸') + '</span>' +
+            '<span style="font-size:12px;color:var(--text-secondary,#777);white-space:nowrap">' + pct + '%</span>' +
         '</div>' +
         _kpiProgressBar(o.sent, o.total, true);
+
+    // Une ligne dépliable par établissement → « qui n'a pas envoyé » pour CE bar.
     const bars = (data.by_establishment || []).filter(b => b.total > 0 || b.sent > 0);
-    if (bars.length) {
+    // Staff sans établissement rattaché (visible patron uniquement) : sinon il
+    // serait dans le total global sans apparaître dans aucun bar.
+    const unassigned = (data.missing || []).filter(m => !(m.establishments || []).length);
+
+    if (bars.length || unassigned.length) {
         html += '<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">';
         bars.forEach(b => {
-            html += '<div style="display:flex;align-items:center;gap:10px">' +
-                '<span style="flex:0 0 96px;font-size:12px;color:var(--text-secondary,#777);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(b.establishment_name) + '">' + escapeHtml(b.establishment_name) + '</span>' +
-                '<div style="flex:1">' + _kpiProgressBar(b.sent, b.total, false) + '</div>' +
-            '</div>';
+            html += _kpiEstabRow(b.establishment_id, b.establishment_name, b.sent, b.total, b.missing || []);
         });
-        html += '</div>';
-    }
-    // Liste dépliable des staff sans dispo
-    if (_kpiMissingOpen) {
-        html += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--light-border,#e8eaed)">' +
-            '<div style="font-size:12px;font-weight:700;color:var(--text-secondary,#777);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px">Pas encore envoyé (' + missing.length + ')</div>';
-        if (!missing.length) {
-            html += '<div style="font-size:13px;color:#10b981;font-weight:600">✅ Tout le monde a envoyé ses dispos</div>';
-        } else {
-            html += '<div style="display:flex;flex-direction:column;gap:6px">';
-            missing.forEach(m => {
-                const estabs = (m.establishments || []).length ? ' <span style="color:#aaa">· ' + escapeHtml(m.establishments.join(', ')) + '</span>' : '';
-                html += '<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-primary,#1a1a2e)">' +
-                    '<span style="width:8px;height:8px;border-radius:50%;background:' + escapeHtml(m.color || '#888') + ';flex-shrink:0;display:inline-block"></span>' +
-                    '<span style="font-weight:600">' + escapeHtml(m.name) + '</span>' + estabs +
-                '</div>';
-            });
-            html += '</div>';
+        if (unassigned.length) {
+            html += _kpiEstabRow('__none__', 'Sans établissement', 0, unassigned.length, unassigned);
         }
         html += '</div>';
     }
@@ -4914,10 +4932,13 @@ function renderDisposKpiCard() {
     card.innerHTML = html;
     card.style.display = '';
 
-    const toggle = document.getElementById('dispos-kpi-toggle');
-    if (toggle) toggle.addEventListener('click', () => {
-        _kpiMissingOpen = !_kpiMissingOpen;
-        renderDisposKpiCard();
+    // Toggle par établissement
+    card.querySelectorAll('.kpi-estab-row[data-estab]').forEach(row => {
+        row.addEventListener('click', () => {
+            const id = row.getAttribute('data-estab');
+            _kpiEstabOpen[id] = !_kpiEstabOpen[id];
+            renderDisposKpiCard();
+        });
     });
 }
 

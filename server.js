@@ -725,24 +725,51 @@ function requireAuth(req, res, next) {
     next();
 }
 
-// Accepte patron ET directeur (opérations courantes sur le planning)
+// Accepte patron, directeur ET observateur (accès à la vue patron).
+// L'observateur lit tout mais ne peut PAS toucher au planning : les routes
+// d'écriture planning (shifts, publication, validation dispos) ajoutent en plus
+// `denyObservateurEdit` après ce middleware.
 function requirePatron(req, res, next) {
     if (!req.session?.user) return res.status(401).json({ error: 'Non authentifié' });
     const role = req.session.user.role;
-    if (role !== 'patron' && role !== 'directeur') return res.status(403).json({ error: 'Accès réservé au patron' });
+    if (role !== 'patron' && role !== 'directeur' && role !== 'observateur')
+        return res.status(403).json({ error: 'Accès réservé au patron' });
     next();
 }
 
-// Admin uniquement (gestion établissements, invitation patrons)
+// Admin : patron ET observateur (gestion staff, comptes, établissements, pointage).
+// L'escalade de privilèges (changement de rôle d'autrui) reste réservée au patron
+// via `requirePatronOnly`.
 function requireAdmin(req, res, next) {
+    if (!req.session?.user) return res.status(401).json({ error: 'Non authentifié' });
+    const role = req.session.user.role;
+    if (role !== 'patron' && role !== 'observateur')
+        return res.status(403).json({ error: 'Accès réservé à l\'administrateur' });
+    next();
+}
+
+// Patron strict — pour les actions sensibles que l'observateur ne doit pas faire
+// (ex. changer le rôle d'un autre compte → risque d'escalade de privilèges).
+function requirePatronOnly(req, res, next) {
     if (!req.session?.user) return res.status(401).json({ error: 'Non authentifié' });
     if (req.session.user.role !== 'patron') return res.status(403).json({ error: 'Accès réservé à l\'administrateur' });
     next();
 }
 
-// Vérifie qu'un patron a accès à un établissement donné (admin = bypass total)
+// Bloque l'observateur sur les écritures liées au PLANNING (shifts, publication,
+// validation des dispos). À placer APRÈS requirePatron sur ces routes uniquement.
+// ⚠️ Invariant : toute NOUVELLE route qui crée/modifie un shift, publie le planning
+// ou valide une dispo doit ajouter ce middleware, sinon l'observateur pourrait y toucher.
+function denyObservateurEdit(req, res, next) {
+    if (req.session?.user?.role === 'observateur')
+        return res.status(403).json({ error: 'Accès en lecture seule sur le planning pour ce rôle' });
+    next();
+}
+
+// Vérifie qu'un patron a accès à un établissement donné. Patron et observateur =
+// accès global (l'observateur consulte/agit sur tous les établissements hors planning).
 function canAccessEstablishment(user, establishmentId) {
-    if (user.role === 'patron') return true;
+    if (user.role === 'patron' || user.role === 'observateur') return true;
     const assigned = user.assigned_establishments || [];
     return assigned.includes(establishmentId);
 }
@@ -1035,11 +1062,15 @@ app.get('/api/users', checkDB, requirePatron, async (req, res) => {
 // Inviter un utilisateur (staff, directeur ou etablissement)
 app.post('/api/users', checkDB, requirePatron, async (req, res) => {
     const { email, phone, staff_id, name, role, assigned_establishments, establishment_id } = req.body;
-    const validRoles = ['staff', 'directeur', 'etablissement'];
+    const validRoles = ['staff', 'directeur', 'etablissement', 'observateur'];
     const userRole = validRoles.includes(role) ? role : 'staff';
     if (!email && !phone) return res.status(400).json({ error: 'Email ou numéro de téléphone requis' });
+    // Créer un rôle privilégié (directeur, observateur) reste réservé au patron :
+    // un observateur ne doit pas pouvoir fabriquer d'autres comptes privilégiés.
     if (userRole === 'directeur' && req.session.user.role !== 'patron')
         return res.status(403).json({ error: 'Seul l\'administrateur peut inviter un directeur' });
+    if (userRole === 'observateur' && req.session.user.role !== 'patron')
+        return res.status(403).json({ error: 'Seul l\'administrateur peut créer un observateur' });
     if (userRole === 'etablissement' && req.session.user.role !== 'patron')
         return res.status(403).json({ error: 'Seul l\'administrateur peut créer un compte établissement' });
     if (userRole === 'etablissement' && !establishment_id)
@@ -1170,17 +1201,18 @@ app.post('/api/users', checkDB, requirePatron, async (req, res) => {
 });
 
 // Changer le rôle d'un utilisateur (patron admin uniquement)
-app.patch('/api/users/:id/role', checkDB, requireAdmin, async (req, res) => {
+app.patch('/api/users/:id/role', checkDB, requirePatronOnly, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { role, assigned_establishments } = req.body;
-    if (!['patron', 'directeur', 'staff'].includes(role)) return res.status(400).json({ error: 'Rôle invalide (patron, directeur ou staff)' });
+    if (!['patron', 'directeur', 'staff', 'observateur'].includes(role)) return res.status(400).json({ error: 'Rôle invalide (patron, directeur, staff ou observateur)' });
     // Ne pas permettre de se rétrograder soi-même
     if (String(req.params.id) === req.session.user._id) return res.status(403).json({ error: 'Impossible de changer son propre rôle' });
     try {
         const update = { role };
-        if (role === 'directeur') update.assigned_establishments = assigned_establishments || [];
-        if (role === 'patron')    update.assigned_establishments = [];
-        if (role === 'staff')     update.assigned_establishments = [];
+        if (role === 'directeur')   update.assigned_establishments = assigned_establishments || [];
+        if (role === 'patron')      update.assigned_establishments = [];
+        if (role === 'staff')       update.assigned_establishments = [];
+        if (role === 'observateur') update.assigned_establishments = [];
         const result = await db.collection('users').updateOne(
             { _id: new ObjectId(req.params.id) },
             { $set: update }
@@ -1541,8 +1573,9 @@ app.delete('/api/groups/:name', checkDB, requireAdmin, async (req, res) => {
 app.get('/api/staff', checkDB, requireAuth, async (req, res) => {
     try {
         const staff = await db.collection('staff').find().toArray();
-        // Patron/directeur : accès complet (gestion paie, coordonnées).
-        if (req.session.user.role === 'patron' || req.session.user.role === 'directeur') {
+        // Patron / directeur / observateur : accès complet (gestion paie, coordonnées).
+        const r = req.session.user.role;
+        if (r === 'patron' || r === 'directeur' || r === 'observateur') {
             return res.json(staff);
         }
         // Staff / établissement : ne JAMAIS exposer la rémunération ni les
@@ -1958,7 +1991,7 @@ app.get('/api/week-full/:establishmentId', checkDB, requireAuth, async (req, res
 
 // ── Shifts — écriture ─────────────────────────────────────────────────────────
 
-app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
+app.post('/api/shifts', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
     const { staff_id, staff_name, establishment_id, date, start_time, end_time, color, is_joker, note } = req.body;
     if (!staff_id || !establishment_id || !date || start_time == null || end_time == null)
         return res.status(400).json({ error: 'staff_id, establishment_id, date, start_time, end_time requis' });
@@ -2026,7 +2059,7 @@ app.post('/api/shifts', checkDB, requirePatron, async (req, res) => {
 });
 
 // Transférer un shift vers un autre établissement / une autre date
-app.patch('/api/shifts/:id/transfer', checkDB, requirePatron, async (req, res) => {
+app.patch('/api/shifts/:id/transfer', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { establishment_id, date } = req.body;
     if (!establishment_id || !date) return res.status(400).json({ error: 'establishment_id et date requis' });
@@ -2057,7 +2090,7 @@ app.patch('/api/shifts/:id/transfer', checkDB, requirePatron, async (req, res) =
 });
 
 // PATCH — Patron : ouvrir/fermer un Joker aux candidatures (route spécifique AVANT la générique /:id)
-app.patch('/api/shifts/:id/joker-open', checkDB, requirePatron, async (req, res) => {
+app.patch('/api/shifts/:id/joker-open', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { open } = req.body;
     if (typeof open !== 'boolean') return res.status(400).json({ error: 'open (boolean) requis' });
@@ -2095,7 +2128,7 @@ app.patch('/api/shifts/:id/joker-open', checkDB, requirePatron, async (req, res)
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
+app.patch('/api/shifts/:id', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { start_time, end_time, staff_id, staff_name, color, is_joker, note } = req.body;
     const assigningStaff = staff_id !== undefined;
@@ -2209,7 +2242,7 @@ app.patch('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-app.delete('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
+app.delete('/api/shifts/:id', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     try {
         const existing = await db.collection('shifts').findOne({ _id: new ObjectId(req.params.id) });
@@ -2250,7 +2283,7 @@ app.delete('/api/shifts/:id', checkDB, requirePatron, async (req, res) => {
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-app.post('/api/copy-day', checkDB, requirePatron, async (req, res) => {
+app.post('/api/copy-day', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
     const { establishment_id, to_dates, shifts } = req.body;
     if (!establishment_id || !to_dates?.length || !shifts?.length)
         return res.status(400).json({ error: 'establishment_id, to_dates, shifts requis' });
@@ -2369,7 +2402,7 @@ app.get('/api/dispo-settings', checkDB, requireAuth, async (req, res) => {
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-app.patch('/api/dispo-settings/force-open-staff', checkDB, requirePatron, async (req, res) => {
+app.patch('/api/dispo-settings/force-open-staff', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
     const { staff_id, action } = req.body;
     if (!staff_id || !['add', 'remove'].includes(action))
         return res.status(400).json({ error: 'staff_id et action (add|remove) requis' });
@@ -2386,7 +2419,7 @@ app.patch('/api/dispo-settings/force-open-staff', checkDB, requirePatron, async 
     } catch (e) { console.error('[PATCH /api/dispo-settings/force-open-staff]', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-app.patch('/api/dispo-settings', checkDB, requirePatron, async (req, res) => {
+app.patch('/api/dispo-settings', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
     const { open, open_venues, message, force_open, custom_deadline, open_day } = req.body;
     try {
         // Ne mettre à jour que les champs fournis (le toggle rapide n'envoie que `open`).
@@ -2819,7 +2852,9 @@ app.get('/api/dispos/kpi', checkDB, requireAuth, async (req, res) => {
         ).toArray();
         const sentSet = new Set(dispos.map(d => String(d.staff_id)));
 
-        const by = scopeEstabIds.map(eid => ({ establishment_id: eid, establishment_name: estabNameById[eid] || eid, sent: 0, total: 0 }));
+        // `missing` par établissement (en plus du compteur sent/total) → permet un
+        // menu déroulant par bar « qui n'a pas encore envoyé » côté client.
+        const by = scopeEstabIds.map(eid => ({ establishment_id: eid, establishment_name: estabNameById[eid] || eid, sent: 0, total: 0, missing: [] }));
         const byId = {};
         by.forEach(b => { byId[b.establishment_id] = b; });
 
@@ -2836,7 +2871,11 @@ app.get('/api/dispos/kpi', checkDB, requireAuth, async (req, res) => {
             const hasSent = sentSet.has(sid);
             overallSet.add(sid);
             if (hasSent) overallSentSet.add(sid);
-            inScope.forEach(v => { byId[v].total++; if (hasSent) byId[v].sent++; });
+            inScope.forEach(v => {
+                byId[v].total++;
+                if (hasSent) byId[v].sent++;
+                else byId[v].missing.push({ id: sid, name: s.name || '—', color: s.color || '#888' });
+            });
             if (!hasSent) {
                 missing.push({
                     id: sid, name: s.name || '—', color: s.color || '#888',
@@ -2845,6 +2884,7 @@ app.get('/api/dispos/kpi', checkDB, requireAuth, async (req, res) => {
             }
         });
         missing.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+        by.forEach(b => b.missing.sort((a, c) => a.name.localeCompare(c.name, 'fr')));
 
         res.json({
             authorized: true, scope,
@@ -2855,7 +2895,7 @@ app.get('/api/dispos/kpi', checkDB, requireAuth, async (req, res) => {
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-app.post('/api/dispos/reopen-for-correction', checkDB, requirePatron, async (req, res) => {
+app.post('/api/dispos/reopen-for-correction', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
     const { staff_id, from, to } = req.body;
     if (!staff_id || !from || !to)
         return res.status(400).json({ error: 'staff_id, from et to requis' });
@@ -2877,7 +2917,7 @@ app.post('/api/dispos/reopen-for-correction', checkDB, requirePatron, async (req
     } catch (e) { console.error('[POST /api/dispos/reopen-for-correction]', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-app.patch('/api/dispos/:id/confirm', checkDB, requirePatron, async (req, res) => {
+app.patch('/api/dispos/:id/confirm', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { establishment_id, create_shift } = req.body;
     try {
@@ -2903,7 +2943,7 @@ app.patch('/api/dispos/:id/confirm', checkDB, requirePatron, async (req, res) =>
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-app.patch('/api/dispos/:id/reject', checkDB, requirePatron, async (req, res) => {
+app.patch('/api/dispos/:id/reject', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     try {
         const dispo = await db.collection('availabilities').findOne({ _id: new ObjectId(req.params.id) });
@@ -2915,7 +2955,7 @@ app.patch('/api/dispos/:id/reject', checkDB, requirePatron, async (req, res) => 
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-app.patch('/api/dispos/:id/ignore', checkDB, requirePatron, async (req, res) => {
+app.patch('/api/dispos/:id/ignore', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     try {
         const result = await db.collection('availabilities').updateOne(
@@ -3492,7 +3532,7 @@ app.get('/api/publish/:weekStart', checkDB, requireAuth, async (req, res) => {
 // PATCH publier/dépublier une semaine pour un ensemble d'établissements (patron).
 // Body : { establishments: [estabId…] | 'ALL' }  (ensemble cible complet, idempotent).
 // Rétro-compat : { published: true|false } → 'ALL' | [].
-app.patch('/api/publish/:weekStart', checkDB, requirePatron, async (req, res) => {
+app.patch('/api/publish/:weekStart', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
     const weekStart = req.params.weekStart;
     let establishments = req.body.establishments;
     if (establishments === undefined && typeof req.body.published === 'boolean') {
@@ -3577,7 +3617,7 @@ app.get('/api/dispos/confirmed', checkDB, requirePatron, async (req, res) => {
 
 // ── Rappel dispo manuel (patron) ─────────────────────────────────────────────
 
-app.post('/api/dispos/rappel', checkDB, requirePatron, async (req, res) => {
+app.post('/api/dispos/rappel', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
     const { week_start, message } = req.body;
     if (!week_start) return res.status(400).json({ error: 'week_start requis' });
 

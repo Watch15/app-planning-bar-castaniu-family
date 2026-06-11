@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "public/sw.js": {
-    "mtime": 1781166844.3038106,
-    "ast_hash": "f60698bc3b10facb095073366c876c0d",
+    "mtime": 1781167383.3221934,
+    "ast_hash": "352bf7cc68bf73f6380fbb3b35534e44",
     "semantic_hash": ""
   },
   "public/vendor/html2canvas.min.js": {
@@ -75,8 +75,8 @@
     "semantic_hash": "a06d5a6e2e883b2b4a3d570fff6a9600"
   },
   "server.js": {
-    "mtime": 1781164739.0056586,
-    "ast_hash": "57ef1dda2b78f80967f45fd909bf960a",
+    "mtime": 1781167379.5322745,
+    "ast_hash": "72689eae93213b29b6421bb726f71df6",
     "semantic_hash": ""
   },
   "tests/routes.test.js": {
@@ -110,8 +110,8 @@
     "semantic_hash": "be4636952c6133048fa6a440bd851295"
   },
   "docs/architecture.md": {
-    "mtime": 1781165590.4689052,
-    "ast_hash": "bc633014d781e976d0d2f470e7b96221",
+    "mtime": 1781167394.124729,
+    "ast_hash": "3fddab24212f2c7584f3b95e46a543e6",
     "semantic_hash": ""
   },
   "docs/backlog.md": {
@@ -135,9 +135,9 @@
     "semantic_hash": ""
   },
   "public/login.html": {
-    "mtime": 1780744601.1623406,
-    "ast_hash": "6c7d73ec5c04ddf393010989f26e5cd8",
-    "semantic_hash": "6c7d73ec5c04ddf393010989f26e5cd8"
+    "mtime": 1781167359.0301406,
+    "ast_hash": "04b0aa2ba2fda7daeeadb128502c89bd",
+    "semantic_hash": ""
   },
   "public/performance.html": {
     "mtime": 1781165363.5713813,
@@ -192,6 +192,11 @@
   "public/sw-register.js": {
     "mtime": 1781165373.271657,
     "ast_hash": "7d6f1a2af5ac63f088ef532c8dea34d8",
+    "semantic_hash": ""
+  },
+  "public/login.js": {
+    "mtime": 1781167359.0291414,
+    "ast_hash": "fc90fa5cce62cf828ba0f6708f7cf21c",
     "semantic_hash": ""
   }
 }
