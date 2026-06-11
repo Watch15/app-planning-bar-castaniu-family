@@ -164,16 +164,26 @@ La plupart des fermetures se terminent vers 2h du matin. Un shift de fermeture e
 ```
 patron          → super-admin, accès illimité
 directeur       → limité aux assigned_establishments[], peut gérer le planning
+observateur     → vue patron, accès Staff/Comptes/Récap/Performance/Pointage,
+                  MAIS lecture seule sur le planning (pas de création/modif de
+                  shifts, pas de publication, pas de validation des dispos) (D-86)
 staff           → lecture seule, son planning + envoi de disponibilités
 etablissement   → accès pointage uniquement (pointage.html)
 ```
 
 Middlewares :
 - `requireAuth` — tout utilisateur authentifié
-- `requirePatron` — patron ou directeur
-- `requireAdmin` — patron uniquement
+- `requirePatron` — patron, directeur **ou observateur**
+- `requireAdmin` — patron **ou observateur** (gestion staff/comptes/établissements/pointage)
+- `requirePatronOnly` — patron strict (actions sensibles : changement de rôle d'autrui → anti-escalade)
+- `denyObservateurEdit` — placé **après** `requirePatron` sur les écritures planning (shifts, `copy-day`, `publish`, validation dispos, `dispo-settings`) → 403 pour l'observateur. ⚠️ **Invariant** : toute nouvelle route qui crée/modifie un shift, publie le planning ou valide une dispo doit ajouter ce middleware.
 - `requireEtablissement` — etablissement uniquement
-- `canAccessEstablishment(user, id)` — patron passe outre, directeur vérifie `assigned_establishments`
+- `canAccessEstablishment(user, id)` — patron **et observateur** passent outre ; directeur vérifie `assigned_establishments`
+
+**Observateur — détail des permissions (D-86)** :
+- ✅ Peut : consulter tout le planning ; gérer le staff, les comptes (sauf changer le rôle d'autrui et créer des comptes privilégiés patron/directeur/observateur), les rôles, les groupes, les établissements ; saisir le pointage et créer des shifts extra au pointage ; saisir le CA et régler la performance ; consulter le récap.
+- ❌ Ne peut pas : créer/modifier/supprimer/transférer un shift, ouvrir un Joker, copier un jour, publier/dépublier une semaine, valider/refuser/ignorer une dispo, modifier les réglages dispos, changer le rôle d'un autre compte.
+- Front : `body.observateur` masque le bouton « Publier » et la palette staff (création de shifts) ; le serveur reste la barrière de sécurité (403) sur toutes les écritures planning.
 
 ### Limitation du débit
 Rate limiter en mémoire basé sur `Map` (aucune dépendance externe). Login : 10 tentatives / 15 min / IP. La Map est nettoyée toutes les heures pour éviter les fuites mémoire.

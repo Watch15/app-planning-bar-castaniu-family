@@ -1035,3 +1035,15 @@ label[for], select, .tab-btn, .staff-card, .shift-card {
   }
 }
 
+/* ── Rôle Observateur : lecture seule du planning ───────────────────────────
+   Masque les contrôles de CONSTRUCTION du planning (publier la semaine + palette
+   staff servant à créer/glisser des shifts). Le serveur bloque de toute façon ces
+   écritures (403) ; ceci évite d'afficher des actions vouées à échouer. Les onglets
+   Staff / Comptes / Récap / Performance / Pointage restent pleinement utilisables. */
+body.observateur #btn-publish-week,
+body.observateur #fab-staff,
+body.observateur #staff-bar-container,
+body.observateur #staff-bar-overlay {
+  display: none !important;
+}
+
