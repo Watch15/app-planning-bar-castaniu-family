@@ -2301,6 +2301,69 @@ app.post('/api/copy-day', checkDB, requirePatron, denyObservateurEdit, async (re
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
+// Copie une semaine entière (lundi→dimanche) vers une ou plusieurs semaines cibles,
+// pour un établissement. mode 'staff' garde les affectations ; mode 'jokers' remplace
+// chaque shift par un Joker non attribué (créneau vide à re-remplir). La semaine cible
+// est REMPLACÉE (ses shifts existants sont supprimés). Les données de pointage (heures
+// réelles, snapshots, extra) et l'état Joker ouvert ne sont jamais copiés.
+app.post('/api/copy-week', checkDB, requirePatron, denyObservateurEdit, async (req, res) => {
+    const { establishment_id, from_week_start, to_week_starts, mode } = req.body;
+    const ISO = /^\d{4}-\d{2}-\d{2}$/;
+    if (!establishment_id || !ISO.test(from_week_start || '') || !Array.isArray(to_week_starts) || to_week_starts.length === 0)
+        return res.status(400).json({ error: 'establishment_id, from_week_start, to_week_starts requis' });
+    if (to_week_starts.some(w => !ISO.test(w)))
+        return res.status(400).json({ error: 'to_week_starts invalides (YYYY-MM-DD)' });
+    const copyMode = mode === 'jokers' ? 'jokers' : 'staff';
+    if (!canAccessEstablishment(req.session.user, establishment_id))
+        return res.status(403).json({ error: 'Accès refusé à cet établissement' });
+    try {
+        const sourceShifts = await db.collection('shifts').find({
+            establishment_id,
+            date: { $gte: from_week_start, $lte: weekEndStr(from_week_start) },
+        }).toArray();
+
+        // Décalage en jours entre le lundi source et le lundi cible (T12:00 → pas de
+        // souci DST ; toDateStr reste en heure locale, cf. §3.1).
+        const offsetDays = (toMonday) =>
+            Math.round((new Date(toMonday + 'T12:00:00') - new Date(from_week_start + 'T12:00:00')) / 86400000);
+
+        let created = 0, weeks = 0;
+        for (const toMonday of to_week_starts) {
+            if (toMonday === from_week_start) continue; // ne pas s'écraser soi-même
+            const offset = offsetDays(toMonday);
+            await db.collection('shifts').deleteMany({ establishment_id, date: { $gte: toMonday, $lte: weekEndStr(toMonday) } });
+            const newShifts = sourceShifts.map(s => {
+                const d = new Date(s.date + 'T12:00:00');
+                d.setDate(d.getDate() + offset);
+                const base = {
+                    establishment_id,
+                    date:       toDateStr(d),
+                    start_time: s.start_time,
+                    end_time:   s.end_time,
+                    ...(s.note ? { note: s.note } : {}),
+                };
+                if (copyMode === 'jokers') {
+                    // Créneau vide : Joker non attribué, à re-remplir
+                    return { ...base, staff_id: '__joker__', staff_name: '', is_joker: true, color: '#95a5a6' };
+                }
+                // Garder l'affectation (un Joker source reste Joker)
+                const isJoker = s.is_joker || s.staff_id === '__joker__';
+                return {
+                    ...base,
+                    staff_id:   s.staff_id,
+                    staff_name: s.staff_name || '',
+                    color:      s.color || '#95a5a6',
+                    ...(isJoker ? { is_joker: true } : {}),
+                };
+            });
+            if (newShifts.length) { await db.collection('shifts').insertMany(newShifts); created += newShifts.length; }
+            weeks++;
+        }
+        res.json({ message: created + ' shift(s) copiés sur ' + weeks + ' semaine(s)' + (copyMode === 'jokers' ? ' (en Jokers)' : '') });
+        touchLastUpdated();
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
 // ── Disponibilités ────────────────────────────────────────────────────────────
 
 /**

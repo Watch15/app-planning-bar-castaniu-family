@@ -3010,6 +3010,76 @@ document.getElementById('copy-modal-confirm').addEventListener('click', async ()
     } catch { showToast('Erreur lors de la copie', true); }
 });
 
+// ── Copier la semaine entière ─────────────────────────────────────────────────
+
+let _copyWeekMode = 'staff'; // 'staff' (garder les affectations) | 'jokers' (créneaux vides)
+
+const _btnCopyWeek = document.getElementById('btn-copy-week');
+if (_btnCopyWeek) _btnCopyWeek.addEventListener('click', openCopyWeekModal);
+
+function openCopyWeekModal() {
+    _copyWeekMode = 'staff';
+    // Boutons de mode
+    document.querySelectorAll('#copy-week-mode .cw-mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === _copyWeekMode);
+        btn.onclick = () => {
+            _copyWeekMode = btn.dataset.mode;
+            document.querySelectorAll('#copy-week-mode .cw-mode-btn')
+                .forEach(b => b.classList.toggle('active', b === btn));
+        };
+    });
+
+    // Grille des semaines cibles : 2 semaines avant → 8 après, source exclue.
+    const grid = document.getElementById('copy-weeks-grid');
+    grid.innerHTML = '';
+    for (let w = -2; w <= 8; w++) {
+        if (w === 0) continue; // semaine source
+        const monday  = addDays(currentWeekStart, w * 7);
+        const sunday  = addDays(monday, 6);
+        const range   = monday.getMonth() === sunday.getMonth()
+            ? monday.getDate() + '–' + sunday.getDate() + ' ' + MONTH_NAMES[monday.getMonth()]
+            : monday.getDate() + ' ' + MONTH_NAMES[monday.getMonth()].slice(0, 3) + ' – ' + sunday.getDate() + ' ' + MONTH_NAMES[sunday.getMonth()].slice(0, 3);
+        const btn = document.createElement('button');
+        btn.type         = 'button';
+        btn.className    = 'copy-week-btn';
+        btn.dataset.week = toDateStr(monday);
+        btn.innerHTML    = '<div style="font-size:11px;color:#888">' + (w < 0 ? 'passée' : 'à venir') + '</div>' +
+                           '<div style="font-weight:700">' + range + '</div>';
+        btn.addEventListener('click', () => btn.classList.toggle('selected'));
+        grid.appendChild(btn);
+    }
+
+    document.getElementById('copy-week-modal').style.display = 'flex';
+}
+
+function closeCopyWeekModal() {
+    document.getElementById('copy-week-modal').style.display = 'none';
+}
+
+document.getElementById('copy-week-close').addEventListener('click', closeCopyWeekModal);
+document.getElementById('copy-week-cancel').addEventListener('click', closeCopyWeekModal);
+
+document.getElementById('copy-week-confirm').addEventListener('click', async () => {
+    const targetWeeks = Array.from(document.querySelectorAll('.copy-week-btn.selected')).map(b => b.dataset.week);
+    if (!targetWeeks.length) { showToast('Sélectionne au moins une semaine cible', true); return; }
+    try {
+        const res = await fetch('/api/copy-week', {
+            method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                establishment_id: currentVenueId,
+                from_week_start:  toDateStr(currentWeekStart),
+                to_week_starts:   targetWeeks,
+                mode:             _copyWeekMode,
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Erreur lors de la copie', true); return; }
+        closeCopyWeekModal();
+        showToast(data.message || 'Semaine copiée');
+        await refreshWeek();
+    } catch { showToast('Erreur lors de la copie', true); }
+});
+
 // ── Vue semaine complète ─────────────────────────────────────────────────────
 
 function renderWeekFull() {

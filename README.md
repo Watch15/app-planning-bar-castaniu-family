@@ -270,6 +270,7 @@ PORT=3000
 | POST | `/api/shifts/:id/joker-candidature` | Staff — postuler sur un Joker ouvert |
 | GET | `/api/shifts/joker-ouverts` | Authentifié — Jokers ouverts par établissement |
 | POST | `/api/copy-day` | Patron |
+| POST | `/api/copy-week` | Patron — copie une semaine entière (mode `staff` = garde les affectations, `jokers` = créneaux vides) |
 | GET | `/api/pointage/:date` | Authentifié |
 | PATCH | `/api/shifts/:id/pointage-resp` | Patron — désigner responsable de soirée |
 | GET/PATCH | `/api/pointage-settings` | Authentifié / Admin — `cutoff_hour` |

@@ -1041,9 +1041,35 @@ label[for], select, .tab-btn, .staff-card, .shift-card {
    écritures (403) ; ceci évite d'afficher des actions vouées à échouer. Les onglets
    Staff / Comptes / Récap / Performance / Pointage restent pleinement utilisables. */
 body.observateur #btn-publish-week,
+body.observateur #btn-copy-day,
+body.observateur #btn-copy-week,
 body.observateur #fab-staff,
 body.observateur #staff-bar-container,
 body.observateur #staff-bar-overlay {
   display: none !important;
 }
+
+/* ── Modale « Copier la semaine » ───────────────────────────────────────────*/
+.cw-mode-grid { display: flex; gap: 8px; margin-top: 6px; }
+.cw-mode-btn {
+  flex: 1; display: flex; flex-direction: column; gap: 3px; text-align: left;
+  padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--light-border);
+  background: var(--light-card); cursor: pointer; font-family: var(--font);
+  transition: border-color var(--transition), background var(--transition);
+}
+.cw-mode-btn:hover { border-color: #c5beff; }
+.cw-mode-btn.active { border-color: var(--accent); background: #f0effe; }
+.cw-mode-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.cw-mode-desc  { font-size: 11px; color: var(--text-muted); }
+.copy-weeks-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px;
+  max-height: 240px; overflow-y: auto;
+}
+.copy-week-btn {
+  padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--light-border);
+  background: var(--light-card); cursor: pointer; font-family: var(--font);
+  color: var(--text-primary); text-align: center; transition: all var(--transition);
+}
+.copy-week-btn:hover { border-color: #c5beff; }
+.copy-week-btn.selected { border-color: var(--accent); background: #f0effe; }
 
