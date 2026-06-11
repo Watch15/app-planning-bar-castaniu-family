@@ -3,6 +3,10 @@
 const DAY_NAMES  = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 const MONTH_NAMES = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'];
 
+// Saisie des dispos désactivée pour ce staff → l'onglet « Dispos & congés » n'affiche
+// que la sous-vue Congés (cf. /api/dispo-settings staffCanSubmit).
+let _disposSubmitDisabled = false;
+
 // ── Utilitaires ───────────────────────────────────────────────────────────────
 
 function textColorFor(hex) {
@@ -111,8 +115,11 @@ async function init() {
         if (estabRes.ok) allEstablishments = await estabRes.json();
     } catch { allStaff = []; allEstablishments = []; }
 
-    // Charger les dispos quand on clique sur l'onglet
+    // Charger les dispos quand on clique sur l'onglet (réinitialise sur la sous-vue Dispos).
+    // Si la saisie des dispos est désactivée, l'onglet ne montre que les congés.
     document.querySelector('[data-tab="dispos"]').addEventListener('click', () => {
+        if (_disposSubmitDisabled) { showDisposSub('conges'); return; }
+        showDisposSub('dispos');
         loadDisposTab();
     });
 
@@ -120,16 +127,34 @@ async function init() {
         loadHistoriqueWeek();
     });
 
+    // Sous-onglets Dispos | Congés à l'intérieur de l'onglet « Dispos & congés »
+    const subDispos = document.getElementById('subtab-dispos');
+    const subConges = document.getElementById('subtab-conges');
+    if (subDispos) subDispos.addEventListener('click', () => showDisposSub('dispos'));
+    if (subConges) subConges.addEventListener('click', () => showDisposSub('conges'));
+    initCongesForm();
+
     // Vérifier les droits dispos + groupes du staff en parallèle
     try {
         const sRes = await fetch('/api/dispo-settings', { credentials: 'include' });
         if (sRes.ok) {
             const s = await sRes.json();
+            applyCongeModes(s.conge_modes || 'both');
             if (s.staffCanSubmit === false) {
-                const tabDispos  = document.getElementById('tab-dispos');
-                const viewDispos = document.getElementById('view-dispos');
-                if (tabDispos)  tabDispos.style.display  = 'none';
-                if (viewDispos) viewDispos.style.display = 'none';
+                // La saisie des dispos est désactivée : on garde l'onglet (les congés y
+                // vivent désormais) mais on masque la sous-vue Dispos et son sous-onglet,
+                // et on force l'affichage sur Congés.
+                const tabDispos = document.getElementById('tab-dispos');
+                const tabFull   = tabDispos && tabDispos.querySelector('.tab-full');
+                const tabShort  = tabDispos && tabDispos.querySelector('.tab-short');
+                if (tabFull)  tabFull.textContent  = 'Mes congés';
+                if (tabShort) tabShort.textContent = 'Congés';
+                const subDisposBtn = document.getElementById('subtab-dispos');
+                if (subDisposBtn) subDisposBtn.style.display = 'none';
+                const subCongesBtn = document.getElementById('subtab-conges');
+                if (subCongesBtn) subCongesBtn.style.display = 'none'; // un seul contenu → pas de toggle
+                _disposSubmitDisabled = true;
+                showDisposSub('conges');
             }
         }
     } catch { /* silencieux */ }
@@ -240,6 +265,7 @@ async function init() {
                         lastData   = data;
                         lastMonday = monday;
                         renderResponsableDashboard(data.days, viewResp, monday);
+                        renderRespDispoKpi(viewResp);
                         lastRendered = true;
                     } catch { /* silencieux */ }
                 };
@@ -875,6 +901,97 @@ function buildTeamDisplayNames(allShifts) {
     return map;
 }
 
+// Barre de progression réutilisable (KPI dispos).
+function _kpiBarHtml(sent, total, big) {
+    const pct = total > 0 ? Math.round((sent / total) * 100) : 0;
+    const color = total === 0 ? '#cbd5e1' : (pct >= 100 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444');
+    const h = big ? 10 : 7;
+    return '<div style="display:flex;align-items:center;gap:8px">' +
+        '<div style="flex:1;height:' + h + 'px;background:#eef0f4;border-radius:6px;overflow:hidden">' +
+            '<div style="height:100%;width:' + pct + '%;background:' + color + ';border-radius:6px"></div>' +
+        '</div>' +
+        '<span style="font-size:' + (big ? '13' : '12') + 'px;font-weight:700;color:#1a1a2e;white-space:nowrap">' + sent + '/' + total + '</span>' +
+    '</div>';
+}
+
+let _respKpiData = null;
+let _respKpiOpen = false;
+
+function _respKpiInnerHtml() {
+    const data = _respKpiData;
+    if (!data) return '';
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const o   = data.overall || { sent: 0, total: 0 };
+    const pct = o.total > 0 ? Math.round((o.sent / o.total) * 100) : 0;
+    const missing = data.missing || [];
+    let html = '<div id="resp-kpi-toggle" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;cursor:pointer" title="Voir qui n\'a pas envoyé">' +
+        '<span style="font-size:13px;font-weight:700;color:#1a1a2e">🗓️ Dispos envoyées — semaine prochaine</span>' +
+        '<span style="font-size:12px;color:#888;white-space:nowrap">' + pct + '% ' + (_respKpiOpen ? '▾' : '▸') + '</span>' +
+    '</div>' + _kpiBarHtml(o.sent, o.total, true);
+    const bars = (data.by_establishment || []).filter(b => b.total > 0 || b.sent > 0);
+    if (bars.length) {
+        html += '<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">';
+        bars.forEach(b => {
+            html += '<div style="display:flex;align-items:center;gap:10px">' +
+                '<span style="flex:0 0 96px;font-size:12px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + esc(b.establishment_name) + '">' + esc(b.establishment_name) + '</span>' +
+                '<div style="flex:1">' + _kpiBarHtml(b.sent, b.total, false) + '</div>' +
+            '</div>';
+        });
+        html += '</div>';
+    }
+    if (_respKpiOpen) {
+        html += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #e8eaed">' +
+            '<div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px">Pas encore envoyé (' + missing.length + ')</div>';
+        if (!missing.length) {
+            html += '<div style="font-size:13px;color:#10b981;font-weight:600">✅ Tout le monde a envoyé ses dispos</div>';
+        } else {
+            html += '<div style="display:flex;flex-direction:column;gap:6px">';
+            missing.forEach(m => {
+                const estabs = (m.establishments || []).length ? ' <span style="color:#aaa">· ' + esc(m.establishments.join(', ')) + '</span>' : '';
+                html += '<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#1a1a2e">' +
+                    '<span style="width:8px;height:8px;border-radius:50%;background:' + esc(m.color || '#888') + ';flex-shrink:0;display:inline-block"></span>' +
+                    '<span style="font-weight:600">' + esc(m.name) + '</span>' + estabs +
+                '</div>';
+            });
+            html += '</div>';
+        }
+        html += '</div>';
+    }
+    return html;
+}
+
+// KPI complétion des dispos (semaine prochaine), inséré en tête du tableau de bord
+// responsable. Le serveur scope déjà aux établissements du responsable. Cliquable
+// pour dérouler la liste des staff qui n'ont pas encore envoyé.
+async function renderRespDispoKpi(container) {
+    if (!container) return;
+    try {
+        const nextMonday = getMondayOf(addDays(new Date(), 7));
+        const from = toDateStr(nextMonday);
+        const to   = toDateStr(addDays(nextMonday, 6));
+        const res  = await fetch('/api/dispos/kpi?from=' + from + '&to=' + to, { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.authorized) return;
+        _respKpiData = data;
+
+        let block = container.querySelector('#resp-kpi-block');
+        if (!block) {
+            block = document.createElement('div');
+            block.id = 'resp-kpi-block';
+            block.style.cssText = 'margin:14px 12px 4px;background:#fff;border:1px solid #e8eaed;border-radius:14px;padding:14px 16px';
+            container.insertBefore(block, container.firstChild);
+        }
+        const paint = () => {
+            block.innerHTML = _respKpiInnerHtml();
+            const t = block.querySelector('#resp-kpi-toggle');
+            if (t) t.addEventListener('click', () => { _respKpiOpen = !_respKpiOpen; paint(); });
+        };
+        paint();
+    } catch { /* silencieux */ }
+}
+
 function renderResponsableDashboard(days, container, monday) {
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1401,6 +1518,22 @@ async function loadDisposTab() {
     // Jours de repos à masquer
     const restDays = dispoSettings.rest_days || [];
 
+    // Jours couverts par un congé posé (non refusé) → bloqués pour les dispos
+    const congeDates = new Set();
+    try {
+        const cRes = await fetch('/api/conges/mine', { credentials: 'include' });
+        if (cRes.ok) {
+            const myConges = await cRes.json();
+            for (let i = 0; i < 7; i++) {
+                const ds = toDateStr(addDays(nextMonday, i));
+                if (myConges.some(c => c.status !== 'rejected' && c.start_date <= ds && ds <= c.end_date)) {
+                    congeDates.add(ds);
+                    delete dispoSelections[ds]; // pas de dispo soumise pour un jour de congé
+                }
+            }
+        }
+    } catch { /* silencieux */ }
+
     // Pré-remplir depuis la semaine précédente si aucune dispo soumise
     if (!alreadySubmitted && existingDispos.length === 0) {
         const pRes = await fetch('/api/dispos/previous?week_start=' + from, { credentials: 'include' });
@@ -1422,7 +1555,9 @@ async function loadDisposTab() {
     for (let i = 0; i < 7; i++) {
         const d    = addDays(nextMonday, i);
         const date = toDateStr(d);
-        if (restDays.includes(d.getDay())) {
+        if (congeDates.has(date)) {
+            formEl.appendChild(createCongeDayCard(d));
+        } else if (restDays.includes(d.getDay())) {
             formEl.appendChild(createRestDayCard(d));
         } else {
             formEl.appendChild(createDispoCard(date, d));
@@ -1539,7 +1674,7 @@ function createDispoCard(date, d) {
                 '<span style="color:#aaa;flex-shrink:0">→</span>' +
                 '<input class="dispo-time-input" id="end-' + date + '" type="text" inputmode="numeric" placeholder="18" value="' + (sel.end_time ? fmt(sel.end_time) : '') + '">' +
             '</div>' +
-            '<textarea class="dispo-note-input" id="note-' + date + '" placeholder="Note optionnelle..." rows="1">' + (sel.note || '') + '</textarea>' +
+            '<textarea class="dispo-note-input" id="note-' + date + '" placeholder="Note optionnelle..." rows="1">' + _esc(sel.note || '') + '</textarea>' +
         '</div>';
 
     // Listeners boutons type
@@ -1596,6 +1731,18 @@ function createRestDayCard(d) {
         '<div class="dispo-day-header">' +
             '<div class="dispo-day-name">' + DAY_NAMES[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + '</div>' +
             '<span class="dispo-rest-badge">Repos</span>' +
+        '</div>';
+    return card;
+}
+
+// Jour couvert par un congé posé : carte en lecture seule, pas de saisie de dispo.
+function createCongeDayCard(d) {
+    const card = document.createElement('div');
+    card.className = 'dispo-card dispo-card-rest';
+    card.innerHTML =
+        '<div class="dispo-day-header">' +
+            '<div class="dispo-day-name">' + DAY_NAMES[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + '</div>' +
+            '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;background:#d1fae5;color:#065f46">🌴 Congé</span>' +
         '</div>';
     return card;
 }
@@ -1677,6 +1824,163 @@ async function submitDispos() {
     }
 }
 
+// ── Congés / vacances ────────────────────────────────────────────────────────
+
+// Bascule entre les sous-vues « Dispos » et « Congés » de l'onglet Dispos & congés.
+function showDisposSub(sub) {
+    const isConges = sub === 'conges';
+    const dispPane = document.getElementById('dispos-sub-dispos');
+    const congPane = document.getElementById('dispos-sub-conges');
+    if (dispPane) dispPane.style.display = isConges ? 'none' : '';
+    if (congPane) congPane.style.display = isConges ? '' : 'none';
+    // Le bouton fixe « Envoyer mes dispos » n'a de sens que sur la sous-vue Dispos
+    const submitBtn = document.getElementById('btn-submit-dispos');
+    if (submitBtn) submitBtn.style.display = isConges ? 'none' : '';
+    const sd = document.getElementById('subtab-dispos');
+    const sc = document.getElementById('subtab-conges');
+    if (sd) sd.classList.toggle('dispos-subtab--active', !isConges);
+    if (sc) sc.classList.toggle('dispos-subtab--active', isConges);
+    if (isConges) loadCongesTab();
+}
+
+function fmtCongeDate(iso) {
+    const [, m, d] = iso.split('-').map(Number);
+    return d + ' ' + MONTH_NAMES[m - 1];
+}
+
+function setCongeStatus(text, type) {
+    const el = document.getElementById('conge-status');
+    if (!el) return;
+    el.textContent = text || '';
+    el.style.color = type === 'error' ? '#c0392b' : (type === 'success' ? '#1a7a4a' : '#666');
+}
+
+// Restreint les modes de congé proposés selon le réglage patron (both|request|info).
+function applyCongeModes(modes) {
+    const reqInput  = document.querySelector('input[name="conge-mode"][value="request"]');
+    const infoInput = document.querySelector('input[name="conge-mode"][value="info"]');
+    if (!reqInput || !infoInput) return;
+    const reqLabel  = reqInput.closest('label');
+    const infoLabel = infoInput.closest('label');
+    const showReq  = modes !== 'info';   // 'both' ou 'request'
+    const showInfo = modes !== 'request'; // 'both' ou 'info'
+    if (reqLabel)  reqLabel.style.display  = showReq  ? '' : 'none';
+    if (infoLabel) infoLabel.style.display = showInfo ? '' : 'none';
+    // Sélectionne le mode autorisé (le premier visible)
+    if (!showReq)       infoInput.checked = true;
+    else if (!showInfo) reqInput.checked  = true;
+}
+
+function initCongesForm() {
+    const btn = document.getElementById('btn-submit-conge');
+    if (!btn || btn._bound) return;
+    btn._bound = true;
+    const todayStr = toDateStr(new Date());
+    const startEl = document.getElementById('conge-start');
+    const endEl   = document.getElementById('conge-end');
+    if (startEl) startEl.min = todayStr;
+    if (endEl)   endEl.min   = todayStr;
+    if (startEl) startEl.addEventListener('change', () => {
+        if (endEl && (!endEl.value || endEl.value < startEl.value)) endEl.value = startEl.value;
+        if (endEl) endEl.min = startEl.value || todayStr;
+    });
+    btn.addEventListener('click', submitConge);
+}
+
+async function submitConge() {
+    const btn    = document.getElementById('btn-submit-conge');
+    const start  = document.getElementById('conge-start').value;
+    const end    = document.getElementById('conge-end').value;
+    const reason = document.getElementById('conge-reason').value || '';
+    const mode   = (document.querySelector('input[name="conge-mode"]:checked') || {}).value || 'request';
+    if (!start || !end) { setCongeStatus('Choisis une date de début et de fin.', 'error'); return; }
+    if (end < start)    { setCongeStatus('La date de fin doit être après la date de début.', 'error'); return; }
+    btn.disabled = true;
+    const prev = btn.textContent;
+    btn.textContent = 'Envoi…';
+    try {
+        const res = await fetch('/api/conges', {
+            credentials: 'include', method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ start_date: start, end_date: end, mode, reason }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setCongeStatus(data.message, 'success');
+        document.getElementById('conge-reason').value = '';
+        loadCongesTab();
+    } catch (e) {
+        setCongeStatus(e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = prev;
+    }
+}
+
+async function loadCongesTab() {
+    const list = document.getElementById('conge-list');
+    if (!list) return;
+    list.innerHTML = '<div style="color:#aaa;font-size:13px">Chargement…</div>';
+    try {
+        const res = await fetch('/api/conges/mine', { credentials: 'include' });
+        if (!res.ok) throw new Error();
+        renderCongesList(await res.json());
+    } catch {
+        list.innerHTML = '<div style="color:#c0392b;font-size:13px">Erreur de chargement.</div>';
+    }
+}
+
+const _CONGE_STATUS = {
+    pending:  { label: 'En attente', cls: 'badge--warning' },
+    approved: { label: 'Validé',     cls: 'badge--success' },
+    rejected: { label: 'Refusé',     cls: 'badge--danger'  },
+};
+
+function renderCongesList(conges) {
+    const list = document.getElementById('conge-list');
+    if (!list) return;
+    if (!conges.length) {
+        list.innerHTML = '<div style="color:#999;font-size:13px">Aucun congé à venir.</div>';
+        return;
+    }
+    list.innerHTML = '';
+    conges.forEach(c => {
+        const st = _CONGE_STATUS[c.status] || _CONGE_STATUS.pending;
+        const card = document.createElement('div');
+        card.style.cssText = 'border:1px solid #e8eaed;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px';
+        const range = fmtCongeDate(c.start_date) + (c.start_date === c.end_date ? '' : ' → ' + fmtCongeDate(c.end_date));
+        const head = document.createElement('div');
+        head.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px';
+        head.innerHTML = '<span style="font-weight:600;color:#1a1a2e">🌴 ' + range + '</span>' +
+            '<span class="badge ' + st.cls + '">' + st.label + '</span>';
+        card.appendChild(head);
+        const meta = document.createElement('div');
+        meta.style.cssText = 'font-size:12px;color:#888';
+        meta.textContent = (c.mode === 'info' ? 'Informatif' : 'Demande') + (c.reason ? ' · ' + c.reason : '');
+        card.appendChild(meta);
+        if (c.status !== 'rejected') {
+            const cancel = document.createElement('button');
+            cancel.textContent = 'Annuler';
+            cancel.style.cssText = 'align-self:flex-start;background:none;border:none;color:#c0392b;font-size:12px;font-weight:600;cursor:pointer;padding:0;text-decoration:underline';
+            cancel.addEventListener('click', () => cancelConge(c._id));
+            card.appendChild(cancel);
+        }
+        list.appendChild(card);
+    });
+}
+
+async function cancelConge(id) {
+    try {
+        const res  = await fetch('/api/conges/' + id, { credentials: 'include', method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setCongeStatus(data.message, 'success');
+        loadCongesTab();
+    } catch (e) {
+        setCongeStatus(e.message, 'error');
+    }
+}
+
 // ── Notifications in-app (toasts) ────────────────────────────────────────────
 
 const _NOTIF_CFG = {
@@ -1733,7 +2037,11 @@ function _showNotifToast(notif) {
     toast.addEventListener('click', e => {
         if (e.target.classList.contains('notif-toast-close')) return;
         const url = notif.url || '';
-        if (url.includes('#dispos')) {
+        if (url.includes('#conges')) {
+            const t = document.querySelector('[data-tab="dispos"]');
+            if (t) t.click();
+            showDisposSub('conges');
+        } else if (url.includes('#dispos')) {
             const t = document.querySelector('[data-tab="dispos"]');
             if (t) t.click();
         } else {

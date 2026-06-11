@@ -12,7 +12,10 @@
       "Bash(node *)",
       "PowerShell(node --check server.js; if \\($?\\) { \"OK\" })",
       "Bash(npm test *)",
-      "Bash(C:/Python314/python.exe *)"
+      "Bash(C:/Python314/python.exe *)",
+      "Bash(graphify query *)",
+      "PowerShell(graphify query *)",
+      "Bash(graphify update *)"
     ]
   }
 }

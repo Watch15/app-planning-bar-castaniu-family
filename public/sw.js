@@ -1,10 +1,20 @@
-const CACHE = 'templyo-' + '1781400000000';
+// ⚠️ Le token %%BUILD_TIME%% est remplacé par un timestamp au déploiement
+// (`npm start`, cf. package.json) → nouvel id de cache à chaque déploiement =
+// invalidation automatique. NE JAMAIS commiter ce fichier après substitution :
+// si le token disparaît, l'id de cache se fige et les clients gardent une version
+// périmée. En local, utiliser `npm run dev` (qui ne substitue pas).
+const CACHE = 'templyo-' + '%%BUILD_TIME%%';
 const STATIC = [
     '/login.html',
     '/set-password.html',
+    '/login.js',
+    '/set-password.js',
     '/script.js',
     '/planning.js',
     '/pointage.js',
+    '/performance.js',
+    '/index-init.js',
+    '/sw-register.js',
     '/lib/shift-hours.js',
     '/lib/week.js',
     '/style.css',
@@ -33,6 +43,12 @@ self.addEventListener('activate', e => {
 // Fetch — stratégie Network First pour l'API, Cache First pour les assets
 self.addEventListener('fetch', e => {
     const url = new URL(e.request.url);
+
+    // Cross-origin (Google Fonts, etc.) : ne PAS intercepter — laisser le navigateur
+    // charger directement depuis le réseau. Sinon le fetch() du SW retombe sous la
+    // directive CSP connect-src 'self' et est bloqué (la requête est alors servie en
+    // fallback /login.html → erreur de MIME sur la feuille de style).
+    if (url.origin !== self.location.origin) return;
 
     // API et auth — toujours réseau, jamais de cache
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {

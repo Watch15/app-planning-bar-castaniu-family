@@ -12,7 +12,7 @@ const morgan  = require('morgan');
 const {
     isValidObjectId, hashToken, normalizePhone,
     weekStart, currentWeekStart, disposWeekStart, isAutoPublished, isDatePublished, normalizePublishDoc, chargeMultiplier,
-    toDateStr,
+    toDateStr, datesOverlap, congeCoversDate, congeDaysInRange,
 } = require('./lib/utils');
 
 // Sentry — initialisation conditionnelle (ne se charge que si SENTRY_DSN fourni).
@@ -36,13 +36,16 @@ if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1);
 
 // Sécurité — headers HTTP (helmet). CSP adaptée au stack : vanilla JS sans
 // bundler, Google Fonts, Service Worker, pas de CDN externe.
-// `unsafe-inline` sur style/script reste nécessaire tant qu'on n'a pas extrait
-// les <style>/<script> inline des HTML et les style="" des templates JS.
+// `script-src` n'autorise plus `'unsafe-inline'` : tous les blocs <script> inline
+// ont été externalisés (D-84/D-85) → un <script> injecté ne s'exécute plus.
+// `script-src-attr 'unsafe-inline'` reste requis pour les handlers onclick= inline
+// du HTML généré (chantier distinct). `style-src 'unsafe-inline'` reste requis
+// (usage massif d'attributs style="", cf. U-06).
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc:  ["'self'"],
-            scriptSrc:      ["'self'", "'unsafe-inline'"],
+            scriptSrc:      ["'self'"],
             scriptSrcAttr:  ["'unsafe-inline'"],
             styleSrc:    ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
             fontSrc:     ["'self'", 'https://fonts.gstatic.com', 'data:'],
@@ -281,6 +284,33 @@ async function sendPushToStaff(staffIds, payload) {
     } catch (e) {
         console.error('❌ sendPushToStaff error:', e.message);
     }
+}
+
+// Push direct vers les patrons/directeurs (comptes de gestion, pas de staff_id
+// garanti). Utilisé p. ex. pour signaler une nouvelle demande de congé.
+async function notifyPatrons(payload) {
+    if (!db) return;
+    try {
+        const patrons = await db.collection('users')
+            .find({ role: { $in: ['patron', 'directeur'] } }, { projection: { _id: 1 } })
+            .toArray();
+        const userIds = patrons.map(u => String(u._id));
+        if (userIds.length === 0) return;
+        if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+        const subs = await db.collection('push_subscriptions')
+            .find({ user_id: { $in: userIds } }).toArray();
+        if (subs.length === 0) return;
+        const payloadStr = JSON.stringify(payload);
+        const stale = [];
+        await Promise.allSettled(subs.map(async sub => {
+            try { await webpush.sendNotification(sub.subscription, payloadStr); }
+            catch (err) {
+                if (err.statusCode === 410 || err.statusCode === 404) stale.push(sub._id);
+                else console.error('❌ notifyPatrons push error:', err.statusCode, err.message);
+            }
+        }));
+        if (stale.length > 0) await db.collection('push_subscriptions').deleteMany({ _id: { $in: stale } });
+    } catch (e) { console.error('❌ notifyPatrons error:', e.message); }
 }
 
 
@@ -664,6 +694,24 @@ function setupSession() {
 }
 
 setupSession();
+
+// ── Anti-injection NoSQL sur les query params ─────────────────────────────────
+// Le parseur de query d'Express (qs) transforme `?from[$gt]=x` en objet
+// { from: { $gt: 'x' } }. Injecté tel quel dans un filtre Mongo (ex.
+// `{ date: { $gte: from } }`), ça permet d'introduire des opérateurs ($ne, $gt…).
+// Aucun paramètre de query légitime de l'app n'est un objet → on rejette tout
+// objet imbriqué dans req.query. (req.body est laissé tel quel : il contient des
+// objets/tableaux légitimes — dispos, subscription, entries… — et ses filtres
+// Mongo sont déjà gardés par isValidObjectId / validations de format.)
+function rejectQueryOperators(req, res, next) {
+    for (const v of Object.values(req.query || {})) {
+        if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+            return res.status(400).json({ error: 'Paramètre de requête invalide' });
+        }
+    }
+    next();
+}
+app.use(rejectQueryOperators);
 
 // ── Middlewares ───────────────────────────────────────────────────────────────
 
@@ -1491,7 +1539,27 @@ app.delete('/api/groups/:name', checkDB, requireAdmin, async (req, res) => {
 // ── Staff ─────────────────────────────────────────────────────────────────────
 
 app.get('/api/staff', checkDB, requireAuth, async (req, res) => {
-    try { res.json(await db.collection('staff').find().toArray()); }
+    try {
+        const staff = await db.collection('staff').find().toArray();
+        // Patron/directeur : accès complet (gestion paie, coordonnées).
+        if (req.session.user.role === 'patron' || req.session.user.role === 'directeur') {
+            return res.json(staff);
+        }
+        // Staff / établissement : ne JAMAIS exposer la rémunération ni les
+        // coordonnées personnelles des collègues. On ne renvoie que ce qui est
+        // nécessaire à l'affichage du planning (nom, couleur, surnom, etc.).
+        res.json(staff.map(s => ({
+            _id:      s._id,
+            name:     s.name,
+            nickname: s.nickname ?? null,
+            color:    s.color,
+            name_color: s.name_color ?? null,
+            venues:   s.venues || [],
+            roles:    s.roles  || [],
+            groups:   s.groups || [],
+            rest_days: s.rest_days || [],
+        })));
+    }
     catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
@@ -1549,8 +1617,8 @@ app.post('/api/staff/bulk', checkDB, requirePatron, async (req, res) => {
 app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { color, name, email, venues, can_submit_dispos, groups, rest_days, hourly_rate, fixed_rate } = req.body;
-    if (!color && !name && email === undefined && venues === undefined && can_submit_dispos === undefined && req.body.roles === undefined && groups === undefined && req.body.name_color === undefined && rest_days === undefined && req.body.nickname === undefined && hourly_rate === undefined && fixed_rate === undefined)
-        return res.status(400).json({ error: 'color, name, email, venues, roles, groups, name_color, nickname, can_submit_dispos, hourly_rate, fixed_rate ou rest_days requis' });
+    if (!color && !name && email === undefined && venues === undefined && can_submit_dispos === undefined && req.body.roles === undefined && groups === undefined && req.body.name_color === undefined && rest_days === undefined && req.body.nickname === undefined && hourly_rate === undefined && fixed_rate === undefined && req.body.conge_modes === undefined)
+        return res.status(400).json({ error: 'color, name, email, venues, roles, groups, name_color, nickname, can_submit_dispos, conge_modes, hourly_rate, fixed_rate ou rest_days requis' });
     try {
         const update = {};
         if (color)                             update.color             = color;
@@ -1560,6 +1628,11 @@ app.patch('/api/staff/:id', checkDB, requirePatron, async (req, res) => {
         if (req.body.roles !== undefined)      update.roles             = req.body.roles;
         if (can_submit_dispos !== undefined)   update.can_submit_dispos = !!can_submit_dispos;
         if (groups !== undefined)              update.groups            = Array.isArray(groups) ? groups : [];
+        if (req.body.conge_modes !== undefined) {
+            if (!['both', 'request', 'info'].includes(req.body.conge_modes))
+                return res.status(400).json({ error: 'conge_modes invalide (both|request|info)' });
+            update.conge_modes = req.body.conge_modes;
+        }
         if (Array.isArray(rest_days))          update.rest_days         = rest_days.map(Number).filter(n => n >= 0 && n <= 6);
         if (req.body.name_color !== undefined) update.name_color        = req.body.name_color || null;
         if (req.body.nickname   !== undefined) update.nickname          = req.body.nickname   || null;
@@ -2291,6 +2364,7 @@ app.get('/api/dispo-settings', checkDB, requireAuth, async (req, res) => {
             custom_deadline: customDeadline,
             open_day: settings.open_day ?? null,
             rest_days: staffDoc ? (staffDoc.rest_days || []) : [],
+            conge_modes: staffDoc ? (staffDoc.conge_modes || 'both') : 'both',
         });
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
@@ -2495,6 +2569,19 @@ app.post('/api/dispos', checkDB, requireAuth, async (req, res) => {
     const { dispos } = req.body;
     if (!Array.isArray(dispos) || dispos.length === 0) return res.status(400).json({ error: 'Aucune disponibilité fournie' });
     try {
+        // Un jour couvert par un congé posé (non refusé) ne peut pas recevoir de dispo.
+        const dates = dispos.map(d => d.date).filter(Boolean).sort();
+        if (dates.length) {
+            const conges = await db.collection('time_off')
+                .find({ staff_id: staffId, status: { $ne: 'rejected' },
+                        start_date: { $lte: dates[dates.length - 1] }, end_date: { $gte: dates[0] } })
+                .toArray();
+            const blocked = [...new Set(dispos
+                .filter(d => conges.some(c => congeCoversDate(c, d.date)))
+                .map(d => d.date))].sort();
+            if (blocked.length)
+                return res.status(409).json({ error: 'Impossible d\'envoyer des dispos sur des jours de congé : ' + blocked.join(', ') + '.' });
+        }
         const ops = dispos.map(d => ({
             updateOne: {
                 filter: { staff_id: staffId, date: d.date, type: d.type || 'custom' },
@@ -2673,6 +2760,101 @@ app.get('/api/dispos/with-dispo', checkDB, requirePatron, async (req, res) => {
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
+// KPI de complétion des dispos pour la semaine cible [from,to], scopé selon le rôle :
+// patron = tous les bars, directeur = ses bars assignés, responsable = les établissements
+// de ses shifts de la semaine en cours. Renvoie le global + une déclinaison par bar.
+app.get('/api/dispos/kpi', checkDB, requireAuth, async (req, res) => {
+    const { from, to } = req.query;
+    if (!from || !to) return res.status(400).json({ error: 'from et to requis' });
+    const user = req.session.user;
+    try {
+        const allEstabs = await db.collection('establishments').find({}, { projection: { id: 1, name: 1 } }).toArray();
+        let scope, scopeEstabIds;
+        if (user.role === 'patron') {
+            scope = 'patron';
+            scopeEstabIds = allEstabs.map(e => String(e.id));
+        } else if (user.role === 'directeur') {
+            scope = 'directeur';
+            scopeEstabIds = (user.assigned_establishments || []).map(String);
+        } else {
+            // Responsable : staff possédant un rôle de type 'responsable'
+            if (!user.staff_id || !isValidObjectId(user.staff_id)) return res.status(403).json({ error: 'Accès refusé' });
+            const staffDoc = await db.collection('staff').findOne({ _id: new ObjectId(user.staff_id) });
+            const responsableRoles = await db.collection('roles').find({ type: 'responsable' }).toArray();
+            const responsableIds = responsableRoles.map(r => String(r._id));
+            const staffRoles = (staffDoc && staffDoc.roles) || [];
+            if (!staffRoles.some(r => responsableIds.includes(r))) return res.json({ authorized: false });
+            // Établissements distincts de ses shifts de la semaine EN COURS
+            const monday = currentWeekStart(new Date());
+            const sun = new Date(monday); sun.setDate(sun.getDate() + 6);
+            const myShifts = await db.collection('shifts').find(
+                { staff_id: user.staff_id, date: { $gte: toDateStr(monday), $lte: toDateStr(sun) } },
+                { projection: { establishment_id: 1 } }
+            ).toArray();
+            scope = 'responsable';
+            scopeEstabIds = [...new Set(myShifts.map(s => String(s.establishment_id)).filter(Boolean))];
+        }
+
+        const estabNameById = {};
+        allEstabs.forEach(e => { estabNameById[String(e.id)] = e.name; });
+        const scopeSet = new Set(scopeEstabIds);
+
+        // Staff autorisés = compte actif + can_submit_dispos !== false
+        const activeUsers = await db.collection('users').find(
+            { role: 'staff', active: true, staff_id: { $ne: null } },
+            { projection: { staff_id: 1 } }
+        ).toArray();
+        const activeIds = [...new Set(activeUsers.map(u => u.staff_id).filter(id => id && isValidObjectId(id)))];
+        const eligible = activeIds.length
+            ? await db.collection('staff').find(
+                { _id: { $in: activeIds.map(id => new ObjectId(id)) }, can_submit_dispos: { $ne: false } },
+                { projection: { venues: 1, name: 1, color: 1 } }
+            ).toArray()
+            : [];
+
+        // Qui a envoyé ≥ 1 dispo sur la période
+        const dispos = await db.collection('availabilities').find(
+            { date: { $gte: from, $lte: to }, type: { $ne: 'week_note' } },
+            { projection: { staff_id: 1 } }
+        ).toArray();
+        const sentSet = new Set(dispos.map(d => String(d.staff_id)));
+
+        const by = scopeEstabIds.map(eid => ({ establishment_id: eid, establishment_name: estabNameById[eid] || eid, sent: 0, total: 0 }));
+        const byId = {};
+        by.forEach(b => { byId[b.establishment_id] = b; });
+
+        const overallSet = new Set();
+        const overallSentSet = new Set();
+        const missing = [];
+        eligible.forEach(s => {
+            const sid = String(s._id);
+            const venues = Array.isArray(s.venues) ? s.venues.map(String) : [];
+            const inScope = venues.filter(v => scopeSet.has(v));
+            // Le patron compte tout staff autorisé dans le global, même sans établissement.
+            const inOverall = scope === 'patron' ? true : inScope.length > 0;
+            if (!inOverall) return;
+            const hasSent = sentSet.has(sid);
+            overallSet.add(sid);
+            if (hasSent) overallSentSet.add(sid);
+            inScope.forEach(v => { byId[v].total++; if (hasSent) byId[v].sent++; });
+            if (!hasSent) {
+                missing.push({
+                    id: sid, name: s.name || '—', color: s.color || '#888',
+                    establishments: inScope.map(v => estabNameById[v] || v),
+                });
+            }
+        });
+        missing.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+
+        res.json({
+            authorized: true, scope,
+            overall: { sent: overallSentSet.size, total: overallSet.size },
+            by_establishment: by.sort((a, b) => a.establishment_name.localeCompare(b.establishment_name)),
+            missing,
+        });
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
 app.post('/api/dispos/reopen-for-correction', checkDB, requirePatron, async (req, res) => {
     const { staff_id, from, to } = req.body;
     if (!staff_id || !from || !to)
@@ -2742,6 +2924,141 @@ app.patch('/api/dispos/:id/ignore', checkDB, requirePatron, async (req, res) => 
         );
         if (result.matchedCount === 0) return res.status(404).json({ error: 'Dispo introuvable' });
         res.json({ message: 'Dispo ignorée' });
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// ── Congés / vacances (collection `time_off`) ────────────────────────────────
+// Mécanique dédiée, distincte des dispos : long terme, personnelle (vaut sur tous
+// les établissements du staff), NON purgée au changement de semaine.
+//   { staff_id, staff_name, start_date, end_date, mode:'request'|'info',
+//     status:'pending'|'approved'|'rejected', reason, created_at, decided_at, decided_by }
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// POST — un staff pose une demande de congé (mode 'request' → validation patron)
+// ou une déclaration informative (mode 'info' → visible immédiatement).
+app.post('/api/conges', checkDB, requireAuth, async (req, res) => {
+    const staffId = req.session.user.staff_id;
+    if (!staffId) return res.status(400).json({ error: 'Aucun profil staff lié' });
+    const { start_date, end_date, reason } = req.body;
+    const mode = req.body.mode === 'info' ? 'info' : 'request';
+    if (!ISO_DATE_RE.test(start_date) || !ISO_DATE_RE.test(end_date))
+        return res.status(400).json({ error: 'Dates invalides (format YYYY-MM-DD)' });
+    if (end_date < start_date)
+        return res.status(400).json({ error: 'La date de fin doit être après la date de début.' });
+    const today = toDateStr(new Date());
+    if (end_date < today)
+        return res.status(400).json({ error: 'La période de congé doit être à venir.' });
+    try {
+        // Le patron choisit par staff les modes de congé autorisés (both|request|info)
+        const staffDoc = isValidObjectId(staffId)
+            ? await db.collection('staff').findOne({ _id: new ObjectId(staffId) }) : null;
+        const allowedModes = (staffDoc && staffDoc.conge_modes) || 'both';
+        if (allowedModes !== 'both' && allowedModes !== mode) {
+            return res.status(403).json({ error: allowedModes === 'request'
+                ? 'Seules les demandes de congé soumises au patron sont autorisées pour ton profil.'
+                : 'Seules les déclarations de congé informatives sont autorisées pour ton profil.' });
+        }
+        // Pas de chevauchement avec un congé existant non refusé du même staff
+        // (les congés déjà terminés ne peuvent pas chevaucher une période à venir)
+        const existing = await db.collection('time_off')
+            .find({ staff_id: staffId, status: { $ne: 'rejected' }, end_date: { $gte: today } }).toArray();
+        const clash = existing.find(c => datesOverlap(start_date, end_date, c.start_date, c.end_date));
+        if (clash)
+            return res.status(409).json({ error: 'Cette période chevauche un congé déjà enregistré (' + clash.start_date + ' → ' + clash.end_date + ').' });
+        const status = mode === 'info' ? 'approved' : 'pending';
+        const doc = {
+            staff_id: staffId, staff_name: req.session.user.name || '',
+            start_date, end_date, mode, status,
+            reason: (reason || '').toString().trim().slice(0, 500),
+            created_at: new Date(), decided_at: null, decided_by: null,
+        };
+        const { insertedId } = await db.collection('time_off').insertOne(doc);
+        res.status(201).json({ message: mode === 'info' ? 'Congé enregistré' : 'Demande de congé envoyée', _id: insertedId });
+        touchLastUpdated();
+        if (mode === 'request') {
+            notifyPatrons({
+                title: 'Templyo — Demande de congé',
+                body:  (doc.staff_name || 'Un staff') + ' demande un congé du ' + start_date + ' au ' + end_date,
+                tag:   'demande-conge',
+                url:   '/index.html#conges',
+            }).catch(e => console.error('[notify conge request]', e.message));
+        }
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// GET — les congés du staff connecté (en cours + à venir)
+app.get('/api/conges/mine', checkDB, requireAuth, async (req, res) => {
+    const staffId = req.session.user.staff_id;
+    if (!staffId) return res.status(400).json({ error: 'Aucun profil staff lié' });
+    try {
+        const today = toDateStr(new Date());
+        const conges = await db.collection('time_off')
+            .find({ staff_id: staffId, end_date: { $gte: today } })
+            .sort({ start_date: 1 }).toArray();
+        res.json(conges);
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// DELETE — le staff annule SON congé (uniquement à venir)
+app.delete('/api/conges/:id', checkDB, requireAuth, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    const staffId = req.session.user.staff_id;
+    if (!staffId) return res.status(400).json({ error: 'Aucun profil staff lié' });
+    try {
+        const conge = await db.collection('time_off').findOne({ _id: new ObjectId(req.params.id) });
+        if (!conge) return res.status(404).json({ error: 'Congé introuvable' });
+        if (conge.staff_id !== staffId) return res.status(403).json({ error: 'Ce congé ne t\'appartient pas.' });
+        const today = toDateStr(new Date());
+        if (conge.end_date < today) return res.status(400).json({ error: 'Un congé déjà passé ne peut plus être annulé.' });
+        await db.collection('time_off').deleteOne({ _id: new ObjectId(req.params.id) });
+        res.json({ message: 'Congé annulé' });
+        touchLastUpdated();
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// GET — liste patron (filtre ?from&to&status). Sert la vue gestion ET le planning.
+app.get('/api/conges', checkDB, requirePatron, async (req, res) => {
+    const { from, to, status } = req.query;
+    try {
+        const query = {};
+        // Chevauchement avec [from, to] : start <= to ET end >= from
+        if (to)   query.start_date = { $lte: to };
+        if (from) query.end_date   = { $gte: from };
+        if (status) query.status = status;
+        const conges = await db.collection('time_off').find(query).sort({ start_date: 1 }).toArray();
+        res.json(conges);
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// GET — compteur de demandes en attente (badge patron)
+app.get('/api/conges/pending-count', checkDB, requirePatron, async (req, res) => {
+    try {
+        const count = await db.collection('time_off').countDocuments({ status: 'pending' });
+        res.json({ count });
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// PATCH — le patron valide ou refuse une demande de congé
+app.patch('/api/conges/:id/decision', checkDB, requirePatron, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
+    const decision = req.body.decision;
+    if (decision !== 'approved' && decision !== 'rejected')
+        return res.status(400).json({ error: 'decision invalide (approved|rejected)' });
+    try {
+        const conge = await db.collection('time_off').findOne({ _id: new ObjectId(req.params.id) });
+        if (!conge) return res.status(404).json({ error: 'Congé introuvable' });
+        await db.collection('time_off').updateOne(
+            { _id: new ObjectId(req.params.id) },
+            { $set: { status: decision, decided_at: new Date(), decided_by: req.session.user.name || 'patron' } }
+        );
+        res.json({ message: decision === 'approved' ? 'Congé validé' : 'Congé refusé' });
+        touchLastUpdated();
+        sendPushToStaff([conge.staff_id], {
+            title: decision === 'approved' ? 'Templyo — Congé validé' : 'Templyo — Congé refusé',
+            body:  (decision === 'approved' ? '✅ Ton congé du ' : '❌ Ta demande de congé du ') + conge.start_date + ' au ' + conge.end_date + (decision === 'approved' ? ' est validé.' : ' a été refusée.'),
+            tag:   'decision-conge',
+            url:   '/planning.html#conges',
+        }).catch(e => console.error('[notify conge decision]', e.message));
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
@@ -3453,6 +3770,57 @@ app.get('/api/recap-mensuel', checkDB, requirePatron, async (req, res) => {
                 total_shifts:  entry.shifts.length,
                 by_establishment,
             };
+        });
+
+        // ── Congés validés du mois ────────────────────────────────────────────
+        // Uniquement les congés DEMANDÉS au patron et validés (mode 'request' +
+        // status 'approved') — les déclarations informatives ne comptent pas.
+        // Les congés sont personnels (non rattachés à un établissement). Si un
+        // établissement est filtré, on ne compte que les congés des staff qui y
+        // sont rattachés (venues). On agrège les jours de congé par staff sur le mois.
+        const conges = await db.collection('time_off').find({
+            mode:       'request',
+            status:     'approved',
+            start_date: { $lte: lastDay },
+            end_date:   { $gte: firstDay },
+        }).toArray();
+
+        const congeDaysByStaff = {};
+        conges.forEach(c => {
+            const sm = staffMap[String(c.staff_id)];
+            if (establishment_id) {
+                const venues = (sm && Array.isArray(sm.venues)) ? sm.venues.map(String) : [];
+                if (!venues.includes(String(establishment_id))) return;
+            }
+            const d = congeDaysInRange(c, firstDay, lastDay);
+            if (d > 0) congeDaysByStaff[c.staff_id] = (congeDaysByStaff[c.staff_id] || 0) + d;
+        });
+
+        const resultMap = {};
+        result.forEach(r => { r.conge_days = 0; resultMap[r.staff_id] = r; });
+        Object.entries(congeDaysByStaff).forEach(([staffId, d]) => {
+            if (resultMap[staffId]) {
+                resultMap[staffId].conge_days = d;
+            } else {
+                // Staff en congé sans aucun shift ce mois-ci : on l'ajoute quand même
+                const sm = staffMap[staffId];
+                result.push({
+                    staff_id:      staffId,
+                    staff_name:    sm ? sm.name : '—',
+                    color:         sm ? sm.color : '#888',
+                    days:          0,
+                    planned_hours: 0,
+                    real_hours:    null,
+                    ecart:         null,
+                    all_pointed:   false,
+                    partial:       false,
+                    extra_count:   0,
+                    extra_hours:   0,
+                    total_shifts:  0,
+                    by_establishment: [],
+                    conge_days:    d,
+                });
+            }
         });
 
         result.sort((a, b) => a.staff_name.localeCompare(b.staff_name));

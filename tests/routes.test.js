@@ -44,3 +44,19 @@ test('GET /api/establishments sans base → 503 (middleware checkDB)', async () 
     const body = await res.json();
     assert.equal(body.error, 'Base de données non disponible');
 });
+
+// Anti-injection NoSQL : un opérateur Mongo passé en query (`?from[$gt]=x`) est
+// parsé en objet par qs → rejeté en 400 AVANT d'atteindre la moindre requête.
+test('query param objet ($gt) → 400 (anti-injection NoSQL)', async () => {
+    const res = await fetch(base + '/api/establishments?' + encodeURIComponent('from[$gt]') + '=2020');
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.equal(body.error, 'Paramètre de requête invalide');
+});
+
+// Contre-épreuve : un query param scalaire normal n'est PAS bloqué par le
+// middleware (il poursuit jusqu'à checkDB → 503 sans base).
+test('query param scalaire normal → traverse le middleware anti-injection', async () => {
+    const res = await fetch(base + '/api/establishments?from=2020-01-01');
+    assert.equal(res.status, 503);
+});

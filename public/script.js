@@ -111,6 +111,8 @@ let currentVenueId    = null;
 let currentGroup      = null; // groupe actif ('Bar', 'Cuisine', null = Tous)
 let allGroups         = []; // groupes disponibles
 let confirmedDispos   = []; // dispos confirmées du jour affiché
+let dayLeaves         = []; // congés approuvés couvrant le jour affiché
+let dayLeaveStaffIds  = new Set(); // staff_id (string) en congé le jour affiché
 let allEstablishments = []; // tous les établissements
 let allRoles          = []; // rôles créés par le patron
 let currentShiftsWeek = []; // shifts de la semaine pour les couleurs
@@ -287,6 +289,8 @@ async function init() {
     await Promise.all([loadEstablishments(), loadAllStaff(), loadRoles(), loadGroups()]);
 
     loadDisposBadge();
+    loadCongesBadge();
+    loadDisposKpi();
     // loadSwapsBadge(); // F-05 désactivé
     loadNotifBadge();
     _notifPollTimer = setInterval(() => { loadNotifBadge(); /* loadSwapsBadge(); */ }, 30000);
@@ -297,6 +301,21 @@ async function init() {
 
     const btnDispos = document.getElementById('btn-dispos');
     if (btnDispos) btnDispos.addEventListener('click', openDisposPanel);
+
+    const congesSearch = document.getElementById('conges-search');
+    if (congesSearch) congesSearch.addEventListener('input', renderCongesListPatron);
+    document.querySelectorAll('.conge-filter-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            _congesFilter = chip.dataset.filter;
+            document.querySelectorAll('.conge-filter-chip').forEach(c => {
+                const active = c.dataset.filter === _congesFilter;
+                c.style.borderColor      = active ? 'var(--accent)' : 'var(--light-border)';
+                c.style.background        = active ? 'var(--accent-subtle)' : 'white';
+                c.style.color             = active ? 'var(--accent)' : 'var(--text-secondary)';
+            });
+            renderCongesListPatron();
+        });
+    });
 
     // F-05 échanges désactivé
     // const btnSwaps = document.getElementById('btn-swaps');
@@ -317,6 +336,8 @@ async function init() {
     if (disposTabReminder) disposTabReminder.addEventListener('click', () => switchDisposTab('reminder'));
     const disposTabModify = document.getElementById('dispos-tab-btn-modify');
     if (disposTabModify) disposTabModify.addEventListener('click', () => switchDisposTab('modify'));
+    const disposTabConges = document.getElementById('dispos-tab-btn-conges');
+    if (disposTabConges) disposTabConges.addEventListener('click', () => switchDisposTab('conges'));
     const staffNotesPrev = document.getElementById('staff-notes-prev');
     if (staffNotesPrev) staffNotesPrev.addEventListener('click', () => {
         if (!staffNotesWeekStart) return;
@@ -567,6 +588,7 @@ async function refreshWeek() {
     currentShiftsWeek = Object.values(weekFullData).flat();
     renderSidebar(); // Mettre à jour l'ordre staff APRÈS que currentVenueId est à jour
     renderWeekGrid();
+    loadDisposKpi(); // KPI dispos suit la semaine affichée
     if (currentView === 'week') {
         renderWeekFull();
     } else {
@@ -698,15 +720,23 @@ async function loadDayDetail(dateStr) {
 
     currentShifts  = [];
     confirmedDispos = [];
+    dayLeaves = [];
+    dayLeaveStaffIds = new Set();
     try {
-        const [shiftsRes, disposRes] = await Promise.all([
+        const [shiftsRes, disposRes, congesRes] = await Promise.all([
             fetch('/api/shifts/' + currentVenueId + '/' + dateStr, { credentials: 'include' }),
             fetch('/api/dispos/confirmed?from=' + dateStr + '&to=' + dateStr, { credentials: 'include' }),
+            fetch('/api/conges?from=' + dateStr + '&to=' + dateStr + '&status=approved', { credentials: 'include' }),
         ]);
         if (shiftsRes.ok) currentShifts   = await shiftsRes.json();
         if (disposRes.ok) confirmedDispos = await disposRes.json();
+        if (congesRes.ok) {
+            dayLeaves = await congesRes.json();
+            dayLeaveStaffIds = new Set(dayLeaves.map(c => String(c.staff_id)));
+        }
     } catch { /* silencieux */ }
 
+    renderSidebar(); // refléter les congés du jour dans la sidebar
     buildDisplayedStaff();
     extendDisplayForRealHours();
     renderTimelineHeader();
@@ -990,17 +1020,21 @@ function renderSidebar() {
         // Filtrage par rôle (le filtre searchVal est déjà appliqué avant le forEach)
         if (_staffFilterRole && !staffRoleIds.includes(_staffFilterRole)) return;
 
+        const onLeave = dayLeaveStaffIds.has(String(staff._id));
+
         const card = document.createElement('div');
-        card.className       = 'staff-card' + (isPref ? ' staff-pref' : '');
+        card.className       = 'staff-card' + (isPref ? ' staff-pref' : '') + (onLeave ? ' staff-card-onleave' : '');
         card.draggable       = true;
         card.dataset.staffId = staff._id;
         card.dataset.name    = staff.name.toLowerCase();
         card.dataset.roles   = staffRoleIds.join(',');
+        if (onLeave) card.title = staff.name + ' est en congé ce jour';
 
         card.innerHTML =
             (isPref ? '<span class="staff-pref-dot" title="Affecté à cet établissement">★</span>' : '') +
             '<span class="staff-dot" style="background:' + staff.color + '"></span>' +
             '<span class="staff-info-name"' + (staff.name_color ? ' style="color:' + staff.name_color + '"' : '') + '>' + displayName(staff._id, staff.name) + '</span>' +
+            (onLeave ? '<span class="staff-leave-badge" title="En congé ce jour">🌴 Congé</span>' : '') +
             (firstRole
                 ? '<span class="staff-role-badge ' + firstRole.type + '">' + firstRole.name + '</span>'
                 : '') +
@@ -2408,6 +2442,16 @@ async function createShift(staff, startTime, endTime) {
     try {
         // Pour un Joker : staff_id = '__joker__', nom unique (Joker 1, Joker 2…)
         const staffId   = staff.isJoker ? '__joker__' : staff._id;
+
+        // Blocage congé : confirmation requise avant d'assigner un staff en congé ce jour
+        if (staffId !== '__joker__' && dayLeaveStaffIds.has(String(staffId))) {
+            const proceed = await new Promise(resolve => {
+                showConfirm(
+                    '🌴 <strong>' + staff.name + '</strong> est en congé ce jour. L\'assigner quand même ?',
+                    () => resolve(true), () => resolve(false));
+            });
+            if (!proceed) return;
+        }
 
         // Avertissement non bloquant si jour de repos
         if (staffId !== '__joker__') {
@@ -4368,7 +4412,7 @@ async function loadRecapData() {
 
         const fmtH = h => ShiftHours.fmtDurationH(h, { nullText: '—', minus: '−' });
 
-        let totalPlanned = 0, totalReal = 0, totalDays = 0;
+        let totalPlanned = 0, totalReal = 0, totalDays = 0, totalConge = 0;
         let hasAnyReal = false;
 
         // Colonnes par établissement (uniquement quand on n'a pas filtré sur un seul)
@@ -4394,6 +4438,7 @@ async function loadRecapData() {
                 '<th colspan="' + estabCols.length + '" style="text-align:center;padding:6px;border-bottom:1px solid #e0e0e0;border-left:2px solid #e0e0e0;color:#555">Détail planifié</th>' +
                 '<th colspan="' + estabCols.length + '" style="text-align:center;padding:6px;border-bottom:1px solid #e0e0e0;border-left:2px solid #e0e0e0;color:#2980b9">Détail réel</th>' +
                 '<th rowspan="2" style="text-align:center;padding:8px 6px;vertical-align:bottom;border-bottom:2px solid #e0e0e0;border-left:2px solid #e0e0e0">Jours</th>' +
+                '<th rowspan="2" style="text-align:center;padding:8px 6px;vertical-align:bottom;border-bottom:2px solid #e0e0e0" title="Jours de congé validés">🌴 Congés</th>' +
                 '<th rowspan="2" style="text-align:center;padding:8px 6px;vertical-align:bottom;border-bottom:2px solid #e0e0e0">H. planifiées</th>' +
                 '<th rowspan="2" style="text-align:center;padding:8px 6px;vertical-align:bottom;border-bottom:2px solid #e0e0e0">H. réelles</th>' +
                 '<th rowspan="2" style="text-align:center;padding:8px 6px;vertical-align:bottom;border-bottom:2px solid #e0e0e0">Écart</th>' +
@@ -4410,6 +4455,7 @@ async function loadRecapData() {
             tableHTML += '<tr style="background:#f8f8f8;border-bottom:2px solid #e0e0e0">' +
                 '<th style="text-align:left;padding:8px 10px">Nom</th>' +
                 '<th style="text-align:center;padding:8px 6px">Jours</th>' +
+                '<th style="text-align:center;padding:8px 6px" title="Jours de congé validés">🌴 Congés</th>' +
                 '<th style="text-align:center;padding:8px 6px">H. planifiées</th>' +
                 '<th style="text-align:center;padding:8px 6px">H. réelles</th>' +
                 '<th style="text-align:center;padding:8px 6px">Écart</th>' +
@@ -4456,8 +4502,13 @@ async function loadRecapData() {
                 if (h != null) estabRealTotals[i] += h;
                 tableHTML += '<td style="text-align:center;padding:8px 6px;color:#2980b9' + (i === 0 ? ';border-left:2px solid #e0e0e0' : '') + '">' + (h != null ? fmtH(h) : '') + '</td>';
             });
+            totalConge += s.conge_days || 0;
+            const congeStr = s.conge_days > 0
+                ? '<span style="color:#10b981;font-weight:600">' + s.conge_days + ' j</span>'
+                : '<span style="color:#ccc">—</span>';
             tableHTML +=
                 '<td style="text-align:center;padding:8px 6px;border-left:2px solid #e0e0e0">' + s.days + '</td>' +
+                '<td style="text-align:center;padding:8px 6px">' + congeStr + '</td>' +
                 '<td style="text-align:center;padding:8px 6px">' + fmtH(s.planned_hours) + '</td>' +
                 '<td style="text-align:center;padding:8px 6px">' + realStr + '</td>' +
                 '<td style="text-align:center;padding:8px 6px">' + ecartStr + '</td>' +
@@ -4480,6 +4531,7 @@ async function loadRecapData() {
         });
         tableHTML +=
             '<td style="text-align:center;padding:8px 6px;border-left:2px solid #e0e0e0">' + totalDays + '</td>' +
+            '<td style="text-align:center;padding:8px 6px">' + (totalConge > 0 ? totalConge + ' j' : '—') + '</td>' +
             '<td style="text-align:center;padding:8px 6px">' + fmtH(totalPlanned) + '</td>' +
             '<td style="text-align:center;padding:8px 6px">' + (hasAnyReal ? fmtH(totalReal) : '—') + '</td>' +
             '<td style="text-align:center;padding:8px 6px">' + totalEcartStr + '</td>' +
@@ -4522,7 +4574,7 @@ function exportRecapXlsx() {
     const header = ['Nom']
         .concat(estabCols.map(e => 'Plan. ' + e.name))
         .concat(estabCols.map(e => 'R\u00E9el ' + e.name))
-        .concat(['Jours', 'Heures planifi\u00E9es', 'Heures r\u00E9elles', '\u00C9cart', 'Partiel']);
+        .concat(['Jours', 'Cong\u00E9s (j)', 'Heures planifi\u00E9es', 'Heures r\u00E9elles', '\u00C9cart', 'Partiel']);
 
     const rows = [
         ['R\u00E9capitulatif mensuel ' + (month || ''), '\u00C9tablissement : ' + (estabLabel || 'Tous')],
@@ -4530,13 +4582,14 @@ function exportRecapXlsx() {
         header,
     ];
 
-    let totalPlanned = 0, totalReal = 0, totalDays = 0, hasAnyReal = false;
+    let totalPlanned = 0, totalReal = 0, totalDays = 0, totalConge = 0, hasAnyReal = false;
     const estabPlannedTotals = estabCols.map(() => 0);
     const estabRealTotals    = estabCols.map(() => 0);
 
     _recapLastData.forEach(s => {
         totalPlanned += s.planned_hours;
         totalDays    += s.days;
+        totalConge   += s.conge_days || 0;
         if (s.real_hours != null) { totalReal += s.real_hours; hasAnyReal = true; }
 
         const byEstabPlanned = {};
@@ -4559,6 +4612,7 @@ function exportRecapXlsx() {
         });
         row.push(
             s.days,
+            s.conge_days > 0 ? s.conge_days : '',
             fmtH(s.planned_hours),
             s.real_hours != null ? fmtH(s.real_hours) : '',
             s.ecart != null ? fmtH(s.ecart) : '',
@@ -4573,6 +4627,7 @@ function exportRecapXlsx() {
     estabRealTotals.forEach(t => totalRow.push(t > 0 ? fmtH(t) : ''));
     totalRow.push(
         totalDays,
+        totalConge > 0 ? totalConge : '',
         fmtH(totalPlanned),
         hasAnyReal ? fmtH(totalReal) : '',
         totalEcart != null ? fmtH(totalEcart) : '',
@@ -4761,14 +4816,261 @@ async function _decideSwap(swapId, action, card) {
 
 async function loadDisposBadge() {
     try {
-        const res = await fetch('/api/dispos/count', { credentials: 'include' });
-        if (!res.ok) return;
-        const { count } = await res.json();
+        // Le bouton « Dispos » est le hub absences : pastille = dispos + congés en attente
+        const [dispRes, congRes] = await Promise.all([
+            fetch('/api/dispos/count', { credentials: 'include' }),
+            fetch('/api/conges/pending-count', { credentials: 'include' }),
+        ]);
+        let count = 0;
+        if (dispRes.ok) count += (await dispRes.json()).count || 0;
+        if (congRes.ok) count += (await congRes.json()).count || 0;
         const badge = document.getElementById('dispos-badge');
         if (!badge) return;
         badge.textContent   = count;
         badge.style.display = count > 0 ? 'flex' : 'none';
     } catch { }
+}
+
+// ── KPI complétion des dispos (carte vue planning) ───────────────────────────
+
+function _kpiProgressBar(sent, total, big) {
+    const pct = total > 0 ? Math.round((sent / total) * 100) : 0;
+    const color = total === 0 ? '#cbd5e1' : (pct >= 100 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444');
+    const h = big ? 10 : 7;
+    return '<div style="display:flex;align-items:center;gap:8px">' +
+        '<div style="flex:1;height:' + h + 'px;background:#eef0f4;border-radius:6px;overflow:hidden">' +
+            '<div style="height:100%;width:' + pct + '%;background:' + color + ';border-radius:6px;transition:width .3s"></div>' +
+        '</div>' +
+        '<span style="font-size:' + (big ? '13' : '12') + 'px;font-weight:700;color:#1a1a2e;white-space:nowrap">' + sent + '/' + total + '</span>' +
+    '</div>';
+}
+
+let _kpiData = null;          // dernière réponse /api/dispos/kpi
+let _kpiMissingOpen = false;  // liste des non-envoyeurs dépliée ?
+
+async function loadDisposKpi() {
+    const card = document.getElementById('dispos-kpi-card');
+    if (!card) return;
+    try {
+        // Suit la semaine AFFICHÉE dans le planning (currentWeekStart)
+        const from = toDateStr(currentWeekStart);
+        const to   = toDateStr(addDays(currentWeekStart, 6));
+        const res  = await fetch('/api/dispos/kpi?from=' + from + '&to=' + to, { credentials: 'include' });
+        if (!res.ok) { card.style.display = 'none'; return; }
+        const data = await res.json();
+        if (!data.authorized) { card.style.display = 'none'; return; }
+        _kpiData = data;
+        renderDisposKpiCard();
+    } catch { card.style.display = 'none'; }
+}
+
+function renderDisposKpiCard() {
+    const card = document.getElementById('dispos-kpi-card');
+    if (!card || !_kpiData) return;
+    const data = _kpiData;
+    const o    = data.overall || { sent: 0, total: 0 };
+    const pct  = o.total > 0 ? Math.round((o.sent / o.total) * 100) : 0;
+    const missing = data.missing || [];
+    const weekLabel = 'semaine du ' + currentWeekStart.getDate() + ' ' + MONTH_NAMES[currentWeekStart.getMonth()];
+
+    let html = '<div style="background:var(--light-card,#fff);border:1px solid var(--light-border,#e8eaed);border-radius:14px;padding:14px 16px;margin:0 0 12px">';
+    // En-tête cliquable
+    html += '<div id="dispos-kpi-toggle" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;cursor:pointer" title="Voir qui n\'a pas envoyé">' +
+            '<span style="font-size:13px;font-weight:700;color:var(--text-primary,#1a1a2e)">🗓️ Dispos envoyées — ' + weekLabel + '</span>' +
+            '<span style="font-size:12px;color:var(--text-secondary,#777);white-space:nowrap">' + pct + '% ' + (_kpiMissingOpen ? '▾' : '▸') + '</span>' +
+        '</div>' +
+        _kpiProgressBar(o.sent, o.total, true);
+    const bars = (data.by_establishment || []).filter(b => b.total > 0 || b.sent > 0);
+    if (bars.length) {
+        html += '<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">';
+        bars.forEach(b => {
+            html += '<div style="display:flex;align-items:center;gap:10px">' +
+                '<span style="flex:0 0 96px;font-size:12px;color:var(--text-secondary,#777);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(b.establishment_name) + '">' + escapeHtml(b.establishment_name) + '</span>' +
+                '<div style="flex:1">' + _kpiProgressBar(b.sent, b.total, false) + '</div>' +
+            '</div>';
+        });
+        html += '</div>';
+    }
+    // Liste dépliable des staff sans dispo
+    if (_kpiMissingOpen) {
+        html += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--light-border,#e8eaed)">' +
+            '<div style="font-size:12px;font-weight:700;color:var(--text-secondary,#777);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px">Pas encore envoyé (' + missing.length + ')</div>';
+        if (!missing.length) {
+            html += '<div style="font-size:13px;color:#10b981;font-weight:600">✅ Tout le monde a envoyé ses dispos</div>';
+        } else {
+            html += '<div style="display:flex;flex-direction:column;gap:6px">';
+            missing.forEach(m => {
+                const estabs = (m.establishments || []).length ? ' <span style="color:#aaa">· ' + escapeHtml(m.establishments.join(', ')) + '</span>' : '';
+                html += '<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-primary,#1a1a2e)">' +
+                    '<span style="width:8px;height:8px;border-radius:50%;background:' + escapeHtml(m.color || '#888') + ';flex-shrink:0;display:inline-block"></span>' +
+                    '<span style="font-weight:600">' + escapeHtml(m.name) + '</span>' + estabs +
+                '</div>';
+            });
+            html += '</div>';
+        }
+        html += '</div>';
+    }
+    html += '</div>';
+    card.innerHTML = html;
+    card.style.display = '';
+
+    const toggle = document.getElementById('dispos-kpi-toggle');
+    if (toggle) toggle.addEventListener('click', () => {
+        _kpiMissingOpen = !_kpiMissingOpen;
+        renderDisposKpiCard();
+    });
+}
+
+// ── Congés / vacances — côté patron (onglet de la modale Dispos) ─────────────
+
+let _congesFilter = 'all';            // all | pending | approved
+let _congesAll    = [];               // congés à venir (cache, tous statuts)
+const _congesCollapsedMonths = new Set(); // clés 'YYYY-MM' repliées
+
+const _CONGE_STATUS_PATRON = {
+    pending:  { icon: '⏳', cls: 'badge--warning', label: 'En attente' },
+    approved: { icon: '✓',  cls: 'badge--success', label: 'Validé' },
+    rejected: { icon: '✗',  cls: 'badge--danger',  label: 'Refusé' },
+};
+
+const _MONTHS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+
+function _fmtCongeDateFr(iso) {
+    const MONTHS = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'];
+    const [, m, d] = iso.split('-').map(Number);
+    return d + ' ' + MONTHS[m - 1];
+}
+
+// Badge de l'onglet Congés (demandes en attente). La pastille header est gérée
+// par loadDisposBadge() qui agrège dispos + congés.
+async function loadCongesBadge() {
+    try {
+        const res = await fetch('/api/conges/pending-count', { credentials: 'include' });
+        if (!res.ok) return;
+        const { count } = await res.json();
+        const badge = document.getElementById('conges-tab-badge');
+        if (!badge) return;
+        badge.textContent   = count;
+        badge.style.display = count > 0 ? 'inline-block' : 'none';
+    } catch { }
+}
+
+async function loadCongesList() {
+    const list = document.getElementById('conges-list');
+    if (!list) return;
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:#aaa;font-size:13px">Chargement…</div>';
+    try {
+        const today = toDateStr(new Date());
+        const res = await fetch('/api/conges?from=' + today, { credentials: 'include' });
+        if (!res.ok) throw new Error();
+        _congesAll = await res.json();
+        renderCongesListPatron();
+    } catch {
+        list.innerHTML = '<div style="padding:24px;text-align:center;color:#c0392b;font-size:13px">Erreur de chargement.</div>';
+    }
+}
+
+function renderCongesListPatron() {
+    const list = document.getElementById('conges-list');
+    if (!list) return;
+    const search = normalizeStr(document.getElementById('conges-search')?.value || '').trim();
+    let rows = _congesAll.slice();
+    if (_congesFilter !== 'all') rows = rows.filter(c => c.status === _congesFilter);
+    if (search) rows = rows.filter(c => normalizeStr(c.staff_name || '').includes(search));
+
+    if (!rows.length) {
+        list.innerHTML = '<div style="padding:24px;text-align:center;color:#999;font-size:13px">Aucun congé à afficher.</div>';
+        return;
+    }
+
+    // Regrouper par mois (clé 'YYYY-MM'), tri chronologique
+    const groups = new Map();
+    rows.sort((a, b) => a.start_date.localeCompare(b.start_date));
+    rows.forEach(c => {
+        const key = c.start_date.slice(0, 7);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(c);
+    });
+
+    list.innerHTML = '';
+    [...groups.keys()].sort().forEach(key => {
+        const [y, m] = key.split('-').map(Number);
+        const collapsed = _congesCollapsedMonths.has(key);
+        const items = groups.get(key);
+
+        const header = document.createElement('button');
+        header.style.cssText = 'width:100%;text-align:left;background:var(--light-bg);border:none;border-bottom:1px solid var(--light-border);padding:8px 16px;font-size:12px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.4px;cursor:pointer;display:flex;align-items:center;gap:6px';
+        header.innerHTML = '<span style="display:inline-block;width:10px">' + (collapsed ? '▸' : '▾') + '</span>' +
+            _MONTHS_FR[m - 1] + ' ' + y + ' <span style="color:#aaa;font-weight:600">(' + items.length + ')</span>';
+        header.addEventListener('click', () => {
+            if (_congesCollapsedMonths.has(key)) _congesCollapsedMonths.delete(key);
+            else _congesCollapsedMonths.add(key);
+            renderCongesListPatron();
+        });
+        list.appendChild(header);
+        if (collapsed) return;
+
+        items.forEach(c => list.appendChild(_buildCongeRow(c)));
+    });
+}
+
+function _buildCongeRow(c) {
+    const st = _CONGE_STATUS_PATRON[c.status] || _CONGE_STATUS_PATRON.pending;
+    const range = _fmtCongeDateFr(c.start_date) + (c.start_date === c.end_date ? '' : ' → ' + _fmtCongeDateFr(c.end_date));
+    const row = document.createElement('div');
+    row.style.cssText = 'padding:8px 16px;border-bottom:1px solid var(--light-border);display:flex;align-items:center;gap:8px';
+
+    const info = document.createElement('div');
+    info.style.cssText = 'flex:1;min-width:0';
+    info.innerHTML =
+        '<div style="font-weight:600;color:var(--text-primary);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(c.staff_name || '?') + '</div>' +
+        '<div style="font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🌴 ' + range + (c.mode === 'info' ? ' · info' : '') + (c.reason ? ' · ' + escapeHtml(c.reason) : '') + '</div>';
+    row.appendChild(info);
+
+    if (c.status === 'pending') {
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
+        const approve = document.createElement('button');
+        approve.textContent = '✓';
+        approve.title = 'Valider';
+        approve.style.cssText = 'width:30px;height:30px;border-radius:8px;border:none;background:#10b981;color:white;font-size:15px;font-weight:700;cursor:pointer';
+        approve.addEventListener('click', () => decideConge(c._id, 'approved'));
+        const reject = document.createElement('button');
+        reject.textContent = '✗';
+        reject.title = 'Refuser';
+        reject.style.cssText = 'width:30px;height:30px;border-radius:8px;border:1px solid var(--danger);background:white;color:var(--danger);font-size:15px;font-weight:700;cursor:pointer';
+        reject.addEventListener('click', () => decideConge(c._id, 'rejected'));
+        actions.appendChild(approve);
+        actions.appendChild(reject);
+        row.appendChild(actions);
+    } else {
+        const badge = document.createElement('span');
+        badge.className = 'badge ' + st.cls;
+        badge.style.flexShrink = '0';
+        badge.textContent = st.icon + ' ' + st.label;
+        row.appendChild(badge);
+    }
+    return row;
+}
+
+async function decideConge(id, decision) {
+    try {
+        const res  = await fetch('/api/conges/' + id + '/decision', {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ decision }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showToast(data.message);
+        // MAJ optimiste du cache puis re-render (garde le scroll/repli)
+        const c = _congesAll.find(x => String(x._id) === String(id));
+        if (c) c.status = decision;
+        renderCongesListPatron();
+        loadCongesBadge();
+        loadDisposBadge();
+        if (selectedDate) loadDayDetail(selectedDate);
+    } catch (e) { showToast(e.message || 'Erreur', true); }
 }
 
 let _reassignCount = 0;
@@ -5188,7 +5490,8 @@ function switchDisposTab(tab) {
     const isReassign = tab === 'reassign';
     const isReminder = tab === 'reminder';
     const isModify   = tab === 'modify';
-    const isList     = !isNotes && !isReassign && !isReminder && !isModify;
+    const isConges   = tab === 'conges';
+    const isList     = !isNotes && !isReassign && !isReminder && !isModify && !isConges;
 
     document.getElementById('dispos-tab-list').style.display  = isList ? '' : 'none';
     document.getElementById('dispos-tab-notes').style.display = isNotes ? '' : 'none';
@@ -5198,12 +5501,15 @@ function switchDisposTab(tab) {
     if (tabReminder) tabReminder.style.display = isReminder ? '' : 'none';
     const tabModify = document.getElementById('dispos-tab-modify');
     if (tabModify) tabModify.style.display = isModify ? '' : 'none';
+    const tabConges = document.getElementById('dispos-tab-conges');
+    if (tabConges) tabConges.style.display = isConges ? '' : 'none';
 
     const btnList     = document.getElementById('dispos-tab-btn-list');
     const btnNotes    = document.getElementById('dispos-tab-btn-notes');
     const btnReassign = document.getElementById('dispos-tab-btn-reassign');
     const btnReminder = document.getElementById('dispos-tab-btn-reminder');
     const btnModify   = document.getElementById('dispos-tab-btn-modify');
+    const btnConges   = document.getElementById('dispos-tab-btn-conges');
     if (btnList) {
         btnList.style.borderBottomColor = isList ? 'var(--accent)' : 'transparent';
         btnList.style.color             = isList ? 'var(--accent)' : 'var(--text-secondary)';
@@ -5229,6 +5535,12 @@ function switchDisposTab(tab) {
         btnModify.style.color             = isModify ? 'var(--accent)' : 'var(--text-secondary)';
         btnModify.style.fontWeight        = isModify ? '600' : '500';
     }
+    if (btnConges) {
+        btnConges.style.borderBottomColor = isConges ? 'var(--accent)' : 'transparent';
+        btnConges.style.color             = isConges ? 'var(--accent)' : 'var(--text-secondary)';
+        btnConges.style.fontWeight        = isConges ? '600' : '500';
+    }
+    if (isConges) loadCongesList();
     if (isNotes) {
         staffNotesWeekStart = getMondayOf(addDays(new Date(), 7));
         const srch = document.getElementById('staff-notes-search');
@@ -5249,6 +5561,7 @@ async function openDisposPanel() {
     await loadDisposList();
     loadReassignBadge();
     loadReminderBadge();
+    loadCongesBadge();
 }
 
 async function sendRappelDispos() {
@@ -6238,6 +6551,7 @@ function renderStaffManageList() {
                 : '');
 
         const canSubmit    = staff.can_submit_dispos !== false; // true par défaut
+        const congeModes   = ['both', 'request', 'info'].includes(staff.conge_modes) ? staff.conge_modes : 'both';
         const staffGroups  = staff.groups || [];
         // Chips groupes disponibles
         const groupChips = allGroups.length
@@ -6293,6 +6607,14 @@ function renderStaffManageList() {
                     '<input type="checkbox" class="staff-can-submit" ' + (canSubmit ? 'checked' : '') + '>' +
                     'Peut envoyer ses dispos' +
                 '</label>' +
+                '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">' +
+                    '<span style="font-size:11px;color:#aaa">🌴 Congés autorisés :</span>' +
+                    '<select class="staff-conge-modes" style="font-size:11px;padding:3px 6px;border:1px solid #e0e0e0;border-radius:4px;font-family:inherit;color:#555">' +
+                        '<option value="both"'    + (congeModes === 'both'    ? ' selected' : '') + '>Les deux</option>' +
+                        '<option value="request"' + (congeModes === 'request' ? ' selected' : '') + '>Demande au patron</option>' +
+                        '<option value="info"'    + (congeModes === 'info'    ? ' selected' : '') + '>Informatif</option>' +
+                    '</select>' +
+                '</div>' +
             '</div>' +
             '<button class="staff-manage-save">Enregistrer</button>' +
             '<button class="staff-manage-delete" title="Supprimer">×</button>';
@@ -6369,6 +6691,7 @@ function renderStaffManageList() {
             const newVenues     = Array.from(row.querySelectorAll('.venue-pref-btn.active')).map(b => b.dataset.venue);
             const newRoles      = Array.from(row.querySelectorAll('.role-assign-btn.active')).map(b => b.dataset.role);
             const newCanSubmit  = row.querySelector('.staff-can-submit').checked;
+            const newCongeModes = row.querySelector('.staff-conge-modes')?.value || 'both';
             const newGroups     = Array.from(row.querySelectorAll('.staff-group-btn.active')).map(b => b.dataset.group);
             const rateMode = row.querySelector('.staff-rate-mode:checked')?.value || 'hourly';
             const hRaw = row.querySelector('.staff-manage-hourly-rate')?.value;
@@ -6388,7 +6711,7 @@ function renderStaffManageList() {
                     method:      'PATCH',
                     credentials: 'include',
                     headers:     { 'Content-Type': 'application/json' },
-                    body:        JSON.stringify({ name: newName, color: newColor, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, groups: newGroups, name_color: effectiveNameColor, nickname: newNickname, hourly_rate: newHourlyRate, fixed_rate: newFixedRate }),
+                    body:        JSON.stringify({ name: newName, color: newColor, venues: newVenues, roles: newRoles, can_submit_dispos: newCanSubmit, conge_modes: newCongeModes, groups: newGroups, name_color: effectiveNameColor, nickname: newNickname, hourly_rate: newHourlyRate, fixed_rate: newFixedRate }),
                 });
                 if (!res.ok) throw new Error((await res.json()).error);
 
@@ -6398,6 +6721,7 @@ function renderStaffManageList() {
                 staff.venues            = newVenues;
                 staff.roles             = newRoles;
                 staff.can_submit_dispos = newCanSubmit;
+                staff.conge_modes       = newCongeModes;
                 staff.groups            = newGroups;
                 staff.name_color = effectiveNameColor;
                 staff.hourly_rate = newHourlyRate;
@@ -7115,7 +7439,9 @@ async function silentRefresh() {
     try { await refreshWeek(); } catch { /* silencieux */ }
     try { await loadAllStaff(); } catch { /* silencieux */ }
     try { loadDisposBadge(); } catch { /* silencieux */ }
+    try { loadCongesBadge(); } catch { /* silencieux */ }
     try { loadNotifBadge(); } catch { /* silencieux */ }
+    // loadDisposKpi() est déjà appelé par refreshWeek() ci-dessus
 }
 
 // ── Notifications patron/directeur ────────────────────────────────────────────

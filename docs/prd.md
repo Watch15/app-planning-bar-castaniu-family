@@ -12,7 +12,7 @@ Templyo est une application web SaaS de planification du personnel multi-établi
 |---|---|
 | `patron` | Super-admin. Accès complet à tous les établissements, tout le personnel, tous les paramètres. |
 | `directeur` | Manager limité aux établissements qui lui sont assignés. Peut gérer le planning et le personnel de ses établissements. |
-| `staff` | Employé. Accès en lecture seule à son planning et envoi de disponibilités. |
+| `staff` | Employé. Accès en lecture seule à son planning, envoi de disponibilités et déclaration de congés. |
 | `etablissement` | Compte par établissement pour le pointage sur place (`pointage.html`). |
 
 ---
@@ -130,6 +130,16 @@ La modale **Disponibilités** est organisée en 5 onglets accessibles depuis le 
 
 La barre d'onglets passe sur 2 lignes (`flex-wrap`) si l'espace est insuffisant (mobile / modale étroite).
 
+**KPI de complétion (carte sur la vue planning)** — au-dessus de la grille semaine, une carte
+affiche le taux de dispos envoyées : barre globale « X/Y » + **déclinaison par établissement**.
+La carte suit la **semaine affichée dans le planning** (navigation prev/next) et est
+**cliquable** : un clic déroule la **liste des staff qui n'ont pas encore envoyé** pour cette
+semaine (nom + établissement(s)). Visible pour le **patron** (tous les bars), le **directeur**
+(ses `assigned_establishments`) et le **responsable** (établissements de ses shifts de la
+semaine, dans l'onglet « 👥 Mon équipe » — semaine prochaine). Total = staff avec compte actif
+et `can_submit_dispos !== false`. Endpoint `GET /api/dispos/kpi?from&to` (scoping serveur par
+rôle ; renvoie `overall`, `by_establishment` et `missing`).
+
 Paramétrage global :
 - Toggle ouvrir / fermer l'envoi des disponibilités (`force_open`)
 - `open_day` : jour de la semaine où le rappel push « Dispos ouvertes » est envoyé (Trigger 1)
@@ -137,6 +147,41 @@ Paramétrage global :
 - `force_open_staff[]` : réouverture **individuelle** par staff (E-15) — bypass de la deadline pour les `staff_id` listés ; chaque entrée est purgée automatiquement à la prochaine soumission réussie du staff
 - 3 rappels push automatiques quotidiens à 10h via `checkDispoRappels()` : Trigger 1 (ouverture le `open_day`), J-2, J-1
 - Garde anti-doublon : `notif_sent_open_week` mémorise la `weekStart` cible — Trigger 1 ne part qu'une fois par semaine cible
+
+### 3.9.bis Congés / vacances (F-10)
+Mécanique **distincte des disponibilités** : long terme, personnelle (vaut sur tous les
+établissements du staff), et **non purgée** au changement de semaine. Collection dédiée
+`time_off` ; ne dépend ni de la deadline ni de l'ouverture hebdomadaire des dispos.
+- **Côté staff** (`planning.html`, onglet **« Dispos & congés »** avec un sous-toggle
+  *Dispos | Congés*) : saisie d'une **plage de dates** (du… au…) en deux modes — **Demande
+  de congé** (soumise au patron pour validation) ou **À titre informatif** (visible
+  immédiatement). Liste de ses congés à venir avec statut (en attente / validé / refusé) et
+  annulation possible. Si la saisie des dispos est désactivée pour le staff, l'onglet ne
+  montre que les congés.
+- **Droits par staff** : dans l'onglet 👥 Staff, le patron choisit par personne les modes de
+  congé autorisés — **Les deux** (défaut), **Demande au patron** seulement, ou **Informatif**
+  seulement (champ `conge_modes`). Le formulaire staff n'affiche que les modes permis et le
+  serveur refuse un mode non autorisé.
+- **Côté patron** : les congés sont un **onglet 🌴 Congés de la modale Dispos** (pas de
+  bouton header dédié — la pastille du bouton « Dispos » agrège dispos + congés en attente).
+  L'onglet offre une **recherche par nom**, des **filtres de statut** (Tous / ⏳ En attente /
+  ✓ Validés) et un **regroupement par mois repliable** ; chaque demande se **valide / refuse**
+  en un clic, avec notification push au staff à la décision.
+- **Intégration planning** : un staff en congé approuvé un jour donné est **grisé + badge
+  🌴 Congé** dans la barre staff, et son assignation à un shift ce jour-là requiert une
+  **confirmation explicite** (blocage doux).
+- **Blocage dispos ↔ congés** : un jour couvert par un congé **posé** (non refusé) du staff
+  n'accepte plus de disponibilité — la carte du jour passe en lecture seule (« 🌴 Congé ») dans
+  le formulaire dispos, et `POST /api/dispos` refuse toute date couverte par un congé.
+- **Récap mensuel** : une colonne **🌴 Congés** (jours de congé sur le mois) est ajoutée au
+  récap et à l'export Excel. **Seuls les congés demandés au patron et validés** (mode
+  `request` + statut `approved`) sont comptés — les déclarations informatives sont exclues.
+  Un staff en congé sans aucun shift le mois donné y apparaît quand même. Congés filtrés par
+  établissement via les `venues` du staff.
+- Endpoints : `POST /api/conges`, `GET /api/conges/mine`, `DELETE /api/conges/:id`,
+  `GET /api/conges` (patron, filtre `from`/`to`/`status`), `GET /api/conges/pending-count`,
+  `PATCH /api/conges/:id/decision`. Helpers purs testés : `datesOverlap`, `congeCoversDate`,
+  `congeDaysInRange`.
 
 ### 3.10 Publication
 - « Publier la semaine » rend le planning visible au staff

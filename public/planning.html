@@ -327,6 +327,17 @@
         .dispo-note-input:focus { border-color: #c8ccd6; }
         .dispo-note-input::placeholder { color: var(--text-muted); }
 
+        /* ── Sous-onglets Dispos | Congés ── */
+        .dispos-subtab {
+            flex: 1 1 0; min-width: 0; padding: 9px 12px; border-radius: 10px;
+            border: 1.5px solid var(--light-border, #e8eaed); background: #fff;
+            color: var(--text-secondary, #777); font-size: 13px; font-weight: 600;
+            font-family: var(--font); cursor: pointer; transition: all 0.15s;
+        }
+        .dispos-subtab--active {
+            background: var(--dark-surface); color: #fff; border-color: var(--dark-surface);
+        }
+
         /* ── Bouton envoi dispos ── */
         .btn-submit-dispos {
             position: fixed; bottom: 0; left: 0; right: 0;
@@ -632,7 +643,7 @@
 
 <div class="tabs-bar">
     <button class="tab-btn active" data-tab="planning"><span class="tab-full">Mon planning</span><span class="tab-short">Planning</span></button>
-    <button class="tab-btn" data-tab="dispos" id="tab-dispos"><span class="tab-full">Mes dispos</span><span class="tab-short">Dispos</span></button>
+    <button class="tab-btn" data-tab="dispos" id="tab-dispos"><span class="tab-full">Dispos &amp; congés</span><span class="tab-short">Dispos</span></button>
     <button class="tab-btn" data-tab="historique">Historique</button>
 </div>
 
@@ -666,14 +677,57 @@
 </div>
 </div>
 
-<!-- ── Vue disponibilités ── -->
+<!-- ── Vue disponibilités & congés ── -->
 <div id="view-dispos" style="display:none">
-    <div class="greeting">
-        <div class="greeting-name" id="dispos-title">Mes dispos — semaine prochaine</div>
-        <div class="greeting-sub" id="dispos-status"></div>
+    <!-- Sous-onglets Dispos | Congés -->
+    <div style="display:flex;gap:8px;padding:14px 20px 4px">
+        <button id="subtab-dispos" class="dispos-subtab dispos-subtab--active" data-sub="dispos">Dispos</button>
+        <button id="subtab-conges" class="dispos-subtab" data-sub="conges">🌴 Congés</button>
     </div>
-    <div id="dispos-form" style="padding:0 20px 24px;display:flex;flex-direction:column;gap:10px"></div>
-    <div style="height:calc(96px + env(safe-area-inset-bottom,0px))"></div>
+
+    <!-- Sous-vue Dispos -->
+    <div id="dispos-sub-dispos">
+        <div class="greeting">
+            <div class="greeting-name" id="dispos-title">Mes dispos — semaine prochaine</div>
+            <div class="greeting-sub" id="dispos-status"></div>
+        </div>
+        <div id="dispos-form" style="padding:0 20px 24px;display:flex;flex-direction:column;gap:10px"></div>
+        <div style="height:calc(96px + env(safe-area-inset-bottom,0px))"></div>
+    </div>
+
+    <!-- Sous-vue Congés -->
+    <div id="dispos-sub-conges" style="display:none">
+        <div class="greeting">
+            <div class="greeting-name">Mes congés</div>
+            <div class="greeting-sub">Signale tes vacances à l'avance pour une planification plus claire</div>
+        </div>
+        <div style="padding:0 20px 20px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <label style="flex:1 1 130px;font-size:13px;color:#444;font-weight:600">Du
+                    <input type="date" id="conge-start" style="width:100%;margin-top:4px;border:1.5px solid #e8eaed;border-radius:10px;padding:10px;font-size:14px;font-family:inherit">
+                </label>
+                <label style="flex:1 1 130px;font-size:13px;color:#444;font-weight:600">Au
+                    <input type="date" id="conge-end" style="width:100%;margin-top:4px;border:1.5px solid #e8eaed;border-radius:10px;padding:10px;font-size:14px;font-family:inherit">
+                </label>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#444;cursor:pointer">
+                    <input type="radio" name="conge-mode" value="request" checked style="margin-top:2px">
+                    <span><b>Demande de congé</b> — soumise au patron pour validation</span>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#444;cursor:pointer">
+                    <input type="radio" name="conge-mode" value="info" style="margin-top:2px">
+                    <span><b>À titre informatif</b> — visible immédiatement, sans validation</span>
+                </label>
+            </div>
+            <textarea id="conge-reason" placeholder="Motif (optionnel)" maxlength="500" style="width:100%;border:1.5px solid #e8eaed;border-radius:10px;padding:10px;font-size:14px;font-family:inherit;min-height:54px;resize:vertical"></textarea>
+            <button id="btn-submit-conge" class="btn-submit-dispos" style="position:static;margin:0;border-radius:10px;padding:14px 16px">Envoyer</button>
+            <div id="conge-status" style="font-size:13px;min-height:18px"></div>
+        </div>
+        <div style="padding:0 20px 8px;font-size:13px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:0.4px">Mes congés à venir</div>
+        <div id="conge-list" style="padding:0 20px 40px;display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+
     <button id="btn-submit-dispos" class="btn-submit-dispos">
         Envoyer mes dispos
     </button>
@@ -707,10 +761,6 @@
 <script src="/lib/shift-hours.js"></script>
 <script src="/lib/week.js"></script>
 <script src="/planning.js"></script>
-<script>
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
-}
-</script>
+<script src="/sw-register.js"></script>
 </body>
 </html>

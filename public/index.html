@@ -99,7 +99,7 @@
         #notif-modal .notif-empty { padding: 40px 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
 
         /* ── Responsive mobile — refonte complète ── */
-        @media (max-width: 767px) {
+        @media (max-width: 768px) {
 
             /* ── Header ── */
             .header {
@@ -532,7 +532,7 @@
         #fab-staff {
             display: none;
         }
-        @media (max-width: 767px) {
+        @media (max-width: 768px) {
             #fab-staff {
                 display: flex;
                 position: fixed;
@@ -648,7 +648,7 @@
         #btn-mobile-menu {
             display: none;
         }
-        @media (max-width: 767px) {
+        @media (max-width: 768px) {
             #btn-mobile-menu {
                 display: flex;
                 align-items: center;
@@ -680,7 +680,7 @@
         .header-app-title {
             font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.2px;
         }
-        @media (max-width: 767px) {
+        @media (max-width: 768px) {
             .header-desktop-brand { display: none !important; }
             .header-desktop-sep   { display: none !important; }
         }
@@ -813,7 +813,7 @@
             <div class="header-sep"></div>
             <!-- Groupe 2 : planning -->
             <div style="position:relative;display:inline-block">
-                <button class="btn-manage-staff" id="btn-dispos">📋 Dispos</button>
+                <button class="btn-manage-staff" id="btn-dispos" title="Disponibilités & congés">📋 Dispos</button>
                 <span id="dispos-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--danger);color:white;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;align-items:center;justify-content:center;pointer-events:none;z-index:1;border:1.5px solid var(--dark-bg)">0</span>
             </div>
             <!-- F-05 échanges désactivé
@@ -879,6 +879,9 @@
             <button class="view-tab" data-view="week">Semaine</button>
         </div>
     </div>
+
+    <!-- ── Carte KPI complétion des dispos (semaine prochaine) ── -->
+    <div id="dispos-kpi-card" style="display:none"></div>
 
     <!-- ── Vue semaine mini (cards 7 jours) ── -->
     <div class="week-grid" id="week-grid"></div>
@@ -1117,6 +1120,18 @@
             <button id="dispos-tab-btn-reminder" style="background:none;border:none;border-bottom:2px solid transparent;padding:10px 12px;min-height:40px;font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer;white-space:nowrap">🔔 Sans dispo <span id="reminder-tab-badge" style="display:none;background:#ef4444;color:white;font-size:10px;font-weight:700;border-radius:10px;min-width:16px;height:16px;line-height:16px;padding:0 5px;text-align:center;vertical-align:middle;margin-left:2px"></span></button>
             <button id="dispos-tab-btn-modify"   style="background:none;border:none;border-bottom:2px solid transparent;padding:10px 12px;min-height:40px;font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer;white-space:nowrap">🔓 Modifier</button>
             <button id="dispos-tab-btn-notes"    style="background:none;border:none;border-bottom:2px solid transparent;padding:10px 12px;min-height:40px;font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer;white-space:nowrap">📝 Notes</button>
+            <button id="dispos-tab-btn-conges"   style="background:none;border:none;border-bottom:2px solid transparent;padding:10px 12px;min-height:40px;font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer;white-space:nowrap">🌴 Congés <span id="conges-tab-badge" style="display:none;background:#ef4444;color:white;font-size:10px;font-weight:700;border-radius:10px;min-width:16px;height:16px;line-height:16px;padding:0 5px;text-align:center;vertical-align:middle;margin-left:2px"></span></button>
+        </div>
+        <div id="dispos-tab-conges" style="display:none">
+            <div style="padding:10px 16px;border-bottom:1px solid var(--light-border);display:flex;flex-direction:column;gap:8px">
+                <input type="text" id="conges-search" placeholder="🔎 Rechercher un nom…" style="width:100%;border:1.5px solid var(--light-border);border-radius:8px;padding:8px 10px;font-size:13px;box-sizing:border-box;background:var(--light-bg);color:var(--text-primary);font-family:inherit">
+                <div style="display:flex;gap:6px">
+                    <button class="conge-filter-chip" data-filter="all"      style="flex:1;padding:6px 8px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent-subtle);color:var(--accent);font-size:12px;font-weight:600;cursor:pointer">Tous</button>
+                    <button class="conge-filter-chip" data-filter="pending"  style="flex:1;padding:6px 8px;border-radius:8px;border:1.5px solid var(--light-border);background:white;color:var(--text-secondary);font-size:12px;font-weight:600;cursor:pointer">⏳ En attente</button>
+                    <button class="conge-filter-chip" data-filter="approved" style="flex:1;padding:6px 8px;border-radius:8px;border:1.5px solid var(--light-border);background:white;color:var(--text-secondary);font-size:12px;font-weight:600;cursor:pointer">✓ Validés</button>
+                </div>
+            </div>
+            <div id="conges-list" style="max-height:55vh;overflow-y:auto;padding:4px 0"></div>
         </div>
         <div id="dispos-tab-reminder" style="display:none">
             <div style="padding:8px 16px;border-bottom:1px solid var(--light-border)">
@@ -1310,128 +1325,7 @@
 <script src="/lib/shift-hours.js"></script>
 <script src="/lib/week.js"></script>
 <script src="script.js"></script>
-<script>
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
-}
-
-// ── Drawer mobile ─────────────────────────────────────────────────────────────
-function openMobileDrawer() {
-    syncDrawerDispoToggle();
-    document.getElementById('mobile-drawer').classList.add('open');
-    document.getElementById('mobile-drawer-overlay').classList.add('open');
-    document.body.style.overflow = 'hidden';
-}
-function closeMobileDrawer() {
-    document.getElementById('mobile-drawer').classList.remove('open');
-    document.getElementById('mobile-drawer-overlay').classList.remove('open');
-    document.body.style.overflow = '';
-}
-
-// ── Dispo toggle dans le drawer ───────────────────────────────────────────────
-function syncDrawerDispoToggle() {
-    const mainToggle = document.getElementById('dispo-toggle');
-    const check      = document.getElementById('drawer-dispo-check');
-    const label      = document.getElementById('drawer-dispo-state-label');
-    const track      = document.getElementById('drawer-dispo-track');
-    const thumb      = document.getElementById('drawer-dispo-thumb');
-    if (!mainToggle || !check) return;
-    const on = mainToggle.checked;
-    check.checked = on;
-    if (label) label.textContent = on ? '✅ Dispos ouvertes' : '🔒 Dispos fermées';
-    if (track) track.style.background = on ? '#10b981' : '#d0d0d0';
-    if (thumb) thumb.style.transform   = on ? 'translateX(20px)' : '';
-}
-
-function openDispoSettingsMobile() {
-    closeMobileDrawer();
-    const panel = document.getElementById('dispo-advanced-panel');
-    if (!panel || !panel.innerHTML.trim()) {
-        if (typeof showToast === 'function') showToast('Paramètres non chargés — réessaie');
-        return;
-    }
-    if (!panel._movedToBody) {
-        document.body.appendChild(panel);
-        panel._movedToBody = true;
-    }
-    // Délai pour laisser l'événement click du bouton se propager jusqu'au document
-    // avant d'afficher le panneau — sinon le handler global de loadDispoControl
-    // masque immédiatement le panneau qu'on vient d'ouvrir.
-    setTimeout(() => {
-        panel.style.cssText = 'display:block;position:fixed;top:60px;left:16px;right:16px;min-width:auto;z-index:600;background:white;color:var(--text-primary);border:1.5px solid #e8eaed;border-radius:12px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);overflow-y:auto;max-height:calc(100vh - 80px)';
-        setTimeout(() => {
-            function _hidePanel(e) {
-                if (!panel.contains(e.target)) {
-                    panel.style.display = 'none';
-                    document.removeEventListener('click', _hidePanel);
-                }
-            }
-            document.addEventListener('click', _hidePanel);
-        }, 80);
-    }, 50);
-}
-
-// ── FAB staff (bottom sheet) ──────────────────────────────────────────────────
-function toggleStaffBar() {
-    const bar = document.getElementById('staff-bar-container');
-    if (!bar) return;
-    const isOpen = bar.classList.contains('open');
-    if (isOpen) {
-        _closeStaffBar();
-    } else {
-        _openStaffBar();
-    }
-}
-
-function _openStaffBar() {
-    const bar = document.getElementById('staff-bar-container');
-    const fab = document.getElementById('fab-staff');
-    if (!bar) return;
-    bar.classList.add('open');
-    fab.textContent = '✕';
-}
-
-function _closeStaffBar() {
-    const bar = document.getElementById('staff-bar-container');
-    const fab = document.getElementById('fab-staff');
-    if (!bar) return;
-    bar.classList.remove('open');
-    fab.textContent = '＋';
-    const ov = document.getElementById('staff-bar-overlay');
-    if (ov) ov.style.display = 'none';
-}
-
-// ── Synchroniser le badge dispos dans le drawer ───────────────────────────────
-const _origLoadDisposBadge = typeof loadDisposBadge !== 'undefined' ? loadDisposBadge : null;
-window.addEventListener('load', () => {
-    // Patcher loadDisposBadge pour synchroniser le drawer badge aussi
-    const drawerBadge = document.getElementById('drawer-dispos-badge');
-    const mainBadge   = document.getElementById('dispos-badge');
-    if (drawerBadge && mainBadge) {
-        const observer = new MutationObserver(() => {
-            drawerBadge.textContent   = mainBadge.textContent;
-            drawerBadge.style.display = mainBadge.style.display;
-        });
-        observer.observe(mainBadge, { attributes: true, childList: true, subtree: true, characterData: true });
-    }
-
-    // Lier le toggle du drawer au toggle principal dispo
-    const drawerCheck = document.getElementById('drawer-dispo-check');
-    const mainToggle  = document.getElementById('dispo-toggle');
-    if (drawerCheck && mainToggle) {
-        drawerCheck.addEventListener('change', () => {
-            if (drawerCheck.checked !== mainToggle.checked) {
-                mainToggle.click();
-            }
-            syncDrawerDispoToggle();
-        });
-        // Écouter les changements sur le toggle principal pour garder le drawer à jour
-        mainToggle.addEventListener('change', () => syncDrawerDispoToggle());
-    }
-
-    // Sync initial après chargement des données dispo
-    setTimeout(syncDrawerDispoToggle, 600);
-});
-</script>
+<script src="/sw-register.js"></script>
+<script src="/index-init.js"></script>
 </body>
 </html>
