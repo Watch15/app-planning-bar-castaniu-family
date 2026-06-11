@@ -909,6 +909,7 @@
         <div class="day-detail-header">
             <span class="day-detail-title" id="day-detail-title"></span>
             <button class="btn-copy-day" id="btn-copy-day">Copier ce jour →</button>
+            <button class="btn-manage-staff" id="btn-copy-week" style="font-size:12px;padding:5px 12px">Copier la semaine →</button>
             <button class="btn-manage-staff" id="btn-refresh-day" title="Recharger les heures réelles saisies depuis la tablette de pointage" style="font-size:12px;padding:5px 10px">⟳ Actualiser</button>
             <button class="btn-manage-staff" id="btn-publish-week" style="font-size:12px;padding:5px 12px;background:var(--accent);border-color:var(--accent);color:#fff">Publier la semaine</button>
             <button class="day-detail-close" id="day-detail-close">×</button>
@@ -1104,6 +1105,33 @@
         <div class="modal-actions">
             <button class="btn-cancel" id="copy-modal-cancel">Annuler</button>
             <button class="btn-confirm" id="copy-modal-confirm">Copier</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modale : copier la semaine entière ── -->
+<div class="modal-overlay" id="copy-week-modal" style="display:none">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">Copier la semaine vers…</span>
+            <button class="modal-close" id="copy-week-close">×</button>
+        </div>
+        <p class="modal-hint">Que faire des affectations ?</p>
+        <div class="cw-mode-grid" id="copy-week-mode">
+            <button type="button" class="cw-mode-btn active" data-mode="staff">
+                <span class="cw-mode-title">👥 Garder les staffs</span>
+                <span class="cw-mode-desc">Copie les shifts avec leurs personnes</span>
+            </button>
+            <button type="button" class="cw-mode-btn" data-mode="jokers">
+                <span class="cw-mode-title">🃏 Remplacer par des Jokers</span>
+                <span class="cw-mode-desc">Crée des créneaux vides à réattribuer</span>
+            </button>
+        </div>
+        <p class="modal-hint" style="margin-top:14px">Semaines cibles — chaque semaine choisie sera <strong>remplacée</strong></p>
+        <div class="copy-weeks-grid" id="copy-weeks-grid"></div>
+        <div class="modal-actions">
+            <button class="btn-cancel" id="copy-week-cancel">Annuler</button>
+            <button class="btn-confirm" id="copy-week-confirm">Copier</button>
         </div>
     </div>
 </div>
