@@ -1674,7 +1674,7 @@ function createDispoCard(date, d) {
                 '<span style="color:#aaa;flex-shrink:0">→</span>' +
                 '<input class="dispo-time-input" id="end-' + date + '" type="text" inputmode="numeric" placeholder="18" value="' + (sel.end_time ? fmt(sel.end_time) : '') + '">' +
             '</div>' +
-            '<textarea class="dispo-note-input" id="note-' + date + '" placeholder="Note optionnelle..." rows="1">' + (sel.note || '') + '</textarea>' +
+            '<textarea class="dispo-note-input" id="note-' + date + '" placeholder="Note optionnelle..." rows="1">' + _esc(sel.note || '') + '</textarea>' +
         '</div>';
 
     // Listeners boutons type

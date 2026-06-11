@@ -692,6 +692,24 @@ function setupSession() {
 
 setupSession();
 
+// ── Anti-injection NoSQL sur les query params ─────────────────────────────────
+// Le parseur de query d'Express (qs) transforme `?from[$gt]=x` en objet
+// { from: { $gt: 'x' } }. Injecté tel quel dans un filtre Mongo (ex.
+// `{ date: { $gte: from } }`), ça permet d'introduire des opérateurs ($ne, $gt…).
+// Aucun paramètre de query légitime de l'app n'est un objet → on rejette tout
+// objet imbriqué dans req.query. (req.body est laissé tel quel : il contient des
+// objets/tableaux légitimes — dispos, subscription, entries… — et ses filtres
+// Mongo sont déjà gardés par isValidObjectId / validations de format.)
+function rejectQueryOperators(req, res, next) {
+    for (const v of Object.values(req.query || {})) {
+        if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+            return res.status(400).json({ error: 'Paramètre de requête invalide' });
+        }
+    }
+    next();
+}
+app.use(rejectQueryOperators);
+
 // ── Middlewares ───────────────────────────────────────────────────────────────
 
 function checkDB(req, res, next) {
@@ -1518,7 +1536,27 @@ app.delete('/api/groups/:name', checkDB, requireAdmin, async (req, res) => {
 // ── Staff ─────────────────────────────────────────────────────────────────────
 
 app.get('/api/staff', checkDB, requireAuth, async (req, res) => {
-    try { res.json(await db.collection('staff').find().toArray()); }
+    try {
+        const staff = await db.collection('staff').find().toArray();
+        // Patron/directeur : accès complet (gestion paie, coordonnées).
+        if (req.session.user.role === 'patron' || req.session.user.role === 'directeur') {
+            return res.json(staff);
+        }
+        // Staff / établissement : ne JAMAIS exposer la rémunération ni les
+        // coordonnées personnelles des collègues. On ne renvoie que ce qui est
+        // nécessaire à l'affichage du planning (nom, couleur, surnom, etc.).
+        res.json(staff.map(s => ({
+            _id:      s._id,
+            name:     s.name,
+            nickname: s.nickname ?? null,
+            color:    s.color,
+            name_color: s.name_color ?? null,
+            venues:   s.venues || [],
+            roles:    s.roles  || [],
+            groups:   s.groups || [],
+            rest_days: s.rest_days || [],
+        })));
+    }
     catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
