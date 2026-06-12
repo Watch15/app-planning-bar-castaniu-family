@@ -2678,23 +2678,31 @@ app.post('/api/dispos', checkDB, requireAuth, async (req, res) => {
             if (blocked.length)
                 return res.status(409).json({ error: 'Impossible d\'envoyer des dispos sur des jours de congé : ' + blocked.join(', ') + '.' });
         }
+        // Modifiable jusqu'à la deadline : on UPSERT par (staff_id, date) — une seule
+        // dispo par jour. Re-soumettre met à jour le type/les horaires/la note et
+        // repasse la dispo en 'pending' (le patron re-valide la version modifiée).
+        // `type: { $ne: 'week_note' }` protège la note de semaine (autre code path).
         const ops = dispos.map(d => ({
             updateOne: {
-                filter: { staff_id: staffId, date: d.date, type: d.type || 'custom' },
-                update: { $setOnInsert: {
-                    staff_id: staffId, staff_name: req.session.user.name || '',
-                    date: d.date, type: d.type || 'custom',
-                    start_time: d.start_time != null ? parseFloat(d.start_time) : null,
-                    end_time:   d.end_time   != null ? parseFloat(d.end_time)   : null,
-                    note: d.note || '', status: 'pending', created_at: new Date(),
-                }},
+                filter: { staff_id: staffId, date: d.date, type: { $ne: 'week_note' } },
+                update: {
+                    $set: {
+                        type:       d.type || 'custom',
+                        start_time: d.start_time != null ? parseFloat(d.start_time) : null,
+                        end_time:   d.end_time   != null ? parseFloat(d.end_time)   : null,
+                        note:       d.note || '',
+                        status:     'pending',
+                        staff_name: req.session.user.name || '',
+                        updated_at: new Date(),
+                    },
+                    $setOnInsert: { created_at: new Date() },
+                },
                 upsert: true,
             },
         }));
         const result = await db.collection('availabilities').bulkWrite(ops, { ordered: false });
-        const inserted = result.upsertedCount;
-        if (inserted === 0) return res.status(409).json({ error: 'Des disponibilités ont déjà été soumises pour cette période.' });
-        res.status(201).json({ message: inserted + ' disponibilité(s) enregistrée(s)' });
+        const n = (result.upsertedCount || 0) + (result.modifiedCount || 0);
+        res.status(201).json({ message: n > 0 ? n + ' disponibilité(s) enregistrée(s)' : 'Disponibilités à jour' });
         touchLastUpdated();
         if (staffForceOpen) {
             db.collection('settings').updateOne(

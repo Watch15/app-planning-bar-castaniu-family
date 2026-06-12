@@ -1287,7 +1287,12 @@
             <button id="recap-export-csv" class="btn-manage-staff" style="margin-left:auto;font-size:11px;padding:4px 10px" title="Enregistrer en Excel (.xlsx)">📊 Excel</button>
             <button id="recap-print" class="btn-manage-staff" style="font-size:11px;padding:4px 10px" title="Imprimer ce récap">🖨 Imprimer</button>
         </div>
+        <div class="recap-subtabs" id="recap-subtabs">
+            <button type="button" class="recap-subtab active" data-sub="recap">📋 Récap</button>
+            <button type="button" class="recap-subtab" data-sub="conges">🌴 Calendrier congés</button>
+        </div>
         <div id="recap-content" style="max-height:60vh;overflow-y:auto"></div>
+        <div id="recap-conges-content" style="max-height:60vh;overflow-y:auto;display:none"></div>
     </div>
 </div>
 
