@@ -4518,8 +4518,22 @@ function renderCongesCalendar(month, conges) {
     const [y, m] = month.split('-').map(Number);
     const daysInMonth = new Date(y, m, 0).getDate();
     const pad = n => String(n).padStart(2, '0');
-    const colorOf     = sid => (allStaff.find(s => String(s._id) === String(sid)) || {}).color || '#888';
-    const firstNameOf = n   => (n || '—').trim().split(/\s+/)[0];
+    const colorById = new Map(allStaff.map(s => [String(s._id), s.color]));
+    const colorOf   = sid => colorById.get(String(sid)) || '#888';
+
+    // Index congés par jour : on parcourt chaque période une fois (bornée au mois)
+    // au lieu de refiltrer toute la liste pour chaque cellule.
+    const monthStart = y + '-' + pad(m) + '-01';
+    const monthEnd   = y + '-' + pad(m) + '-' + pad(daysInMonth);
+    const peopleByDate = new Map();
+    for (const g of conges) {
+        const from = g.start_date > monthStart ? g.start_date : monthStart;
+        const to   = g.end_date   < monthEnd   ? g.end_date   : monthEnd;
+        for (let d = Number(from.slice(8, 10)); d <= Number(to.slice(8, 10)); d++) {
+            const dateStr = y + '-' + pad(m) + '-' + pad(d);
+            (peopleByDate.get(dateStr) || peopleByDate.set(dateStr, []).get(dateStr)).push(g);
+        }
+    }
 
     const totalPeople = new Set(conges.map(g => g.staff_id)).size;
     const monthLabel  = MONTH_NAMES[m - 1].charAt(0).toUpperCase() + MONTH_NAMES[m - 1].slice(1) + ' ' + y;
@@ -4541,13 +4555,13 @@ function renderCongesCalendar(month, conges) {
         if (day < 1 || day > daysInMonth) { html += '<div class="cal-cell empty"></div>'; continue; }
         const dateStr = y + '-' + pad(m) + '-' + pad(day);
         const isWe    = (i % 7) >= 5; // sam/dim
-        const people  = conges.filter(g => g.start_date <= dateStr && g.end_date >= dateStr);
+        const people  = peopleByDate.get(dateStr) || [];
         let names = '';
         if (people.length) {
             names = '<div class="cal-names">' + people.map(p =>
                 '<span class="cal-name" title="' + escapeHtml((p.staff_name || '') + (p.mode === 'info' ? ' (info)' : '')) + '">' +
                 '<span class="d" style="background:' + escapeHtml(colorOf(p.staff_id)) + '"></span>' +
-                escapeHtml(firstNameOf(p.staff_name)) +
+                escapeHtml(displayName(p.staff_id, p.staff_name)) +
                 '</span>'
             ).join('') + '</div>';
         }
