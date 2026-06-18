@@ -407,10 +407,10 @@ async function renderOpenJokers(from, to, containerId) {
                     if (!r.ok) throw new Error(data.error);
                     btn.textContent = '✅ Disponibilité envoyée';
                     btn.classList.add('applied');
-                    showSwapToast('✅ Ta disponibilité   a été envoyée !');
+                    showMsg('✅ Ta disponibilité a été envoyée !', 'success');
                 } catch (e) {
                     btn.disabled = false;
-                    showSwapToast(e.message || 'Erreur', true);
+                    showMsg(e.message || 'Erreur', 'error');
                 }
             });
         });
