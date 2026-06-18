@@ -48,7 +48,9 @@ jobs:
   #      (sinon double déploiement : Railway + ce job).
   deploy:
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Uniquement le repo canonique : le fork « castanui » lance les tests mais ne
+    # déploie pas la prod (il n'a pas les secrets Railway, et ne le doit pas).
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'Watch15/app-planning-bar'
     runs-on: ubuntu-latest
     concurrency:
       group: deploy-production
