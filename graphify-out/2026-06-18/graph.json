@@ -1530,7 +1530,7 @@
       "label": "createDispoCard()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1631",
+      "source_location": "L1628",
       "_origin": "ast",
       "id": "public_planning_createdispocard",
       "community": 0,
@@ -1540,7 +1540,7 @@
       "label": "createRestDayCard()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1725",
+      "source_location": "L1722",
       "_origin": "ast",
       "id": "public_planning_createrestdaycard",
       "community": 0,
@@ -1550,7 +1550,7 @@
       "label": "createCongeDayCard()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1737",
+      "source_location": "L1734",
       "_origin": "ast",
       "id": "public_planning_createcongedaycard",
       "community": 0,
@@ -1560,7 +1560,7 @@
       "label": "submitDispos()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1748",
+      "source_location": "L1745",
       "_origin": "ast",
       "id": "public_planning_submitdispos",
       "community": 0,
@@ -1570,7 +1570,7 @@
       "label": "showDisposSub()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1831",
+      "source_location": "L1828",
       "_origin": "ast",
       "id": "public_planning_showdispossub",
       "community": 0,
@@ -1580,7 +1580,7 @@
       "label": "fmtCongeDate()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1847",
+      "source_location": "L1844",
       "_origin": "ast",
       "id": "public_planning_fmtcongedate",
       "community": 0,
@@ -1590,7 +1590,7 @@
       "label": "setCongeStatus()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1852",
+      "source_location": "L1849",
       "_origin": "ast",
       "id": "public_planning_setcongestatus",
       "community": 0,
@@ -1600,7 +1600,7 @@
       "label": "applyCongeModes()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1860",
+      "source_location": "L1857",
       "_origin": "ast",
       "id": "public_planning_applycongemodes",
       "community": 0,
@@ -1610,7 +1610,7 @@
       "label": "initCongesForm()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1875",
+      "source_location": "L1872",
       "_origin": "ast",
       "id": "public_planning_initcongesform",
       "community": 0,
@@ -1620,7 +1620,7 @@
       "label": "submitConge()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1891",
+      "source_location": "L1888",
       "_origin": "ast",
       "id": "public_planning_submitconge",
       "community": 0,
@@ -1630,7 +1630,7 @@
       "label": "loadCongesTab()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1921",
+      "source_location": "L1918",
       "_origin": "ast",
       "id": "public_planning_loadcongestab",
       "community": 0,
@@ -1640,7 +1640,7 @@
       "label": "_CONGE_STATUS",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1934",
+      "source_location": "L1931",
       "_origin": "ast",
       "id": "public_planning_conge_status",
       "community": 0,
@@ -1650,7 +1650,7 @@
       "label": "renderCongesList()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1940",
+      "source_location": "L1937",
       "_origin": "ast",
       "id": "public_planning_rendercongeslist",
       "community": 0,
@@ -1660,7 +1660,7 @@
       "label": "cancelConge()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1973",
+      "source_location": "L1970",
       "_origin": "ast",
       "id": "public_planning_cancelconge",
       "community": 0,
@@ -1670,7 +1670,7 @@
       "label": "_NOTIF_CFG",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1987",
+      "source_location": "L1984",
       "_origin": "ast",
       "id": "public_planning_notif_cfg",
       "community": 0,
@@ -1680,7 +1680,7 @@
       "label": "_notifQueue",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1994",
+      "source_location": "L1991",
       "_origin": "ast",
       "id": "public_planning_notifqueue",
       "community": 0,
@@ -1690,7 +1690,7 @@
       "label": "_shownNotifs",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1997",
+      "source_location": "L1994",
       "_origin": "ast",
       "id": "public_planning_shownnotifs",
       "community": 0,
@@ -1700,7 +1700,7 @@
       "label": "loadStaffNotifs()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L1999",
+      "source_location": "L1996",
       "_origin": "ast",
       "id": "public_planning_loadstaffnotifs",
       "community": 0,
@@ -1710,7 +1710,7 @@
       "label": "_drainNotifQueue()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L2013",
+      "source_location": "L2010",
       "_origin": "ast",
       "id": "public_planning_drainnotifqueue",
       "community": 0,
@@ -1720,7 +1720,7 @@
       "label": "_showNotifToast()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L2019",
+      "source_location": "L2016",
       "_origin": "ast",
       "id": "public_planning_shownotiftoast",
       "community": 0,
@@ -1730,7 +1730,7 @@
       "label": "_dismissToast()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L2064",
+      "source_location": "L2061",
       "_origin": "ast",
       "id": "public_planning_dismisstoast",
       "community": 0,
@@ -1740,7 +1740,7 @@
       "label": "_esc()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L2074",
+      "source_location": "L2071",
       "_origin": "ast",
       "id": "public_planning_esc",
       "community": 0,
@@ -1750,7 +1750,7 @@
       "label": "_showColleagueToast()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L2093",
+      "source_location": "L2090",
       "_origin": "ast",
       "id": "public_planning_showcolleaguetoast",
       "community": 0,
@@ -1760,7 +1760,7 @@
       "label": "showMsg()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L2124",
+      "source_location": "L2121",
       "_origin": "ast",
       "id": "public_planning_showmsg",
       "community": 0,
@@ -1770,7 +1770,7 @@
       "label": "urlBase64ToUint8Array()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L2143",
+      "source_location": "L2140",
       "_origin": "ast",
       "id": "public_planning_urlbase64touint8array",
       "community": 0,
@@ -1780,7 +1780,7 @@
       "label": "initPushButton()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L2150",
+      "source_location": "L2147",
       "_origin": "ast",
       "id": "public_planning_initpushbutton",
       "community": 0,
@@ -1790,7 +1790,7 @@
       "label": "togglePushSubscription()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L2180",
+      "source_location": "L2177",
       "_origin": "ast",
       "id": "public_planning_togglepushsubscription",
       "community": 0,
@@ -1800,7 +1800,7 @@
       "label": "startStaffAutoRefresh()",
       "file_type": "code",
       "source_file": "public/planning.js",
-      "source_location": "L2263",
+      "source_location": "L2260",
       "_origin": "ast",
       "id": "public_planning_startstaffautorefresh",
       "community": 0,
@@ -2153,7 +2153,7 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "public_script_normalizestr",
-      "community": 14,
+      "community": 40,
       "norm_label": "normalizestr()"
     },
     {
@@ -3383,7 +3383,7 @@
       "source_location": "L5024",
       "_origin": "ast",
       "id": "public_script_kpiprogressbar",
-      "community": 59,
+      "community": 14,
       "norm_label": "_kpiprogressbar()"
     },
     {
@@ -3403,7 +3403,7 @@
       "source_location": "L5039",
       "_origin": "ast",
       "id": "public_script_loaddisposkpi",
-      "community": 59,
+      "community": 14,
       "norm_label": "loaddisposkpi()"
     },
     {
@@ -3413,7 +3413,7 @@
       "source_location": "L5057",
       "_origin": "ast",
       "id": "public_script_kpiestabrow",
-      "community": 59,
+      "community": 14,
       "norm_label": "_kpiestabrow()"
     },
     {
@@ -3423,7 +3423,7 @@
       "source_location": "L5081",
       "_origin": "ast",
       "id": "public_script_renderdisposkpicard",
-      "community": 59,
+      "community": 14,
       "norm_label": "renderdisposkpicard()"
     },
     {
@@ -3503,7 +3503,7 @@
       "source_location": "L5176",
       "_origin": "ast",
       "id": "public_script_rendercongeslistpatron",
-      "community": 14,
+      "community": 40,
       "norm_label": "rendercongeslistpatron()"
     },
     {
@@ -3763,7 +3763,7 @@
       "source_location": "L6114",
       "_origin": "ast",
       "id": "public_script_loadstaffnoteslist",
-      "community": 14,
+      "community": 40,
       "norm_label": "loadstaffnoteslist()"
     },
     {
@@ -3773,7 +3773,7 @@
       "source_location": "L6130",
       "_origin": "ast",
       "id": "public_script_renderstaffnoteslist",
-      "community": 14,
+      "community": 40,
       "norm_label": "renderstaffnoteslist()"
     },
     {
@@ -7127,366 +7127,6 @@
       "norm_label": "notes pour les agents"
     },
     {
-      "label": "onboarding.md",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "docs_onboarding",
-      "community": 40,
-      "norm_label": "onboarding.md"
-    },
-    {
-      "label": "\ud83e\udded Onboarding d\u00e9veloppeur \u2014 Templyo",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "community": 40,
-      "norm_label": "\ud83e\udded onboarding developpeur \u2014 templyo"
-    },
-    {
-      "label": "0. En une phrase",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L9",
-      "_origin": "ast",
-      "id": "docs_onboarding_0_en_une_phrase",
-      "community": 40,
-      "norm_label": "0. en une phrase"
-    },
-    {
-      "label": "1. D\u00e9marrer en local (5 minutes)",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L19",
-      "_origin": "ast",
-      "id": "docs_onboarding_1_d\u00e9marrer_en_local_5_minutes",
-      "community": 40,
-      "norm_label": "1. demarrer en local (5 minutes)"
-    },
-    {
-      "label": "2. Les 6 r\u00e8gles d'or (\u00e0 ne JAMAIS enfreindre)",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L47",
-      "_origin": "ast",
-      "id": "docs_onboarding_2_les_6_r\u00e8gles_d_or_\u00e0_ne_jamais_enfreindre",
-      "community": 40,
-      "norm_label": "2. les 6 regles d'or (a ne jamais enfreindre)"
-    },
-    {
-      "label": "3. Carte du d\u00e9p\u00f4t",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L63",
-      "_origin": "ast",
-      "id": "docs_onboarding_3_carte_du_d\u00e9p\u00f4t",
-      "community": 40,
-      "norm_label": "3. carte du depot"
-    },
-    {
-      "label": "4. Le backend (`server.js`)",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L94",
-      "_origin": "ast",
-      "id": "docs_onboarding_4_le_backend_server_js",
-      "community": 40,
-      "norm_label": "4. le backend (`server.js`)"
-    },
-    {
-      "label": "\u26a0\ufe0f Zones pi\u00e9g\u00e9es dans `server.js`",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L105",
-      "_origin": "ast",
-      "id": "docs_onboarding_zones_pi\u00e9g\u00e9es_dans_server_js",
-      "community": 40,
-      "norm_label": "\u26a0\ufe0f zones piegees dans `server.js`"
-    },
-    {
-      "label": "5. Authentification & r\u00f4les",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L111",
-      "_origin": "ast",
-      "id": "docs_onboarding_5_authentification_r\u00f4les",
-      "community": 40,
-      "norm_label": "5. authentification & roles"
-    },
-    {
-      "label": "Hi\u00e9rarchie",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L113",
-      "_origin": "ast",
-      "id": "docs_onboarding_hi\u00e9rarchie",
-      "community": 40,
-      "norm_label": "hierarchie"
-    },
-    {
-      "label": "Middlewares (dans `server.js`)",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L122",
-      "_origin": "ast",
-      "id": "docs_onboarding_middlewares_dans_server_js",
-      "community": 40,
-      "norm_label": "middlewares (dans `server.js`)"
-    },
-    {
-      "label": "6. Mod\u00e8le de donn\u00e9es (collections MongoDB)",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L137",
-      "_origin": "ast",
-      "id": "docs_onboarding_6_mod\u00e8le_de_donn\u00e9es_collections_mongodb",
-      "community": 40,
-      "norm_label": "6. modele de donnees (collections mongodb)"
-    },
-    {
-      "label": "7. Cartographie des routes API (`server.js`)",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L162",
-      "_origin": "ast",
-      "id": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "community": 40,
-      "norm_label": "7. cartographie des routes api (`server.js`)"
-    },
-    {
-      "label": "Auth",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L166",
-      "_origin": "ast",
-      "id": "docs_onboarding_auth",
-      "community": 40,
-      "norm_label": "auth"
-    },
-    {
-      "label": "Comptes & \u00e9tablissements (admin)",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L176",
-      "_origin": "ast",
-      "id": "docs_onboarding_comptes_\u00e9tablissements_admin",
-      "community": 40,
-      "norm_label": "comptes & etablissements (admin)"
-    },
-    {
-      "label": "Staff",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L181",
-      "_origin": "ast",
-      "id": "docs_onboarding_staff",
-      "community": 40,
-      "norm_label": "staff"
-    },
-    {
-      "label": "Shifts & planning",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L185",
-      "_origin": "ast",
-      "id": "docs_onboarding_shifts_planning",
-      "community": 40,
-      "norm_label": "shifts & planning"
-    },
-    {
-      "label": "Disponibilit\u00e9s (gros domaine)",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L196",
-      "_origin": "ast",
-      "id": "docs_onboarding_disponibilit\u00e9s_gros_domaine",
-      "community": 40,
-      "norm_label": "disponibilites (gros domaine)"
-    },
-    {
-      "label": "Cong\u00e9s",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L203",
-      "_origin": "ast",
-      "id": "docs_onboarding_cong\u00e9s",
-      "community": 40,
-      "norm_label": "conges"
-    },
-    {
-      "label": "Pointage & r\u00e9mun\u00e9ration",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L208",
-      "_origin": "ast",
-      "id": "docs_onboarding_pointage_r\u00e9mun\u00e9ration",
-      "community": 40,
-      "norm_label": "pointage & remuneration"
-    },
-    {
-      "label": "Performance (pilotage \u00e9co)",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L213",
-      "_origin": "ast",
-      "id": "docs_onboarding_performance_pilotage_\u00e9co",
-      "community": 40,
-      "norm_label": "performance (pilotage eco)"
-    },
-    {
-      "label": "Push & notifications",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L218",
-      "_origin": "ast",
-      "id": "docs_onboarding_push_notifications",
-      "community": 40,
-      "norm_label": "push & notifications"
-    },
-    {
-      "label": "Syst\u00e8me",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L222",
-      "_origin": "ast",
-      "id": "docs_onboarding_syst\u00e8me",
-      "community": 40,
-      "norm_label": "systeme"
-    },
-    {
-      "label": "\ud83d\udeab D\u00e9sactiv\u00e9es",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L225",
-      "_origin": "ast",
-      "id": "docs_onboarding_d\u00e9sactiv\u00e9es",
-      "community": 40,
-      "norm_label": "\ud83d\udeab desactivees"
-    },
-    {
-      "label": "8. Le frontend, fichier par fichier",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L230",
-      "_origin": "ast",
-      "id": "docs_onboarding_8_le_frontend_fichier_par_fichier",
-      "community": 40,
-      "norm_label": "8. le frontend, fichier par fichier"
-    },
-    {
-      "label": "`script.js` \u2014 Console patron (8074 l., le plus gros morceau)",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L232",
-      "_origin": "ast",
-      "id": "docs_onboarding_script_js_console_patron_8074_l_le_plus_gros_morceau",
-      "community": 40,
-      "norm_label": "`script.js` \u2014 console patron (8074 l., le plus gros morceau)"
-    },
-    {
-      "label": "`planning.js` \u2014 Espace staff (2440 l.)",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L250",
-      "_origin": "ast",
-      "id": "docs_onboarding_planning_js_espace_staff_2440_l",
-      "community": 40,
-      "norm_label": "`planning.js` \u2014 espace staff (2440 l.)"
-    },
-    {
-      "label": "`pointage.js` \u2014 Pointage \u00e9tablissement (807 l.)",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L258",
-      "_origin": "ast",
-      "id": "docs_onboarding_pointage_js_pointage_\u00e9tablissement_807_l",
-      "community": 40,
-      "norm_label": "`pointage.js` \u2014 pointage etablissement (807 l.)"
-    },
-    {
-      "label": "`performance.js` \u2014 Pilotage \u00e9co (544 l.)",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L263",
-      "_origin": "ast",
-      "id": "docs_onboarding_performance_js_pilotage_\u00e9co_544_l",
-      "community": 40,
-      "norm_label": "`performance.js` \u2014 pilotage eco (544 l.)"
-    },
-    {
-      "label": "Glue & petits fichiers",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L268",
-      "_origin": "ast",
-      "id": "docs_onboarding_glue_petits_fichiers",
-      "community": 40,
-      "norm_label": "glue & petits fichiers"
-    },
-    {
-      "label": "9. Code partag\u00e9 navigateur \u2194 Node (`public/lib/`)",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L275",
-      "_origin": "ast",
-      "id": "docs_onboarding_9_code_partag\u00e9_navigateur_node_public_lib",
-      "community": 40,
-      "norm_label": "9. code partage navigateur \u2194 node (`public/lib/`)"
-    },
-    {
-      "label": "10. PWA / Service Worker",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L295",
-      "_origin": "ast",
-      "id": "docs_onboarding_10_pwa_service_worker",
-      "community": 40,
-      "norm_label": "10. pwa / service worker"
-    },
-    {
-      "label": "11. Int\u00e9grations externes",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L303",
-      "_origin": "ast",
-      "id": "docs_onboarding_11_int\u00e9grations_externes",
-      "community": 40,
-      "norm_label": "11. integrations externes"
-    },
-    {
-      "label": "12. Tests & CI",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L315",
-      "_origin": "ast",
-      "id": "docs_onboarding_12_tests_ci",
-      "community": 40,
-      "norm_label": "12. tests & ci"
-    },
-    {
-      "label": "13. Documentation (`docs/`) & conventions",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L331",
-      "_origin": "ast",
-      "id": "docs_onboarding_13_documentation_docs_conventions",
-      "community": 40,
-      "norm_label": "13. documentation (`docs/`) & conventions"
-    },
-    {
-      "label": "14. Parcours de prise en main recommand\u00e9",
-      "file_type": "document",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L346",
-      "_origin": "ast",
-      "id": "docs_onboarding_14_parcours_de_prise_en_main_recommand\u00e9",
-      "community": 40,
-      "norm_label": "14. parcours de prise en main recommande"
-    },
-    {
       "label": "prd.md",
       "file_type": "document",
       "source_file": "docs/prd.md",
@@ -7873,7 +7513,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "docs_ux_design_2_audit_page_par_page",
-      "community": 57,
+      "community": 31,
       "norm_label": "2. audit page par page"
     },
     {
@@ -7883,7 +7523,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "docs_ux_design_2_1_login_html",
-      "community": 57,
+      "community": 31,
       "norm_label": "2.1 login.html"
     },
     {
@@ -7893,7 +7533,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "docs_ux_design_2_2_set_password_html",
-      "community": 57,
+      "community": 31,
       "norm_label": "2.2 set-password.html"
     },
     {
@@ -7903,7 +7543,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "docs_ux_design_2_3_index_html_patron_directeur",
-      "community": 57,
+      "community": 31,
       "norm_label": "2.3 index.html (patron / directeur)"
     },
     {
@@ -7913,7 +7553,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "docs_ux_design_2_4_planning_html_staff",
-      "community": 57,
+      "community": 31,
       "norm_label": "2.4 planning.html (staff)"
     },
     {
@@ -7923,7 +7563,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "docs_ux_design_2_5_pointage_html",
-      "community": 57,
+      "community": 31,
       "norm_label": "2.5 pointage.html"
     },
     {
@@ -7933,7 +7573,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "docs_ux_design_2_6_performance_html_patron_directeur_pilotage_\u00e9conomique",
-      "community": 57,
+      "community": 31,
       "norm_label": "2.6 performance.html (patron / directeur \u2014 pilotage economique)"
     },
     {
@@ -7943,7 +7583,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "docs_ux_design_2_7_politique_confidentialite_html",
-      "community": 57,
+      "community": 31,
       "norm_label": "2.7 politique-confidentialite.html"
     },
     {
@@ -7985,7 +7625,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "github actions ci workflow",
       "id": "ci_ci"
     },
@@ -7998,7 +7638,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "ci syntax check (node -c)",
       "id": "ci_syntax_check"
     },
@@ -8011,7 +7651,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "node 20/22 test matrix",
       "id": "ci_node_matrix"
     },
@@ -8063,7 +7703,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "script.js (logique patron monolithique)",
       "id": "readme_script_js"
     },
@@ -8076,7 +7716,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "lib/utils.js (helpers purs)",
       "id": "readme_lib_utils"
     },
@@ -8089,7 +7729,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "regle timezone \u2014 jamais toisostring()",
       "id": "architecture_timezone_rule"
     },
@@ -8102,7 +7742,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "todatestr() helper",
       "id": "architecture_todatestr"
     },
@@ -8128,7 +7768,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 1,
       "norm_label": "module umd partage navigateur/node",
       "id": "architecture_umd_module"
     },
@@ -8141,7 +7781,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 1,
       "norm_label": "public/lib/week.js (weekstart/currentweekstart)",
       "id": "architecture_week_module"
     },
@@ -8154,7 +7794,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 1,
       "norm_label": "public/lib/shift-hours.js (heures effectives)",
       "id": "architecture_shift_hours_module"
     },
@@ -8167,7 +7807,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 1,
       "norm_label": "week_cutoff_hour = 6 (cutoff semaine en cours)",
       "id": "architecture_week_cutoff"
     },
@@ -8284,7 +7924,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "architecture web push (vapid)",
       "id": "architecture_web_push"
     },
@@ -8297,7 +7937,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "garde b-10 \u2014 pas de push pour shift passe",
       "id": "architecture_push_past_shift_guard"
     },
@@ -8310,7 +7950,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "service worker / pwa (cache first, build_time)",
       "id": "architecture_service_worker"
     },
@@ -8375,7 +8015,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 60,
+      "community": 1,
       "norm_label": "synchronisation agenda \u2014 flux ical (d-72)",
       "id": "architecture_ical_feed"
     },
@@ -8388,7 +8028,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 60,
+      "community": 1,
       "norm_label": "flag calendar_enabled (ical desactive d-83)",
       "id": "architecture_calendar_enabled_flag"
     },
@@ -8440,7 +8080,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 60,
+      "community": 1,
       "norm_label": "f-09 abonnement agenda ical",
       "id": "backlog_f09_ical"
     },
@@ -8479,7 +8119,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 1,
       "norm_label": "refacto incrementale (modele d-73)",
       "id": "backlog_incremental_refactor"
     },
@@ -8609,7 +8249,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 1,
       "norm_label": "onglet mon equipe (responsable)",
       "id": "prd_mon_equipe"
     },
@@ -8648,7 +8288,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "index.html (interface patron/directeur)",
       "id": "index_index_html"
     },
@@ -8687,7 +8327,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 1,
       "norm_label": "planning.html (interface staff)",
       "id": "planning_planning_html"
     },
@@ -21787,356 +21427,6 @@
       "confidence_score": 1.0,
       "source": "docs_backlog_backlog_templyo",
       "target": "docs_backlog_reste_\u00e0_faire_dette_technique_refacto_incr\u00e9mental"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "docs_onboarding",
-      "target": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L9",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_0_en_une_phrase",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L295",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_10_pwa_service_worker",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L303",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_11_int\u00e9grations_externes",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L315",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_12_tests_ci",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L331",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_13_documentation_docs_conventions",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L346",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_14_parcours_de_prise_en_main_recommand\u00e9",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L19",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_1_d\u00e9marrer_en_local_5_minutes",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L47",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_2_les_6_r\u00e8gles_d_or_\u00e0_ne_jamais_enfreindre",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L63",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_3_carte_du_d\u00e9p\u00f4t",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L94",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_4_le_backend_server_js",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L111",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_5_authentification_r\u00f4les",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L137",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_6_mod\u00e8le_de_donn\u00e9es_collections_mongodb",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L162",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L230",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_8_le_frontend_fichier_par_fichier",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L275",
-      "weight": 1.0,
-      "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_9_code_partag\u00e9_navigateur_node_public_lib",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L105",
-      "weight": 1.0,
-      "source": "docs_onboarding_4_le_backend_server_js",
-      "target": "docs_onboarding_zones_pi\u00e9g\u00e9es_dans_server_js",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L113",
-      "weight": 1.0,
-      "source": "docs_onboarding_5_authentification_r\u00f4les",
-      "target": "docs_onboarding_hi\u00e9rarchie",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L122",
-      "weight": 1.0,
-      "source": "docs_onboarding_5_authentification_r\u00f4les",
-      "target": "docs_onboarding_middlewares_dans_server_js",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L166",
-      "weight": 1.0,
-      "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_auth",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L176",
-      "weight": 1.0,
-      "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_comptes_\u00e9tablissements_admin",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L203",
-      "weight": 1.0,
-      "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_cong\u00e9s",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L196",
-      "weight": 1.0,
-      "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_disponibilit\u00e9s_gros_domaine",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L225",
-      "weight": 1.0,
-      "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_d\u00e9sactiv\u00e9es",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L213",
-      "weight": 1.0,
-      "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_performance_pilotage_\u00e9co",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L208",
-      "weight": 1.0,
-      "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_pointage_r\u00e9mun\u00e9ration",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L218",
-      "weight": 1.0,
-      "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_push_notifications",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L185",
-      "weight": 1.0,
-      "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_shifts_planning",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L181",
-      "weight": 1.0,
-      "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_staff",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L222",
-      "weight": 1.0,
-      "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_syst\u00e8me",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L268",
-      "weight": 1.0,
-      "source": "docs_onboarding_8_le_frontend_fichier_par_fichier",
-      "target": "docs_onboarding_glue_petits_fichiers",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L263",
-      "weight": 1.0,
-      "source": "docs_onboarding_8_le_frontend_fichier_par_fichier",
-      "target": "docs_onboarding_performance_js_pilotage_\u00e9co_544_l",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L250",
-      "weight": 1.0,
-      "source": "docs_onboarding_8_le_frontend_fichier_par_fichier",
-      "target": "docs_onboarding_planning_js_espace_staff_2440_l",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L258",
-      "weight": 1.0,
-      "source": "docs_onboarding_8_le_frontend_fichier_par_fichier",
-      "target": "docs_onboarding_pointage_js_pointage_\u00e9tablissement_807_l",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/onboarding.md",
-      "source_location": "L232",
-      "weight": 1.0,
-      "source": "docs_onboarding_8_le_frontend_fichier_par_fichier",
-      "target": "docs_onboarding_script_js_console_patron_8074_l_le_plus_gros_morceau",
-      "confidence_score": 1.0
     },
     {
       "relation": "contains",

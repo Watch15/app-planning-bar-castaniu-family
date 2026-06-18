@@ -1543,7 +1543,10 @@ async function loadDisposTab() {
                 const [py, pm, pd] = p.date.split('-').map(Number);
                 const curDate    = addDays(new Date(py, pm - 1, pd), 7);
                 const curDateStr = toDateStr(curDate);
-                if (!restDays.includes(curDate.getDay())) {
+                // Ne pas reposer une dispo de la semaine passée sur un jour devenu
+                // repos OU congé : sinon submitDispos l'enverrait et le serveur
+                // rejetterait tout le lot (409 « jour de congé »).
+                if (!restDays.includes(curDate.getDay()) && !congeDates.has(curDateStr)) {
                     dispoSelections[curDateStr] = { type: p.type, start_time: p.start_time, end_time: p.end_time, note: p.note || '' };
                 }
             });

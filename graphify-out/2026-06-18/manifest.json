@@ -25,8 +25,8 @@
     "semantic_hash": "ff84def9ff25b1b84207ad1d15571fba"
   },
   "public/planning.js": {
-    "mtime": 1781769271.6872828,
-    "ast_hash": "326c6d2273fd7079e7fd7d309b25ffde",
+    "mtime": 1781250746.27012,
+    "ast_hash": "b035f97db75f9fc6e3fa5dcbf4872195",
     "semantic_hash": ""
   },
   "public/pointage.js": {
@@ -197,11 +197,6 @@
   "public/login.js": {
     "mtime": 1781250746.2470772,
     "ast_hash": "f8e003187519077b467d39cb867a836a",
-    "semantic_hash": ""
-  },
-  "docs/onboarding.md": {
-    "mtime": 1781767500.4664178,
-    "ast_hash": "8ad9ae17c930b50e7833fd3492f0500d",
     "semantic_hash": ""
   }
 }
