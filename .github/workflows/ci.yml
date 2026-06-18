@@ -33,3 +33,51 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  # CD-01 — Déploiement gardé par la CI.
+  # Ne tourne QU'APRÈS un job `test` vert (needs) ET seulement sur un push direct
+  # sur main → un commit qui casse les tests ne part jamais en prod.
+  # ⚠️ Prérequis (à faire AVANT que ce job soit actif sur main) :
+  #   1. GitHub → Settings → Secrets and variables → Actions :
+  #        - secret  RAILWAY_TOKEN  = token de projet Railway (Project → Settings → Tokens)
+  #        - variable RAILWAY_SERVICE = nom exact du service Railway à déployer
+  #   2. Railway → service → Settings → désactiver le déploiement auto depuis GitHub
+  #      (sinon double déploiement : Railway + ce job).
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Deploy to Railway
+        run: railway up --service "$RAILWAY_SERVICE" --ci
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE }}
+
+      - name: Smoke test (health)
+        if: vars.HEALTH_URL != ''
+        run: |
+          sleep 25
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$HEALTH_URL" || echo 000)
+            echo "Tentative $i → HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "::error::Healthcheck KO après déploiement ($HEALTH_URL)"
+          exit 1
+        env:
+          HEALTH_URL: ${{ vars.HEALTH_URL }}
