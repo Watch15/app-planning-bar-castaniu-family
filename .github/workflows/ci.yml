@@ -31,6 +31,9 @@ jobs:
           node -c public/script.js
           node -c scripts/init-db.js
 
+      - name: Lint (ESLint)
+        run: npm run lint
+
       - name: Run tests
         run: npm test
 

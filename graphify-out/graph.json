@@ -47,6 +47,46 @@
   },
   "nodes": [
     {
+      "label": "eslint.config.js",
+      "file_type": "code",
+      "source_file": "eslint.config.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "eslint_config",
+      "community": 37,
+      "norm_label": "eslint.config.js"
+    },
+    {
+      "label": "js",
+      "file_type": "code",
+      "source_file": "eslint.config.js",
+      "source_location": "L6",
+      "_origin": "ast",
+      "id": "eslint_config_js",
+      "community": 37,
+      "norm_label": "js"
+    },
+    {
+      "label": "globals",
+      "file_type": "code",
+      "source_file": "eslint.config.js",
+      "source_location": "L7",
+      "_origin": "ast",
+      "id": "eslint_config_globals",
+      "community": 37,
+      "norm_label": "globals"
+    },
+    {
+      "label": "sharedRules",
+      "file_type": "code",
+      "source_file": "eslint.config.js",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "eslint_config_sharedrules",
+      "community": 37,
+      "norm_label": "sharedrules"
+    },
+    {
       "label": "utils.js",
       "file_type": "code",
       "source_file": "lib/utils.js",
@@ -317,10 +357,20 @@
       "norm_label": "create-patron"
     },
     {
-      "label": "test",
+      "label": "lint",
       "file_type": "code",
       "source_file": "package.json",
       "source_location": "L12",
+      "_origin": "ast",
+      "id": "package_scripts_lint",
+      "community": 7,
+      "norm_label": "lint"
+    },
+    {
+      "label": "test",
+      "file_type": "code",
+      "source_file": "package.json",
+      "source_location": "L13",
       "_origin": "ast",
       "id": "package_scripts_test",
       "community": 7,
@@ -330,7 +380,7 @@
       "label": "license",
       "file_type": "code",
       "source_file": "package.json",
-      "source_location": "L14",
+      "source_location": "L15",
       "_origin": "ast",
       "id": "package_license",
       "community": 7,
@@ -340,7 +390,7 @@
       "label": "type",
       "file_type": "code",
       "source_file": "package.json",
-      "source_location": "L15",
+      "source_location": "L16",
       "_origin": "ast",
       "id": "package_type",
       "community": 7,
@@ -350,7 +400,7 @@
       "label": "dependencies",
       "file_type": "code",
       "source_file": "package.json",
-      "source_location": "L16",
+      "source_location": "L17",
       "_origin": "ast",
       "id": "package_dependencies",
       "community": 7,
@@ -360,7 +410,7 @@
       "label": "@sentry/node",
       "file_type": "code",
       "source_file": "package.json",
-      "source_location": "L17",
+      "source_location": "L18",
       "_origin": "ast",
       "id": "package_dependencies_sentry_node",
       "community": 7,
@@ -370,7 +420,7 @@
       "label": "bcryptjs",
       "file_type": "code",
       "source_file": "package.json",
-      "source_location": "L18",
+      "source_location": "L19",
       "_origin": "ast",
       "id": "package_dependencies_bcryptjs",
       "community": 7,
@@ -380,7 +430,7 @@
       "label": "cors",
       "file_type": "code",
       "source_file": "package.json",
-      "source_location": "L19",
+      "source_location": "L20",
       "_origin": "ast",
       "id": "package_dependencies_cors",
       "community": 7,
@@ -390,7 +440,7 @@
       "label": "dotenv",
       "file_type": "code",
       "source_file": "package.json",
-      "source_location": "L20",
+      "source_location": "L21",
       "_origin": "ast",
       "id": "package_dependencies_dotenv",
       "community": 7,
@@ -400,7 +450,7 @@
       "label": "express",
       "file_type": "code",
       "source_file": "package.json",
-      "source_location": "L21",
+      "source_location": "L22",
       "_origin": "ast",
       "id": "package_dependencies_express",
       "community": 7,
@@ -410,7 +460,7 @@
       "label": "express-session",
       "file_type": "code",
       "source_file": "package.json",
-      "source_location": "L22",
+      "source_location": "L23",
       "_origin": "ast",
       "id": "package_dependencies_express_session",
       "community": 7,
@@ -420,7 +470,7 @@
       "label": "helmet",
       "file_type": "code",
       "source_file": "package.json",
-      "source_location": "L23",
+      "source_location": "L24",
       "_origin": "ast",
       "id": "package_dependencies_helmet",
       "community": 7,
@@ -430,7 +480,7 @@
       "label": "mongodb",
       "file_type": "code",
       "source_file": "package.json",
-      "source_location": "L24",
+      "source_location": "L25",
       "_origin": "ast",
       "id": "package_dependencies_mongodb",
       "community": 7,
@@ -440,7 +490,7 @@
       "label": "morgan",
       "file_type": "code",
       "source_file": "package.json",
-      "source_location": "L25",
+      "source_location": "L26",
       "_origin": "ast",
       "id": "package_dependencies_morgan",
       "community": 7,
@@ -450,11 +500,51 @@
       "label": "web-push",
       "file_type": "code",
       "source_file": "package.json",
-      "source_location": "L26",
+      "source_location": "L27",
       "_origin": "ast",
       "id": "package_dependencies_web_push",
       "community": 7,
       "norm_label": "web-push"
+    },
+    {
+      "label": "devDependencies",
+      "file_type": "code",
+      "source_file": "package.json",
+      "source_location": "L29",
+      "_origin": "ast",
+      "id": "package_devdependencies",
+      "community": 7,
+      "norm_label": "devdependencies"
+    },
+    {
+      "label": "@eslint/js",
+      "file_type": "code",
+      "source_file": "package.json",
+      "source_location": "L30",
+      "_origin": "ast",
+      "id": "package_devdependencies_eslint_js",
+      "community": 7,
+      "norm_label": "@eslint/js"
+    },
+    {
+      "label": "eslint",
+      "file_type": "code",
+      "source_file": "package.json",
+      "source_location": "L31",
+      "_origin": "ast",
+      "id": "package_devdependencies_eslint",
+      "community": 7,
+      "norm_label": "eslint"
+    },
+    {
+      "label": "globals",
+      "file_type": "code",
+      "source_file": "package.json",
+      "source_location": "L32",
+      "_origin": "ast",
+      "id": "package_devdependencies_globals",
+      "community": 7,
+      "norm_label": "globals"
     },
     {
       "label": "index-init.js",
@@ -2153,7 +2243,7 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "public_script_normalizestr",
-      "community": 14,
+      "community": 12,
       "norm_label": "normalizestr()"
     },
     {
@@ -2673,7 +2763,7 @@
       "source_location": "L1167",
       "_origin": "ast",
       "id": "public_script_loadgroups",
-      "community": 37,
+      "community": 10,
       "norm_label": "loadgroups()"
     },
     {
@@ -2683,7 +2773,7 @@
       "source_location": "L1175",
       "_origin": "ast",
       "id": "public_script_rendergroupfilter",
-      "community": 37,
+      "community": 10,
       "norm_label": "rendergroupfilter()"
     },
     {
@@ -2703,7 +2793,7 @@
       "source_location": "L1297",
       "_origin": "ast",
       "id": "public_script_rendertabs",
-      "community": 37,
+      "community": 10,
       "norm_label": "rendertabs()"
     },
     {
@@ -2723,7 +2813,7 @@
       "source_location": "L1338",
       "_origin": "ast",
       "id": "public_script_staffmatchescurrentgroup",
-      "community": 12,
+      "community": 6,
       "norm_label": "staffmatchescurrentgroup()"
     },
     {
@@ -3113,7 +3203,7 @@
       "source_location": "L3344",
       "_origin": "ast",
       "id": "public_script_renderweekgantt",
-      "community": 12,
+      "community": 6,
       "norm_label": "renderweekgantt()"
     },
     {
@@ -3133,7 +3223,7 @@
       "source_location": "L3534",
       "_origin": "ast",
       "id": "public_script_openestablishmentsmodal",
-      "community": 37,
+      "community": 10,
       "norm_label": "openestablishmentsmodal()"
     },
     {
@@ -3153,7 +3243,7 @@
       "source_location": "L3637",
       "_origin": "ast",
       "id": "public_script_renderestablishmentslist",
-      "community": 37,
+      "community": 10,
       "norm_label": "renderestablishmentslist()"
     },
     {
@@ -3163,7 +3253,7 @@
       "source_location": "L3764",
       "_origin": "ast",
       "id": "public_script_addestablishment",
-      "community": 37,
+      "community": 10,
       "norm_label": "addestablishment()"
     },
     {
@@ -3313,7 +3403,7 @@
       "source_location": "L4397",
       "_origin": "ast",
       "id": "public_script_openrecapmodal",
-      "community": 8,
+      "community": 4,
       "norm_label": "openrecapmodal()"
     },
     {
@@ -3323,7 +3413,7 @@
       "source_location": "L4478",
       "_origin": "ast",
       "id": "public_script_showrecapsub",
-      "community": 8,
+      "community": 4,
       "norm_label": "showrecapsub()"
     },
     {
@@ -3333,7 +3423,7 @@
       "source_location": "L4496",
       "_origin": "ast",
       "id": "public_script_loadcongescalendar",
-      "community": 8,
+      "community": 4,
       "norm_label": "loadcongescalendar()"
     },
     {
@@ -3343,7 +3433,7 @@
       "source_location": "L4515",
       "_origin": "ast",
       "id": "public_script_rendercongescalendar",
-      "community": 8,
+      "community": 4,
       "norm_label": "rendercongescalendar()"
     },
     {
@@ -3353,7 +3443,7 @@
       "source_location": "L4576",
       "_origin": "ast",
       "id": "public_script_loadrecapdata",
-      "community": 8,
+      "community": 4,
       "norm_label": "loadrecapdata()"
     },
     {
@@ -3363,7 +3453,7 @@
       "source_location": "L4736",
       "_origin": "ast",
       "id": "public_script_exportrecapxlsx",
-      "community": 10,
+      "community": 8,
       "norm_label": "exportrecapxlsx()"
     },
     {
@@ -3383,7 +3473,7 @@
       "source_location": "L5024",
       "_origin": "ast",
       "id": "public_script_kpiprogressbar",
-      "community": 59,
+      "community": 14,
       "norm_label": "_kpiprogressbar()"
     },
     {
@@ -3403,7 +3493,7 @@
       "source_location": "L5039",
       "_origin": "ast",
       "id": "public_script_loaddisposkpi",
-      "community": 59,
+      "community": 14,
       "norm_label": "loaddisposkpi()"
     },
     {
@@ -3413,7 +3503,7 @@
       "source_location": "L5057",
       "_origin": "ast",
       "id": "public_script_kpiestabrow",
-      "community": 59,
+      "community": 14,
       "norm_label": "_kpiestabrow()"
     },
     {
@@ -3423,7 +3513,7 @@
       "source_location": "L5081",
       "_origin": "ast",
       "id": "public_script_renderdisposkpicard",
-      "community": 59,
+      "community": 14,
       "norm_label": "renderdisposkpicard()"
     },
     {
@@ -3503,7 +3593,7 @@
       "source_location": "L5176",
       "_origin": "ast",
       "id": "public_script_rendercongeslistpatron",
-      "community": 14,
+      "community": 12,
       "norm_label": "rendercongeslistpatron()"
     },
     {
@@ -3523,7 +3613,7 @@
       "source_location": "L5259",
       "_origin": "ast",
       "id": "public_script_decideconge",
-      "community": 9,
+      "community": 12,
       "norm_label": "decideconge()"
     },
     {
@@ -3763,7 +3853,7 @@
       "source_location": "L6114",
       "_origin": "ast",
       "id": "public_script_loadstaffnoteslist",
-      "community": 14,
+      "community": 12,
       "norm_label": "loadstaffnoteslist()"
     },
     {
@@ -3773,7 +3863,7 @@
       "source_location": "L6130",
       "_origin": "ast",
       "id": "public_script_renderstaffnoteslist",
-      "community": 14,
+      "community": 12,
       "norm_label": "renderstaffnoteslist()"
     },
     {
@@ -4233,7 +4323,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "vendor_html2canvas_min_ua",
-      "community": 38,
+      "community": 2,
       "norm_label": "ua()"
     },
     {
@@ -4243,7 +4333,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "vendor_html2canvas_min_la",
-      "community": 38,
+      "community": 2,
       "norm_label": "la()"
     },
     {
@@ -4263,7 +4353,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "vendor_html2canvas_min_fa",
-      "community": 38,
+      "community": 2,
       "norm_label": "fa()"
     },
     {
@@ -4273,7 +4363,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "vendor_html2canvas_min_ha",
-      "community": 38,
+      "community": 2,
       "norm_label": "ha()"
     },
     {
@@ -4283,7 +4373,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "vendor_html2canvas_min_da",
-      "community": 38,
+      "community": 2,
       "norm_label": "da()"
     },
     {
@@ -4583,7 +4673,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "vendor_html2canvas_min_support_word_breaking",
-      "community": 3,
+      "community": 20,
       "norm_label": "support_word_breaking()"
     },
     {
@@ -4783,7 +4873,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "vendor_html2canvas_min_on",
-      "community": 2,
+      "community": 20,
       "norm_label": "on()"
     },
     {
@@ -4793,7 +4883,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "vendor_html2canvas_min_qn",
-      "community": 2,
+      "community": 20,
       "norm_label": "qn()"
     },
     {
@@ -4803,7 +4893,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "vendor_html2canvas_min_cn",
-      "community": 2,
+      "community": 20,
       "norm_label": "cn()"
     },
     {
@@ -5123,7 +5213,7 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "vendor_jspdf_umd_min_g",
-      "community": 3,
+      "community": 20,
       "norm_label": "g()"
     },
     {
@@ -6353,7 +6443,7 @@
       "source_location": "L145",
       "_origin": "ast",
       "id": "readme_fonctionnalit\u00e9s",
-      "community": 20,
+      "community": 25,
       "norm_label": "fonctionnalites"
     },
     {
@@ -6363,7 +6453,7 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "readme_authentification",
-      "community": 20,
+      "community": 25,
       "norm_label": "authentification"
     },
     {
@@ -6373,7 +6463,7 @@
       "source_location": "L155",
       "_origin": "ast",
       "id": "readme_vue_patron_index_html",
-      "community": 20,
+      "community": 25,
       "norm_label": "vue patron (`index.html`)"
     },
     {
@@ -6383,7 +6473,7 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "readme_vue_staff_planning_html",
-      "community": 20,
+      "community": 25,
       "norm_label": "vue staff (`planning.html`)"
     },
     {
@@ -6393,7 +6483,7 @@
       "source_location": "L178",
       "_origin": "ast",
       "id": "readme_pointage_pointage_html",
-      "community": 20,
+      "community": 25,
       "norm_label": "pointage (`pointage.html`)"
     },
     {
@@ -6403,7 +6493,7 @@
       "source_location": "L189",
       "_origin": "ast",
       "id": "readme_performance_performance_html",
-      "community": 20,
+      "community": 25,
       "norm_label": "performance (`performance.html`)"
     },
     {
@@ -6413,7 +6503,7 @@
       "source_location": "L198",
       "_origin": "ast",
       "id": "readme_web_push",
-      "community": 20,
+      "community": 25,
       "norm_label": "web push"
     },
     {
@@ -6423,7 +6513,7 @@
       "source_location": "L204",
       "_origin": "ast",
       "id": "readme_pwa",
-      "community": 20,
+      "community": 25,
       "norm_label": "pwa"
     },
     {
@@ -6443,7 +6533,7 @@
       "source_location": "L231",
       "_origin": "ast",
       "id": "readme_routes_api_principales",
-      "community": 19,
+      "community": 25,
       "norm_label": "routes api principales"
     },
     {
@@ -6453,7 +6543,7 @@
       "source_location": "L233",
       "_origin": "ast",
       "id": "readme_auth",
-      "community": 19,
+      "community": 25,
       "norm_label": "auth"
     },
     {
@@ -6463,7 +6553,7 @@
       "source_location": "L243",
       "_origin": "ast",
       "id": "readme_comptes_staff",
-      "community": 19,
+      "community": 25,
       "norm_label": "comptes & staff"
     },
     {
@@ -6473,7 +6563,7 @@
       "source_location": "L253",
       "_origin": "ast",
       "id": "readme_\u00e9tablissements",
-      "community": 19,
+      "community": 25,
       "norm_label": "etablissements"
     },
     {
@@ -6483,7 +6573,7 @@
       "source_location": "L260",
       "_origin": "ast",
       "id": "readme_shifts_pointage",
-      "community": 19,
+      "community": 25,
       "norm_label": "shifts & pointage"
     },
     {
@@ -6493,7 +6583,7 @@
       "source_location": "L281",
       "_origin": "ast",
       "id": "readme_disponibilit\u00e9s",
-      "community": 19,
+      "community": 25,
       "norm_label": "disponibilites"
     },
     {
@@ -6503,7 +6593,7 @@
       "source_location": "L299",
       "_origin": "ast",
       "id": "readme_performance_ca",
-      "community": 19,
+      "community": 25,
       "norm_label": "performance / ca"
     },
     {
@@ -6513,7 +6603,7 @@
       "source_location": "L307",
       "_origin": "ast",
       "id": "readme_\u00e9changes_de_shifts_routes_d\u00e9sactiv\u00e9es_en_attente_validation_client_code_conserv\u00e9_comment\u00e9_dans_server_js",
-      "community": 19,
+      "community": 25,
       "norm_label": "echanges de shifts *(routes desactivees en attente validation client \u2014 code conserve, commente dans server.js)*"
     },
     {
@@ -6523,7 +6613,7 @@
       "source_location": "L317",
       "_origin": "ast",
       "id": "readme_web_push_notifications",
-      "community": 19,
+      "community": 25,
       "norm_label": "web push & notifications"
     },
     {
@@ -6533,7 +6623,7 @@
       "source_location": "L325",
       "_origin": "ast",
       "id": "readme_infra",
-      "community": 19,
+      "community": 25,
       "norm_label": "infra"
     },
     {
@@ -6543,7 +6633,7 @@
       "source_location": "L332",
       "_origin": "ast",
       "id": "readme_r\u00e8gles_techniques_\u00e0_ne_jamais_casser",
-      "community": 39,
+      "community": 25,
       "norm_label": "regles techniques a ne jamais casser"
     },
     {
@@ -6553,7 +6643,7 @@
       "source_location": "L334",
       "_origin": "ast",
       "id": "readme_timezone_jamais_toisostring",
-      "community": 39,
+      "community": 25,
       "norm_label": "timezone \u2014 jamais `toisostring()`"
     },
     {
@@ -6563,7 +6653,7 @@
       "source_location": "L350",
       "_origin": "ast",
       "id": "readme_script_js_monolithique_ne_pas_d\u00e9couper",
-      "community": 39,
+      "community": 25,
       "norm_label": "`script.js` \u2014 monolithique, ne pas decouper"
     },
     {
@@ -6573,7 +6663,7 @@
       "source_location": "L353",
       "_origin": "ast",
       "id": "readme_sessions_mongodb_promesses_uniquement",
-      "community": 39,
+      "community": 25,
       "norm_label": "sessions mongodb \u2014 promesses uniquement"
     },
     {
@@ -6583,7 +6673,7 @@
       "source_location": "L356",
       "_origin": "ast",
       "id": "readme_cache_service_worker_ne_pas_toucher_build_time",
-      "community": 39,
+      "community": 25,
       "norm_label": "cache service worker \u2014 ne pas toucher `%%build_time%%`"
     },
     {
@@ -6593,7 +6683,7 @@
       "source_location": "L359",
       "_origin": "ast",
       "id": "readme_helpers_purs_lib_utils_js",
-      "community": 39,
+      "community": 25,
       "norm_label": "helpers purs \u2192 `lib/utils.js`"
     },
     {
@@ -7125,6 +7215,196 @@
       "id": "docs_backlog_notes_pour_les_agents",
       "community": 28,
       "norm_label": "notes pour les agents"
+    },
+    {
+      "label": "methodologie-et-cicd.md",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd",
+      "community": 19,
+      "norm_label": "methodologie-et-cicd.md"
+    },
+    {
+      "label": "\ud83d\udee0\ufe0f M\u00e9thode de travail & CI/CD \u2014 Templyo",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_m\u00e9thode_de_travail_ci_cd_templyo",
+      "community": 19,
+      "norm_label": "\ud83d\udee0\ufe0f methode de travail & ci/cd \u2014 templyo"
+    },
+    {
+      "label": "1. Notre m\u00e9thode de travail : c'est de l'agile *l\u00e9ger*, pas du Scrum",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_1_notre_m\u00e9thode_de_travail_c_est_de_l_agile_l\u00e9ger_pas_du_scrum",
+      "community": 19,
+      "norm_label": "1. notre methode de travail : c'est de l'agile *leger*, pas du scrum"
+    },
+    {
+      "label": "Verdict",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L11",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_verdict",
+      "community": 19,
+      "norm_label": "verdict"
+    },
+    {
+      "label": "Preuves dans le d\u00e9p\u00f4t",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L15",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_preuves_dans_le_d\u00e9p\u00f4t",
+      "community": 19,
+      "norm_label": "preuves dans le depot"
+    },
+    {
+      "label": "Comment \u00e7a se traduit concr\u00e8tement",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L26",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_comment_\u00e7a_se_traduit_concr\u00e8tement",
+      "community": 19,
+      "norm_label": "comment ca se traduit concretement"
+    },
+    {
+      "label": "Ce qui est sain",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L33",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_ce_qui_est_sain",
+      "community": 19,
+      "norm_label": "ce qui est sain"
+    },
+    {
+      "label": "Ce qui manque pour \u00ab m\u00fbrir \u00bb la m\u00e9thode",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L38",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_ce_qui_manque_pour_m\u00fbrir_la_m\u00e9thode",
+      "community": 19,
+      "norm_label": "ce qui manque pour \u00ab murir \u00bb la methode"
+    },
+    {
+      "label": "2. CI/CD : on a une vraie CI + un CD d\u00e9coupl\u00e9 (donc *pas* un pipeline CI/CD int\u00e9gr\u00e9)",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L45",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_2_ci_cd_on_a_une_vraie_ci_un_cd_d\u00e9coupl\u00e9_donc_pas_un_pipeline_ci_cd_int\u00e9gr\u00e9",
+      "community": 19,
+      "norm_label": "2. ci/cd : on a une vraie ci + un cd decouple (donc *pas* un pipeline ci/cd integre)"
+    },
+    {
+      "label": "Verdict",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L47",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_verdict_47",
+      "community": 19,
+      "norm_label": "verdict"
+    },
+    {
+      "label": "Preuves",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L52",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_preuves",
+      "community": 19,
+      "norm_label": "preuves"
+    },
+    {
+      "label": "Sch\u00e9ma de ce qui se passe aujourd'hui",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L62",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_sch\u00e9ma_de_ce_qui_se_passe_aujourd_hui",
+      "community": 19,
+      "norm_label": "schema de ce qui se passe aujourd'hui"
+    },
+    {
+      "label": "Niveau de maturit\u00e9 (auto-\u00e9valuation)",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L71",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_niveau_de_maturit\u00e9_auto_\u00e9valuation",
+      "community": 19,
+      "norm_label": "niveau de maturite (auto-evaluation)"
+    },
+    {
+      "label": "3. Axes d'am\u00e9lioration \u2014 prioris\u00e9s",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L86",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_3_axes_d_am\u00e9lioration_prioris\u00e9s",
+      "community": 19,
+      "norm_label": "3. axes d'amelioration \u2014 priorises"
+    },
+    {
+      "label": "P1 \u2014 Fermer le trou \u00ab prod d\u00e9ploy\u00e9e m\u00eame si CI rouge \u00bb",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L90",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_p1_fermer_le_trou_prod_d\u00e9ploy\u00e9e_m\u00eame_si_ci_rouge",
+      "community": 19,
+      "norm_label": "p1 \u2014 fermer le trou \u00ab prod deployee meme si ci rouge \u00bb"
+    },
+    {
+      "label": "P2 \u2014 \u00c9lever la qualit\u00e9 statique et la couverture",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L97",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_p2_\u00e9lever_la_qualit\u00e9_statique_et_la_couverture",
+      "community": 19,
+      "norm_label": "p2 \u2014 elever la qualite statique et la couverture"
+    },
+    {
+      "label": "P3 \u2014 Industrialiser le process & l'environnement",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L104",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_p3_industrialiser_le_process_l_environnement",
+      "community": 19,
+      "norm_label": "p3 \u2014 industrialiser le process & l'environnement"
+    },
+    {
+      "label": "C\u00f4t\u00e9 m\u00e9thode (process)",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L112",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_c\u00f4t\u00e9_m\u00e9thode_process",
+      "community": 19,
+      "norm_label": "cote methode (process)"
+    },
+    {
+      "label": "4. R\u00e9sum\u00e9 ex\u00e9cutif",
+      "file_type": "document",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L121",
+      "_origin": "ast",
+      "id": "docs_methodologie_et_cicd_4_r\u00e9sum\u00e9_ex\u00e9cutif",
+      "community": 19,
+      "norm_label": "4. resume executif"
     },
     {
       "label": "onboarding.md",
@@ -8050,7 +8330,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 42,
+      "community": 25,
       "norm_label": "server.js (serveur express monolithique)",
       "id": "readme_server_js"
     },
@@ -8167,7 +8447,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 60,
       "norm_label": "week_cutoff_hour = 6 (cutoff semaine en cours)",
       "id": "architecture_week_cutoff"
     },
@@ -8427,7 +8707,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 42,
+      "community": 28,
       "norm_label": "f-05 echange de shifts (desactive)",
       "id": "backlog_f05_shift_swaps"
     },
@@ -8466,7 +8746,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 42,
+      "community": 25,
       "norm_label": "r-04 decoupage server.js en routers (reporte)",
       "id": "backlog_r04_split_server"
     },
@@ -8505,7 +8785,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 42,
+      "community": 28,
       "norm_label": "pieges blocs /* f-05 desactive */ (d-47)",
       "id": "backlog_f05_blocks_trap"
     },
@@ -8758,6 +9038,36 @@
     }
   ],
   "links": [
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "eslint.config.js",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "eslint_config",
+      "target": "eslint_config_globals",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "eslint.config.js",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "eslint_config",
+      "target": "eslint_config_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "eslint.config.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "eslint_config",
+      "target": "eslint_config_sharedrules",
+      "confidence_score": 1.0
+    },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
@@ -9339,6 +9649,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "package.json",
+      "source_location": "L29",
+      "weight": 1.0,
+      "source": "package",
+      "target": "package_devdependencies",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "package.json",
       "source_location": "L14",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -9424,6 +9744,16 @@
       "confidence_score": 1.0,
       "source": "package_scripts",
       "target": "package_scripts_init"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "package.json",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "package_scripts",
+      "target": "package_scripts_lint",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -9554,6 +9884,36 @@
       "confidence_score": 1.0,
       "source": "package_dependencies",
       "target": "package_dependencies_web_push"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "package.json",
+      "source_location": "L31",
+      "weight": 1.0,
+      "source": "package_devdependencies",
+      "target": "package_devdependencies_eslint",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "package.json",
+      "source_location": "L30",
+      "weight": 1.0,
+      "source": "package_devdependencies",
+      "target": "package_devdependencies_eslint_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "package.json",
+      "source_location": "L32",
+      "weight": 1.0,
+      "source": "package_devdependencies",
+      "target": "package_devdependencies_globals",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -21791,12 +22151,192 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd",
+      "target": "docs_methodologie_et_cicd_m\u00e9thode_de_travail_ci_cd_templyo",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_m\u00e9thode_de_travail_ci_cd_templyo",
+      "target": "docs_methodologie_et_cicd_1_notre_m\u00e9thode_de_travail_c_est_de_l_agile_l\u00e9ger_pas_du_scrum",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L45",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_m\u00e9thode_de_travail_ci_cd_templyo",
+      "target": "docs_methodologie_et_cicd_2_ci_cd_on_a_une_vraie_ci_un_cd_d\u00e9coupl\u00e9_donc_pas_un_pipeline_ci_cd_int\u00e9gr\u00e9",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L86",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_m\u00e9thode_de_travail_ci_cd_templyo",
+      "target": "docs_methodologie_et_cicd_3_axes_d_am\u00e9lioration_prioris\u00e9s",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L121",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_m\u00e9thode_de_travail_ci_cd_templyo",
+      "target": "docs_methodologie_et_cicd_4_r\u00e9sum\u00e9_ex\u00e9cutif",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L33",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_1_notre_m\u00e9thode_de_travail_c_est_de_l_agile_l\u00e9ger_pas_du_scrum",
+      "target": "docs_methodologie_et_cicd_ce_qui_est_sain",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L38",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_1_notre_m\u00e9thode_de_travail_c_est_de_l_agile_l\u00e9ger_pas_du_scrum",
+      "target": "docs_methodologie_et_cicd_ce_qui_manque_pour_m\u00fbrir_la_m\u00e9thode",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L26",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_1_notre_m\u00e9thode_de_travail_c_est_de_l_agile_l\u00e9ger_pas_du_scrum",
+      "target": "docs_methodologie_et_cicd_comment_\u00e7a_se_traduit_concr\u00e8tement",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L15",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_1_notre_m\u00e9thode_de_travail_c_est_de_l_agile_l\u00e9ger_pas_du_scrum",
+      "target": "docs_methodologie_et_cicd_preuves_dans_le_d\u00e9p\u00f4t",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_1_notre_m\u00e9thode_de_travail_c_est_de_l_agile_l\u00e9ger_pas_du_scrum",
+      "target": "docs_methodologie_et_cicd_verdict",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_2_ci_cd_on_a_une_vraie_ci_un_cd_d\u00e9coupl\u00e9_donc_pas_un_pipeline_ci_cd_int\u00e9gr\u00e9",
+      "target": "docs_methodologie_et_cicd_niveau_de_maturit\u00e9_auto_\u00e9valuation",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L52",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_2_ci_cd_on_a_une_vraie_ci_un_cd_d\u00e9coupl\u00e9_donc_pas_un_pipeline_ci_cd_int\u00e9gr\u00e9",
+      "target": "docs_methodologie_et_cicd_preuves",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L62",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_2_ci_cd_on_a_une_vraie_ci_un_cd_d\u00e9coupl\u00e9_donc_pas_un_pipeline_ci_cd_int\u00e9gr\u00e9",
+      "target": "docs_methodologie_et_cicd_sch\u00e9ma_de_ce_qui_se_passe_aujourd_hui",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L47",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_2_ci_cd_on_a_une_vraie_ci_un_cd_d\u00e9coupl\u00e9_donc_pas_un_pipeline_ci_cd_int\u00e9gr\u00e9",
+      "target": "docs_methodologie_et_cicd_verdict_47",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L112",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_3_axes_d_am\u00e9lioration_prioris\u00e9s",
+      "target": "docs_methodologie_et_cicd_c\u00f4t\u00e9_m\u00e9thode_process",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L90",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_3_axes_d_am\u00e9lioration_prioris\u00e9s",
+      "target": "docs_methodologie_et_cicd_p1_fermer_le_trou_prod_d\u00e9ploy\u00e9e_m\u00eame_si_ci_rouge",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L97",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_3_axes_d_am\u00e9lioration_prioris\u00e9s",
+      "target": "docs_methodologie_et_cicd_p2_\u00e9lever_la_qualit\u00e9_statique_et_la_couverture",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/methodologie-et-cicd.md",
+      "source_location": "L104",
+      "weight": 1.0,
+      "source": "docs_methodologie_et_cicd_3_axes_d_am\u00e9lioration_prioris\u00e9s",
+      "target": "docs_methodologie_et_cicd_p3_industrialiser_le_process_l_environnement",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "docs/onboarding.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding",
-      "target": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo"
     },
     {
       "relation": "contains",
@@ -21804,9 +22344,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_0_en_une_phrase",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_0_en_une_phrase"
     },
     {
       "relation": "contains",
@@ -21814,9 +22354,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L295",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_10_pwa_service_worker",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_10_pwa_service_worker"
     },
     {
       "relation": "contains",
@@ -21824,9 +22364,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L303",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_11_int\u00e9grations_externes",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_11_int\u00e9grations_externes"
     },
     {
       "relation": "contains",
@@ -21834,9 +22374,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L315",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_12_tests_ci",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_12_tests_ci"
     },
     {
       "relation": "contains",
@@ -21844,9 +22384,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L331",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_13_documentation_docs_conventions",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_13_documentation_docs_conventions"
     },
     {
       "relation": "contains",
@@ -21854,9 +22394,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L346",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_14_parcours_de_prise_en_main_recommand\u00e9",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_14_parcours_de_prise_en_main_recommand\u00e9"
     },
     {
       "relation": "contains",
@@ -21864,9 +22404,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L19",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_1_d\u00e9marrer_en_local_5_minutes",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_1_d\u00e9marrer_en_local_5_minutes"
     },
     {
       "relation": "contains",
@@ -21874,9 +22414,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L47",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_2_les_6_r\u00e8gles_d_or_\u00e0_ne_jamais_enfreindre",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_2_les_6_r\u00e8gles_d_or_\u00e0_ne_jamais_enfreindre"
     },
     {
       "relation": "contains",
@@ -21884,9 +22424,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L63",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_3_carte_du_d\u00e9p\u00f4t",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_3_carte_du_d\u00e9p\u00f4t"
     },
     {
       "relation": "contains",
@@ -21894,9 +22434,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L94",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_4_le_backend_server_js",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_4_le_backend_server_js"
     },
     {
       "relation": "contains",
@@ -21904,9 +22444,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L111",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_5_authentification_r\u00f4les",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_5_authentification_r\u00f4les"
     },
     {
       "relation": "contains",
@@ -21914,9 +22454,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L137",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_6_mod\u00e8le_de_donn\u00e9es_collections_mongodb",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_6_mod\u00e8le_de_donn\u00e9es_collections_mongodb"
     },
     {
       "relation": "contains",
@@ -21924,9 +22464,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L162",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_7_cartographie_des_routes_api_server_js"
     },
     {
       "relation": "contains",
@@ -21934,9 +22474,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L230",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_8_le_frontend_fichier_par_fichier",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_8_le_frontend_fichier_par_fichier"
     },
     {
       "relation": "contains",
@@ -21944,9 +22484,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L275",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_onboarding_d\u00e9veloppeur_templyo",
-      "target": "docs_onboarding_9_code_partag\u00e9_navigateur_node_public_lib",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_9_code_partag\u00e9_navigateur_node_public_lib"
     },
     {
       "relation": "contains",
@@ -21954,9 +22494,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L105",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_4_le_backend_server_js",
-      "target": "docs_onboarding_zones_pi\u00e9g\u00e9es_dans_server_js",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_zones_pi\u00e9g\u00e9es_dans_server_js"
     },
     {
       "relation": "contains",
@@ -21964,9 +22504,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L113",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_5_authentification_r\u00f4les",
-      "target": "docs_onboarding_hi\u00e9rarchie",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_hi\u00e9rarchie"
     },
     {
       "relation": "contains",
@@ -21974,9 +22514,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L122",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_5_authentification_r\u00f4les",
-      "target": "docs_onboarding_middlewares_dans_server_js",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_middlewares_dans_server_js"
     },
     {
       "relation": "contains",
@@ -21984,9 +22524,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L166",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_auth",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_auth"
     },
     {
       "relation": "contains",
@@ -21994,9 +22534,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L176",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_comptes_\u00e9tablissements_admin",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_comptes_\u00e9tablissements_admin"
     },
     {
       "relation": "contains",
@@ -22004,9 +22544,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L203",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_cong\u00e9s",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_cong\u00e9s"
     },
     {
       "relation": "contains",
@@ -22014,9 +22554,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L196",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_disponibilit\u00e9s_gros_domaine",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_disponibilit\u00e9s_gros_domaine"
     },
     {
       "relation": "contains",
@@ -22024,9 +22564,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L225",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_d\u00e9sactiv\u00e9es",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_d\u00e9sactiv\u00e9es"
     },
     {
       "relation": "contains",
@@ -22034,9 +22574,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L213",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_performance_pilotage_\u00e9co",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_performance_pilotage_\u00e9co"
     },
     {
       "relation": "contains",
@@ -22044,9 +22584,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L208",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_pointage_r\u00e9mun\u00e9ration",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_pointage_r\u00e9mun\u00e9ration"
     },
     {
       "relation": "contains",
@@ -22054,9 +22594,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L218",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_push_notifications",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_push_notifications"
     },
     {
       "relation": "contains",
@@ -22064,9 +22604,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L185",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_shifts_planning",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_shifts_planning"
     },
     {
       "relation": "contains",
@@ -22074,9 +22614,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L181",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_staff",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_staff"
     },
     {
       "relation": "contains",
@@ -22084,9 +22624,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L222",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_7_cartographie_des_routes_api_server_js",
-      "target": "docs_onboarding_syst\u00e8me",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_syst\u00e8me"
     },
     {
       "relation": "contains",
@@ -22094,9 +22634,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L268",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_8_le_frontend_fichier_par_fichier",
-      "target": "docs_onboarding_glue_petits_fichiers",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_glue_petits_fichiers"
     },
     {
       "relation": "contains",
@@ -22104,9 +22644,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L263",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_8_le_frontend_fichier_par_fichier",
-      "target": "docs_onboarding_performance_js_pilotage_\u00e9co_544_l",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_performance_js_pilotage_\u00e9co_544_l"
     },
     {
       "relation": "contains",
@@ -22114,9 +22654,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L250",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_8_le_frontend_fichier_par_fichier",
-      "target": "docs_onboarding_planning_js_espace_staff_2440_l",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_planning_js_espace_staff_2440_l"
     },
     {
       "relation": "contains",
@@ -22124,9 +22664,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L258",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_8_le_frontend_fichier_par_fichier",
-      "target": "docs_onboarding_pointage_js_pointage_\u00e9tablissement_807_l",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_pointage_js_pointage_\u00e9tablissement_807_l"
     },
     {
       "relation": "contains",
@@ -22134,9 +22674,9 @@
       "source_file": "docs/onboarding.md",
       "source_location": "L232",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_onboarding_8_le_frontend_fichier_par_fichier",
-      "target": "docs_onboarding_script_js_console_patron_8074_l_le_plus_gros_morceau",
-      "confidence_score": 1.0
+      "target": "docs_onboarding_script_js_console_patron_8074_l_le_plus_gros_morceau"
     },
     {
       "relation": "contains",
@@ -23231,5 +23771,5 @@
       "source_file": "docs/architecture.md"
     }
   ],
-  "built_at_commit": "79a5977e557e1bd79af0e884cd3f37a435615bef"
+  "built_at_commit": "3611fa1520ff55bf721335aa83ceb19132599907"
 }

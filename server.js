@@ -4319,8 +4319,8 @@ app.patch('/api/shifts/:id/pointage', checkDB, requireAuth, async (req, res) => 
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     const { real_start, real_end } = req.body;
     // Accepter null explicite (effacement) ou valeurs numériques
-    const hasStart = req.body.hasOwnProperty('real_start');
-    const hasEnd   = req.body.hasOwnProperty('real_end');
+    const hasStart = Object.hasOwn(req.body, 'real_start');
+    const hasEnd   = Object.hasOwn(req.body, 'real_end');
     if (!hasStart && !hasEnd) return res.status(400).json({ error: 'real_start ou real_end requis' });
     try {
         const existing = await db.collection('shifts').findOne({ _id: new ObjectId(req.params.id) });
