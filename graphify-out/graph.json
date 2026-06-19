@@ -237,10 +237,20 @@
       "norm_label": "congedaysinrange()"
     },
     {
+      "label": "splitDisposByConges()",
+      "file_type": "code",
+      "source_file": "lib/utils.js",
+      "source_location": "L152",
+      "_origin": "ast",
+      "id": "lib_utils_splitdisposbyconges",
+      "community": 43,
+      "norm_label": "splitdisposbyconges()"
+    },
+    {
       "label": "chargeMultiplier()",
       "file_type": "code",
       "source_file": "lib/utils.js",
-      "source_location": "L149",
+      "source_location": "L164",
       "_origin": "ast",
       "id": "lib_utils_chargemultiplier",
       "community": 11,
@@ -2243,7 +2253,7 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "public_script_normalizestr",
-      "community": 12,
+      "community": 58,
       "norm_label": "normalizestr()"
     },
     {
@@ -2453,7 +2463,7 @@
       "source_location": "L241",
       "_origin": "ast",
       "id": "public_script_parsedate",
-      "community": 12,
+      "community": 6,
       "norm_label": "parsedate()"
     },
     {
@@ -2613,7 +2623,7 @@
       "source_location": "L606",
       "_origin": "ast",
       "id": "public_script_loadweekfulldata",
-      "community": 6,
+      "community": 12,
       "norm_label": "loadweekfulldata()"
     },
     {
@@ -2623,7 +2633,7 @@
       "source_location": "L636",
       "_origin": "ast",
       "id": "public_script_loadweeksummary",
-      "community": 6,
+      "community": 12,
       "norm_label": "loadweeksummary()"
     },
     {
@@ -2633,7 +2643,7 @@
       "source_location": "L650",
       "_origin": "ast",
       "id": "public_script_renderweekgrid",
-      "community": 10,
+      "community": 38,
       "norm_label": "renderweekgrid()"
     },
     {
@@ -2813,7 +2823,7 @@
       "source_location": "L1338",
       "_origin": "ast",
       "id": "public_script_staffmatchescurrentgroup",
-      "community": 6,
+      "community": 12,
       "norm_label": "staffmatchescurrentgroup()"
     },
     {
@@ -2843,7 +2853,7 @@
       "source_location": "L1375",
       "_origin": "ast",
       "id": "public_script_renderbody",
-      "community": 10,
+      "community": 38,
       "norm_label": "renderbody()"
     },
     {
@@ -2943,7 +2953,7 @@
       "source_location": "L2174",
       "_origin": "ast",
       "id": "public_script_assignstafftojoker",
-      "community": 10,
+      "community": 38,
       "norm_label": "assignstafftojoker()"
     },
     {
@@ -2973,7 +2983,7 @@
       "source_location": "L2443",
       "_origin": "ast",
       "id": "public_script_createshift",
-      "community": 10,
+      "community": 38,
       "norm_label": "createshift()"
     },
     {
@@ -2983,7 +2993,7 @@
       "source_location": "L2517",
       "_origin": "ast",
       "id": "public_script_deleteshift",
-      "community": 10,
+      "community": 38,
       "norm_label": "deleteshift()"
     },
     {
@@ -2993,7 +3003,7 @@
       "source_location": "L2545",
       "_origin": "ast",
       "id": "public_script_removestafffromday",
-      "community": 10,
+      "community": 38,
       "norm_label": "removestafffromday()"
     },
     {
@@ -3003,7 +3013,7 @@
       "source_location": "L2598",
       "_origin": "ast",
       "id": "public_script_onmove",
-      "community": 4,
+      "community": 38,
       "norm_label": "onmove()"
     },
     {
@@ -3013,7 +3023,7 @@
       "source_location": "L2621",
       "_origin": "ast",
       "id": "public_script_onup",
-      "community": 10,
+      "community": 38,
       "norm_label": "onup()"
     },
     {
@@ -3033,7 +3043,7 @@
       "source_location": "L2719",
       "_origin": "ast",
       "id": "public_script_ontouchmove",
-      "community": 4,
+      "community": 38,
       "norm_label": "ontouchmove()"
     },
     {
@@ -3043,7 +3053,7 @@
       "source_location": "L2752",
       "_origin": "ast",
       "id": "public_script_ontouchend",
-      "community": 4,
+      "community": 38,
       "norm_label": "ontouchend()"
     },
     {
@@ -3053,7 +3063,7 @@
       "source_location": "L2780",
       "_origin": "ast",
       "id": "public_script_updateshifttext",
-      "community": 4,
+      "community": 38,
       "norm_label": "updateshifttext()"
     },
     {
@@ -3203,7 +3213,7 @@
       "source_location": "L3344",
       "_origin": "ast",
       "id": "public_script_renderweekgantt",
-      "community": 6,
+      "community": 12,
       "norm_label": "renderweekgantt()"
     },
     {
@@ -3453,7 +3463,7 @@
       "source_location": "L4736",
       "_origin": "ast",
       "id": "public_script_exportrecapxlsx",
-      "community": 8,
+      "community": 10,
       "norm_label": "exportrecapxlsx()"
     },
     {
@@ -3583,7 +3593,7 @@
       "source_location": "L5161",
       "_origin": "ast",
       "id": "public_script_loadcongeslist",
-      "community": 6,
+      "community": 58,
       "norm_label": "loadcongeslist()"
     },
     {
@@ -3593,7 +3603,7 @@
       "source_location": "L5176",
       "_origin": "ast",
       "id": "public_script_rendercongeslistpatron",
-      "community": 12,
+      "community": 58,
       "norm_label": "rendercongeslistpatron()"
     },
     {
@@ -3613,7 +3623,7 @@
       "source_location": "L5259",
       "_origin": "ast",
       "id": "public_script_decideconge",
-      "community": 12,
+      "community": 9,
       "norm_label": "decideconge()"
     },
     {
@@ -3853,7 +3863,7 @@
       "source_location": "L6114",
       "_origin": "ast",
       "id": "public_script_loadstaffnoteslist",
-      "community": 12,
+      "community": 58,
       "norm_label": "loadstaffnoteslist()"
     },
     {
@@ -3863,7 +3873,7 @@
       "source_location": "L6130",
       "_origin": "ast",
       "id": "public_script_renderstaffnoteslist",
-      "community": 12,
+      "community": 58,
       "norm_label": "renderstaffnoteslist()"
     },
     {
@@ -4003,7 +4013,7 @@
       "source_location": "L7090",
       "_origin": "ast",
       "id": "public_script_renderstats",
-      "community": 10,
+      "community": 38,
       "norm_label": "renderstats()"
     },
     {
@@ -4023,7 +4033,7 @@
       "source_location": "L7137",
       "_origin": "ast",
       "id": "public_script_showconflictalert",
-      "community": 10,
+      "community": 38,
       "norm_label": "showconflictalert()"
     },
     {
@@ -4153,7 +4163,7 @@
       "source_location": "L7839",
       "_origin": "ast",
       "id": "public_script_savedashboardpdf",
-      "community": 6,
+      "community": 10,
       "norm_label": "savedashboardpdf()"
     },
     {
@@ -5707,14 +5717,14 @@
       "norm_label": "morgan"
     },
     {
-      "label": "{\r\n    isValidObjectId, hashToken, normalizePhone,\r\n    weekStart, currentWeekStart, disposWeekStart, isAutoPublished, isDatePublished, normalizePublishDoc, chargeMultiplier,\r\n    toDateStr, datesOverlap, congeCoversDate, congeDaysInRange,\r\n}",
+      "label": "{\r\n    isValidObjectId, hashToken, normalizePhone,\r\n    weekStart, currentWeekStart, disposWeekStart, isAutoPublished, isDatePublished, normalizePublishDoc, chargeMultiplier,\r\n    toDateStr, datesOverlap, congeDaysInRange, splitDisposByConges,\r\n}",
       "file_type": "code",
       "source_file": "server.js",
       "source_location": "L12",
       "_origin": "ast",
-      "id": "server_isvalidobjectid_hashtoken_normalizephone_weekstart_currentweekstart_disposweekstart_isautopublished_isdatepublished_normalizepublishdoc_chargemultiplier_todatestr_datesoverlap_congecoversdate_congedaysinrange",
+      "id": "server_isvalidobjectid_hashtoken_normalizephone_weekstart_currentweekstart_disposweekstart_isautopublished_isdatepublished_normalizepublishdoc_chargemultiplier_todatestr_datesoverlap_congedaysinrange_splitdisposbyconges",
       "community": 5,
-      "norm_label": "{\r\n    isvalidobjectid, hashtoken, normalizephone,\r\n    weekstart, currentweekstart, disposweekstart, isautopublished, isdatepublished, normalizepublishdoc, chargemultiplier,\r\n    todatestr, datesoverlap, congecoversdate, congedaysinrange,\r\n}"
+      "norm_label": "{\r\n    isvalidobjectid, hashtoken, normalizephone,\r\n    weekstart, currentweekstart, disposweekstart, isautopublished, isdatepublished, normalizepublishdoc, chargemultiplier,\r\n    todatestr, datesoverlap, congedaysinrange, splitdisposbyconges,\r\n}"
     },
     {
       "label": "app",
@@ -5763,7 +5773,7 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "server_connectdb",
-      "community": 43,
+      "community": 5,
       "norm_label": "connectdb()"
     },
     {
@@ -5863,7 +5873,7 @@
       "source_location": "L493",
       "_origin": "ast",
       "id": "server_cleanupoldjokers",
-      "community": 43,
+      "community": 5,
       "norm_label": "cleanupoldjokers()"
     },
     {
@@ -5883,7 +5893,7 @@
       "source_location": "L542",
       "_origin": "ast",
       "id": "server_scheduledailyat10",
-      "community": 43,
+      "community": 5,
       "norm_label": "scheduledailyat10()"
     },
     {
@@ -5930,7 +5940,7 @@
       "label": "rejectQueryOperators()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L706",
+      "source_location": "L716",
       "_origin": "ast",
       "id": "server_rejectqueryoperators",
       "community": 5,
@@ -5940,7 +5950,7 @@
       "label": "checkDB()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L718",
+      "source_location": "L728",
       "_origin": "ast",
       "id": "server_checkdb",
       "community": 5,
@@ -5950,7 +5960,7 @@
       "label": "requireAuth()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L723",
+      "source_location": "L733",
       "_origin": "ast",
       "id": "server_requireauth",
       "community": 5,
@@ -5960,7 +5970,7 @@
       "label": "requirePatron()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L732",
+      "source_location": "L742",
       "_origin": "ast",
       "id": "server_requirepatron",
       "community": 5,
@@ -5970,7 +5980,7 @@
       "label": "requireAdmin()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L743",
+      "source_location": "L753",
       "_origin": "ast",
       "id": "server_requireadmin",
       "community": 5,
@@ -5980,7 +5990,7 @@
       "label": "requirePatronOnly()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L753",
+      "source_location": "L763",
       "_origin": "ast",
       "id": "server_requirepatrononly",
       "community": 5,
@@ -5990,7 +6000,7 @@
       "label": "denyObservateurEdit()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L763",
+      "source_location": "L773",
       "_origin": "ast",
       "id": "server_denyobservateuredit",
       "community": 5,
@@ -6000,7 +6010,7 @@
       "label": "canAccessEstablishment()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L771",
+      "source_location": "L781",
       "_origin": "ast",
       "id": "server_canaccessestablishment",
       "community": 5,
@@ -6010,7 +6020,7 @@
       "label": "isResponsablePourSoiree()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L782",
+      "source_location": "L792",
       "_origin": "ast",
       "id": "server_isresponsablepoursoiree",
       "community": 5,
@@ -6020,7 +6030,7 @@
       "label": "requireEtablissement()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L822",
+      "source_location": "L832",
       "_origin": "ast",
       "id": "server_requireetablissement",
       "community": 5,
@@ -6030,7 +6040,7 @@
       "label": "icsEscape()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L1814",
+      "source_location": "L1824",
       "_origin": "ast",
       "id": "server_icsescape",
       "community": 5,
@@ -6040,7 +6050,7 @@
       "label": "icsLocalDateTime()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L1825",
+      "source_location": "L1835",
       "_origin": "ast",
       "id": "server_icslocaldatetime",
       "community": 5,
@@ -6050,7 +6060,7 @@
       "label": "ICS_VTIMEZONE",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L1838",
+      "source_location": "L1848",
       "_origin": "ast",
       "id": "server_ics_vtimezone",
       "community": 5,
@@ -6060,7 +6070,7 @@
       "label": "buildShiftsIcs()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L1852",
+      "source_location": "L1862",
       "_origin": "ast",
       "id": "server_buildshiftsics",
       "community": 5,
@@ -6070,7 +6080,7 @@
       "label": "computeEffectiveDeadline()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L2382",
+      "source_location": "L2392",
       "_origin": "ast",
       "id": "server_computeeffectivedeadline",
       "community": 36,
@@ -6080,7 +6090,7 @@
       "label": "aggStatus()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L2595",
+      "source_location": "L2605",
       "_origin": "ast",
       "id": "server_aggstatus",
       "community": 5,
@@ -6090,7 +6100,7 @@
       "label": "weekEndStr()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L3587",
+      "source_location": "L3595",
       "_origin": "ast",
       "id": "server_weekendstr",
       "community": 5,
@@ -6100,7 +6110,7 @@
       "label": "formatShiftTime()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L4520",
+      "source_location": "L4528",
       "_origin": "ast",
       "id": "server_formatshifttime",
       "community": 5,
@@ -6110,7 +6120,7 @@
       "label": "formatDateFR()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L4527",
+      "source_location": "L4535",
       "_origin": "ast",
       "id": "server_formatdatefr",
       "community": 5,
@@ -6120,7 +6130,7 @@
       "label": "formatDateShortFR()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L4533",
+      "source_location": "L4541",
       "_origin": "ast",
       "id": "server_formatdateshortfr",
       "community": 5,
@@ -6130,7 +6140,7 @@
       "label": "formatWeekFR()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L4539",
+      "source_location": "L4547",
       "_origin": "ast",
       "id": "server_formatweekfr",
       "community": 5,
@@ -6140,7 +6150,7 @@
       "label": "touchLastUpdated()",
       "file_type": "code",
       "source_file": "server.js",
-      "source_location": "L4547",
+      "source_location": "L4555",
       "_origin": "ast",
       "id": "server_touchlastupdated",
       "community": 5,
@@ -6185,6 +6195,176 @@
       "id": "tests_conges_test_datesoverlap_congecoversdate_congedaysinrange",
       "community": 29,
       "norm_label": "{ datesoverlap, congecoversdate, congedaysinrange }"
+    },
+    {
+      "label": "dispos.test.js",
+      "file_type": "code",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "tests_dispos_test",
+      "community": 43,
+      "norm_label": "dispos.test.js"
+    },
+    {
+      "label": "{ test, before, after }",
+      "file_type": "code",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "tests_dispos_test_test_before_after",
+      "community": 43,
+      "norm_label": "{ test, before, after }"
+    },
+    {
+      "label": "assert",
+      "file_type": "code",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L10",
+      "_origin": "ast",
+      "id": "tests_dispos_test_assert",
+      "community": 43,
+      "norm_label": "assert"
+    },
+    {
+      "label": "{ splitDisposByConges }",
+      "file_type": "code",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L11",
+      "_origin": "ast",
+      "id": "tests_dispos_test_splitdisposbyconges",
+      "community": 43,
+      "norm_label": "{ splitdisposbyconges }"
+    },
+    {
+      "label": "{ makeDb }",
+      "file_type": "code",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L12",
+      "_origin": "ast",
+      "id": "tests_dispos_test_makedb",
+      "community": 43,
+      "norm_label": "{ makedb }"
+    },
+    {
+      "label": "app",
+      "file_type": "code",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L13",
+      "_origin": "ast",
+      "id": "tests_dispos_test_app",
+      "community": 43,
+      "norm_label": "app"
+    },
+    {
+      "label": "USER",
+      "file_type": "code",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L16",
+      "_origin": "ast",
+      "id": "tests_dispos_test_user",
+      "community": 43,
+      "norm_label": "user"
+    },
+    {
+      "label": "postDispos()",
+      "file_type": "code",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L31",
+      "_origin": "ast",
+      "id": "tests_dispos_test_postdispos",
+      "community": 43,
+      "norm_label": "postdispos()"
+    },
+    {
+      "label": "fake-db.js",
+      "file_type": "code",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "helpers_fake_db",
+      "community": 42,
+      "norm_label": "fake-db.js"
+    },
+    {
+      "label": "isObjId()",
+      "file_type": "code",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L8",
+      "_origin": "ast",
+      "id": "helpers_fake_db_isobjid",
+      "community": 42,
+      "norm_label": "isobjid()"
+    },
+    {
+      "label": "eq()",
+      "file_type": "code",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L13",
+      "_origin": "ast",
+      "id": "helpers_fake_db_eq",
+      "community": 42,
+      "norm_label": "eq()"
+    },
+    {
+      "label": "isOperator()",
+      "file_type": "code",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L19",
+      "_origin": "ast",
+      "id": "helpers_fake_db_isoperator",
+      "community": 42,
+      "norm_label": "isoperator()"
+    },
+    {
+      "label": "matchField()",
+      "file_type": "code",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L25",
+      "_origin": "ast",
+      "id": "helpers_fake_db_matchfield",
+      "community": 42,
+      "norm_label": "matchfield()"
+    },
+    {
+      "label": "matchDoc()",
+      "file_type": "code",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L43",
+      "_origin": "ast",
+      "id": "helpers_fake_db_matchdoc",
+      "community": 42,
+      "norm_label": "matchdoc()"
+    },
+    {
+      "label": "plainEq()",
+      "file_type": "code",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L48",
+      "_origin": "ast",
+      "id": "helpers_fake_db_plaineq",
+      "community": 42,
+      "norm_label": "plaineq()"
+    },
+    {
+      "label": "makeCollection()",
+      "file_type": "code",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L54",
+      "_origin": "ast",
+      "id": "helpers_fake_db_makecollection",
+      "community": 42,
+      "norm_label": "makecollection()"
+    },
+    {
+      "label": "makeDb()",
+      "file_type": "code",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L103",
+      "_origin": "ast",
+      "id": "helpers_fake_db_makedb",
+      "community": 42,
+      "norm_label": "makedb()"
     },
     {
       "label": "routes.test.js",
@@ -6443,7 +6623,7 @@
       "source_location": "L145",
       "_origin": "ast",
       "id": "readme_fonctionnalit\u00e9s",
-      "community": 25,
+      "community": 47,
       "norm_label": "fonctionnalites"
     },
     {
@@ -6453,7 +6633,7 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "readme_authentification",
-      "community": 25,
+      "community": 47,
       "norm_label": "authentification"
     },
     {
@@ -6463,7 +6643,7 @@
       "source_location": "L155",
       "_origin": "ast",
       "id": "readme_vue_patron_index_html",
-      "community": 25,
+      "community": 47,
       "norm_label": "vue patron (`index.html`)"
     },
     {
@@ -6473,7 +6653,7 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "readme_vue_staff_planning_html",
-      "community": 25,
+      "community": 47,
       "norm_label": "vue staff (`planning.html`)"
     },
     {
@@ -6483,7 +6663,7 @@
       "source_location": "L178",
       "_origin": "ast",
       "id": "readme_pointage_pointage_html",
-      "community": 25,
+      "community": 47,
       "norm_label": "pointage (`pointage.html`)"
     },
     {
@@ -6493,7 +6673,7 @@
       "source_location": "L189",
       "_origin": "ast",
       "id": "readme_performance_performance_html",
-      "community": 25,
+      "community": 47,
       "norm_label": "performance (`performance.html`)"
     },
     {
@@ -6503,7 +6683,7 @@
       "source_location": "L198",
       "_origin": "ast",
       "id": "readme_web_push",
-      "community": 25,
+      "community": 47,
       "norm_label": "web push"
     },
     {
@@ -6513,7 +6693,7 @@
       "source_location": "L204",
       "_origin": "ast",
       "id": "readme_pwa",
-      "community": 25,
+      "community": 47,
       "norm_label": "pwa"
     },
     {
@@ -6533,7 +6713,7 @@
       "source_location": "L231",
       "_origin": "ast",
       "id": "readme_routes_api_principales",
-      "community": 25,
+      "community": 39,
       "norm_label": "routes api principales"
     },
     {
@@ -6543,7 +6723,7 @@
       "source_location": "L233",
       "_origin": "ast",
       "id": "readme_auth",
-      "community": 25,
+      "community": 39,
       "norm_label": "auth"
     },
     {
@@ -6553,7 +6733,7 @@
       "source_location": "L243",
       "_origin": "ast",
       "id": "readme_comptes_staff",
-      "community": 25,
+      "community": 39,
       "norm_label": "comptes & staff"
     },
     {
@@ -6563,7 +6743,7 @@
       "source_location": "L253",
       "_origin": "ast",
       "id": "readme_\u00e9tablissements",
-      "community": 25,
+      "community": 39,
       "norm_label": "etablissements"
     },
     {
@@ -6573,7 +6753,7 @@
       "source_location": "L260",
       "_origin": "ast",
       "id": "readme_shifts_pointage",
-      "community": 25,
+      "community": 39,
       "norm_label": "shifts & pointage"
     },
     {
@@ -6583,7 +6763,7 @@
       "source_location": "L281",
       "_origin": "ast",
       "id": "readme_disponibilit\u00e9s",
-      "community": 25,
+      "community": 39,
       "norm_label": "disponibilites"
     },
     {
@@ -6593,7 +6773,7 @@
       "source_location": "L299",
       "_origin": "ast",
       "id": "readme_performance_ca",
-      "community": 25,
+      "community": 39,
       "norm_label": "performance / ca"
     },
     {
@@ -6603,7 +6783,7 @@
       "source_location": "L307",
       "_origin": "ast",
       "id": "readme_\u00e9changes_de_shifts_routes_d\u00e9sactiv\u00e9es_en_attente_validation_client_code_conserv\u00e9_comment\u00e9_dans_server_js",
-      "community": 25,
+      "community": 39,
       "norm_label": "echanges de shifts *(routes desactivees en attente validation client \u2014 code conserve, commente dans server.js)*"
     },
     {
@@ -6613,7 +6793,7 @@
       "source_location": "L317",
       "_origin": "ast",
       "id": "readme_web_push_notifications",
-      "community": 25,
+      "community": 39,
       "norm_label": "web push & notifications"
     },
     {
@@ -6623,7 +6803,7 @@
       "source_location": "L325",
       "_origin": "ast",
       "id": "readme_infra",
-      "community": 25,
+      "community": 39,
       "norm_label": "infra"
     },
     {
@@ -6633,7 +6813,7 @@
       "source_location": "L332",
       "_origin": "ast",
       "id": "readme_r\u00e8gles_techniques_\u00e0_ne_jamais_casser",
-      "community": 25,
+      "community": 57,
       "norm_label": "regles techniques a ne jamais casser"
     },
     {
@@ -6643,7 +6823,7 @@
       "source_location": "L334",
       "_origin": "ast",
       "id": "readme_timezone_jamais_toisostring",
-      "community": 25,
+      "community": 57,
       "norm_label": "timezone \u2014 jamais `toisostring()`"
     },
     {
@@ -6653,7 +6833,7 @@
       "source_location": "L350",
       "_origin": "ast",
       "id": "readme_script_js_monolithique_ne_pas_d\u00e9couper",
-      "community": 25,
+      "community": 57,
       "norm_label": "`script.js` \u2014 monolithique, ne pas decouper"
     },
     {
@@ -6663,7 +6843,7 @@
       "source_location": "L353",
       "_origin": "ast",
       "id": "readme_sessions_mongodb_promesses_uniquement",
-      "community": 25,
+      "community": 57,
       "norm_label": "sessions mongodb \u2014 promesses uniquement"
     },
     {
@@ -6673,7 +6853,7 @@
       "source_location": "L356",
       "_origin": "ast",
       "id": "readme_cache_service_worker_ne_pas_toucher_build_time",
-      "community": 25,
+      "community": 57,
       "norm_label": "cache service worker \u2014 ne pas toucher `%%build_time%%`"
     },
     {
@@ -6683,7 +6863,7 @@
       "source_location": "L359",
       "_origin": "ast",
       "id": "readme_helpers_purs_lib_utils_js",
-      "community": 25,
+      "community": 57,
       "norm_label": "helpers purs \u2192 `lib/utils.js`"
     },
     {
@@ -8153,7 +8333,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "docs_ux_design_2_audit_page_par_page",
-      "community": 57,
+      "community": 31,
       "norm_label": "2. audit page par page"
     },
     {
@@ -8163,7 +8343,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "docs_ux_design_2_1_login_html",
-      "community": 57,
+      "community": 31,
       "norm_label": "2.1 login.html"
     },
     {
@@ -8173,7 +8353,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "docs_ux_design_2_2_set_password_html",
-      "community": 57,
+      "community": 31,
       "norm_label": "2.2 set-password.html"
     },
     {
@@ -8183,7 +8363,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "docs_ux_design_2_3_index_html_patron_directeur",
-      "community": 57,
+      "community": 31,
       "norm_label": "2.3 index.html (patron / directeur)"
     },
     {
@@ -8193,7 +8373,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "docs_ux_design_2_4_planning_html_staff",
-      "community": 57,
+      "community": 31,
       "norm_label": "2.4 planning.html (staff)"
     },
     {
@@ -8203,7 +8383,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "docs_ux_design_2_5_pointage_html",
-      "community": 57,
+      "community": 31,
       "norm_label": "2.5 pointage.html"
     },
     {
@@ -8213,7 +8393,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "docs_ux_design_2_6_performance_html_patron_directeur_pilotage_\u00e9conomique",
-      "community": 57,
+      "community": 31,
       "norm_label": "2.6 performance.html (patron / directeur \u2014 pilotage economique)"
     },
     {
@@ -8223,7 +8403,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "docs_ux_design_2_7_politique_confidentialite_html",
-      "community": 57,
+      "community": 31,
       "norm_label": "2.7 politique-confidentialite.html"
     },
     {
@@ -8265,7 +8445,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "github actions ci workflow",
       "id": "ci_ci"
     },
@@ -8278,7 +8458,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "ci syntax check (node -c)",
       "id": "ci_syntax_check"
     },
@@ -8291,7 +8471,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "node 20/22 test matrix",
       "id": "ci_node_matrix"
     },
@@ -8330,7 +8510,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 25,
+      "community": 59,
       "norm_label": "server.js (serveur express monolithique)",
       "id": "readme_server_js"
     },
@@ -8343,7 +8523,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "script.js (logique patron monolithique)",
       "id": "readme_script_js"
     },
@@ -8356,7 +8536,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "lib/utils.js (helpers purs)",
       "id": "readme_lib_utils"
     },
@@ -8369,7 +8549,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "regle timezone \u2014 jamais toisostring()",
       "id": "architecture_timezone_rule"
     },
@@ -8382,7 +8562,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "todatestr() helper",
       "id": "architecture_todatestr"
     },
@@ -8408,7 +8588,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 1,
       "norm_label": "module umd partage navigateur/node",
       "id": "architecture_umd_module"
     },
@@ -8421,7 +8601,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 1,
       "norm_label": "public/lib/week.js (weekstart/currentweekstart)",
       "id": "architecture_week_module"
     },
@@ -8434,7 +8614,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 1,
       "norm_label": "public/lib/shift-hours.js (heures effectives)",
       "id": "architecture_shift_hours_module"
     },
@@ -8447,7 +8627,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 60,
+      "community": 1,
       "norm_label": "week_cutoff_hour = 6 (cutoff semaine en cours)",
       "id": "architecture_week_cutoff"
     },
@@ -8564,7 +8744,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "architecture web push (vapid)",
       "id": "architecture_web_push"
     },
@@ -8577,7 +8757,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "garde b-10 \u2014 pas de push pour shift passe",
       "id": "architecture_push_past_shift_guard"
     },
@@ -8590,7 +8770,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "service worker / pwa (cache first, build_time)",
       "id": "architecture_service_worker"
     },
@@ -8655,7 +8835,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 60,
+      "community": 1,
       "norm_label": "synchronisation agenda \u2014 flux ical (d-72)",
       "id": "architecture_ical_feed"
     },
@@ -8668,7 +8848,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 60,
+      "community": 1,
       "norm_label": "flag calendar_enabled (ical desactive d-83)",
       "id": "architecture_calendar_enabled_flag"
     },
@@ -8707,7 +8887,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 28,
+      "community": 59,
       "norm_label": "f-05 echange de shifts (desactive)",
       "id": "backlog_f05_shift_swaps"
     },
@@ -8720,7 +8900,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 60,
+      "community": 1,
       "norm_label": "f-09 abonnement agenda ical",
       "id": "backlog_f09_ical"
     },
@@ -8746,7 +8926,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 25,
+      "community": 59,
       "norm_label": "r-04 decoupage server.js en routers (reporte)",
       "id": "backlog_r04_split_server"
     },
@@ -8759,7 +8939,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 1,
       "norm_label": "refacto incrementale (modele d-73)",
       "id": "backlog_incremental_refactor"
     },
@@ -8785,7 +8965,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 28,
+      "community": 59,
       "norm_label": "pieges blocs /* f-05 desactive */ (d-47)",
       "id": "backlog_f05_blocks_trap"
     },
@@ -8889,7 +9069,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 1,
       "norm_label": "onglet mon equipe (responsable)",
       "id": "prd_mon_equipe"
     },
@@ -8928,7 +9108,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 1,
       "norm_label": "index.html (interface patron/directeur)",
       "id": "index_index_html"
     },
@@ -8967,7 +9147,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 1,
       "norm_label": "planning.html (interface staff)",
       "id": "planning_planning_html"
     },
@@ -9202,6 +9382,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "lib/utils.js",
+      "source_location": "L152",
+      "weight": 1.0,
+      "source": "lib_utils",
+      "target": "lib_utils_splitdisposbyconges",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/utils.js",
       "source_location": "L60",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -9272,6 +9462,17 @@
       "confidence_score": 1.0,
       "source": "tests_conges_test",
       "target": "lib_utils"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "tests_dispos_test",
+      "target": "lib_utils",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports_from",
@@ -9602,6 +9803,28 @@
       "confidence_score": 1.0,
       "source": "tests_conges_test",
       "target": "lib_utils_congedaysinrange"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "server.js",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "server",
+      "target": "lib_utils_splitdisposbyconges",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "tests_dispos_test",
+      "target": "lib_utils_splitdisposbyconges",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports",
@@ -20767,9 +20990,9 @@
       "source_file": "server.js",
       "source_location": "L12",
       "weight": 1.0,
-      "confidence_score": 1.0,
       "source": "server",
-      "target": "server_isvalidobjectid_hashtoken_normalizephone_weekstart_currentweekstart_disposweekstart_isautopublished_isdatepublished_normalizepublishdoc_chargemultiplier_todatestr_datesoverlap_congecoversdate_congedaysinrange"
+      "target": "server_isvalidobjectid_hashtoken_normalizephone_weekstart_currentweekstart_disposweekstart_isautopublished_isdatepublished_normalizepublishdoc_chargemultiplier_todatestr_datesoverlap_congedaysinrange_splitdisposbyconges",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -21005,6 +21228,17 @@
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "tests_dispos_test",
+      "target": "server",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "tests/routes.test.js",
       "source_location": "L18",
       "weight": 1.0,
@@ -21107,6 +21341,244 @@
       "confidence_score": 1.0,
       "source": "tests_conges_test",
       "target": "tests_conges_test_test"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "tests_dispos_test",
+      "target": "helpers_fake_db",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "tests_dispos_test",
+      "target": "helpers_fake_db_makedb",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "tests_dispos_test",
+      "target": "tests_dispos_test_app",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "tests_dispos_test",
+      "target": "tests_dispos_test_assert",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "tests_dispos_test",
+      "target": "tests_dispos_test_makedb",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L31",
+      "weight": 1.0,
+      "source": "tests_dispos_test",
+      "target": "tests_dispos_test_postdispos",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "tests_dispos_test",
+      "target": "tests_dispos_test_splitdisposbyconges",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "tests_dispos_test",
+      "target": "tests_dispos_test_test_before_after",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/dispos.test.js",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "tests_dispos_test",
+      "target": "tests_dispos_test_user",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "helpers_fake_db",
+      "target": "helpers_fake_db_eq",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "helpers_fake_db",
+      "target": "helpers_fake_db_isobjid",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "helpers_fake_db",
+      "target": "helpers_fake_db_isoperator",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L54",
+      "weight": 1.0,
+      "source": "helpers_fake_db",
+      "target": "helpers_fake_db_makecollection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L103",
+      "weight": 1.0,
+      "source": "helpers_fake_db",
+      "target": "helpers_fake_db_makedb",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L43",
+      "weight": 1.0,
+      "source": "helpers_fake_db",
+      "target": "helpers_fake_db_matchdoc",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L25",
+      "weight": 1.0,
+      "source": "helpers_fake_db",
+      "target": "helpers_fake_db_matchfield",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L48",
+      "weight": 1.0,
+      "source": "helpers_fake_db",
+      "target": "helpers_fake_db_plaineq",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L15",
+      "weight": 1.0,
+      "source": "helpers_fake_db_eq",
+      "target": "helpers_fake_db_isobjid",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L21",
+      "weight": 1.0,
+      "source": "helpers_fake_db_isoperator",
+      "target": "helpers_fake_db_isobjid",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L40",
+      "weight": 1.0,
+      "source": "helpers_fake_db_matchfield",
+      "target": "helpers_fake_db_eq",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L26",
+      "weight": 1.0,
+      "source": "helpers_fake_db_matchfield",
+      "target": "helpers_fake_db_isoperator",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L50",
+      "weight": 1.0,
+      "source": "helpers_fake_db_plaineq",
+      "target": "helpers_fake_db_isoperator",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/helpers/fake-db.js",
+      "source_location": "L105",
+      "weight": 1.0,
+      "source": "helpers_fake_db_makedb",
+      "target": "helpers_fake_db_makecollection",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -23771,5 +24243,5 @@
       "source_file": "docs/architecture.md"
     }
   ],
-  "built_at_commit": "15c6a2241c5dd626c6376066d8f2d36e5b9d18f1"
+  "built_at_commit": "e2d24994f36bec9560465959da862aaa210a02c6"
 }

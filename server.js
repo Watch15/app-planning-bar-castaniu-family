@@ -12,7 +12,7 @@ const morgan  = require('morgan');
 const {
     isValidObjectId, hashToken, normalizePhone,
     weekStart, currentWeekStart, disposWeekStart, isAutoPublished, isDatePublished, normalizePublishDoc, chargeMultiplier,
-    toDateStr, datesOverlap, congeCoversDate, congeDaysInRange,
+    toDateStr, datesOverlap, congeDaysInRange, splitDisposByConges,
 } = require('./lib/utils');
 
 // Sentry — initialisation conditionnelle (ne se charge que si SENTRY_DSN fourni).
@@ -678,6 +678,16 @@ function setupSession() {
         }
     }
 
+    if (process.env.NODE_ENV === 'test') {
+        // Harnais de test (CD-05) : session simulée via l'en-tête `x-test-user`
+        // (JSON), sans store Mongo ni cookie. JAMAIS monté hors test.
+        app.use((req, _res, next) => {
+            const h = req.headers['x-test-user'];
+            req.session = h ? { user: JSON.parse(h) } : {};
+            next();
+        });
+        return;
+    }
     app.use(session({
         secret:            SESSION_SECRET,
         resave:            false,
@@ -2678,16 +2688,14 @@ app.post('/api/dispos', checkDB, requireAuth, async (req, res) => {
                 .find({ staff_id: staffId, status: { $ne: 'rejected' },
                         start_date: { $lte: dates[dates.length - 1] }, end_date: { $gte: dates[0] } })
                 .toArray();
-            if (conges.length) {
-                const onConge = d => conges.some(c => congeCoversDate(c, d.date));
-                skippedConges = [...new Set(dispos.filter(onConge).map(d => d.date))].sort();
-                dispos2 = dispos.filter(d => !onConge(d));
-                // Purger d'éventuelles dispos déjà posées sur ces jours de congé.
-                if (skippedConges.length)
-                    await db.collection('availabilities').deleteMany({
-                        staff_id: staffId, date: { $in: skippedConges }, type: { $ne: 'week_note' },
-                    });
-            }
+            const split   = splitDisposByConges(dispos, conges);
+            dispos2       = split.kept;
+            skippedConges = split.skippedDates;
+            // Purger d'éventuelles dispos déjà posées sur ces jours de congé.
+            if (skippedConges.length)
+                await db.collection('availabilities').deleteMany({
+                    staff_id: staffId, date: { $in: skippedConges }, type: { $ne: 'week_note' },
+                });
         }
         if (dispos2.length === 0) {
             touchLastUpdated();
@@ -4661,6 +4669,12 @@ if (require.main === module) {
         console.log('🚀 Serveur sur http://localhost:' + PORT);
         connectDB();
     });
+}
+
+// Harnais de test (CD-05) : injecte un faux `db` en mémoire pour piloter les
+// routes avec données, sans Mongo. Inerte hors test.
+if (process.env.NODE_ENV === 'test') {
+    app.locals.setTestDb = (testDb) => { db = testDb; };
 }
 
 module.exports = app;
