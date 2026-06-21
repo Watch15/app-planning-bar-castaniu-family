@@ -12,7 +12,7 @@ const morgan  = require('morgan');
 const {
     isValidObjectId, hashToken, normalizePhone,
     weekStart, currentWeekStart, disposWeekStart, isAutoPublished, isDatePublished, normalizePublishDoc, chargeMultiplier,
-    toDateStr, datesOverlap, congeDaysInRange, splitDisposByConges,
+    toDateStr, datesOverlap, congeDaysInRange, splitDisposByConges, isFullRangeOnConge,
 } = require('./lib/utils');
 
 // Sentry — initialisation conditionnelle (ne se charge que si SENTRY_DSN fourni).
@@ -2842,9 +2842,11 @@ app.get('/api/dispos/sans-dispo', checkDB, requirePatron, async (req, res) => {
             type: { $ne: 'week_note' },
         }, { projection: { staff_id: 1 } }).toArray();
 
-        const withDispo = new Set(dispos.map(d => d.staff_id));
+        const withDispo = new Set(dispos.map(d => String(d.staff_id)));
+        // Un staff en congé toute la semaine est réputé couvert → pas « sans dispo ».
+        const fullLeaveSet = await fullWeekCongeSet(staffIds, from, to);
         const result = allStaff
-            .filter(s => !withDispo.has(String(s._id)))
+            .filter(s => !withDispo.has(String(s._id)) && !fullLeaveSet.has(String(s._id)))
             .map(s => ({ id: String(s._id), name: s.name, color: s.color || '#888', phone: s.phone || '' }));
         res.json(result);
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
@@ -2890,6 +2892,28 @@ app.get('/api/dispos/with-dispo', checkDB, requirePatron, async (req, res) => {
         res.json(result);
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
+
+// Set des staff_id (string) en congé sur TOUTE la fenêtre [from,to] → réputés
+// « couverts », à exclure de ceux qui doivent envoyer leurs dispos.
+async function fullWeekCongeSet(staffIds, from, to) {
+    const ids = [...new Set((staffIds || []).map(String))];
+    if (!ids.length || !from || !to) return new Set();
+    const conges = await db.collection('time_off').find({
+        staff_id:   { $in: ids },
+        status:     { $ne: 'rejected' },
+        start_date: { $lte: to },
+        end_date:   { $gte: from },
+    }).toArray();
+    if (!conges.length) return new Set();
+    const byStaff = new Map();
+    for (const c of conges) {
+        const k = String(c.staff_id);
+        (byStaff.get(k) || byStaff.set(k, []).get(k)).push(c);
+    }
+    const out = new Set();
+    for (const [sid, cgs] of byStaff) if (isFullRangeOnConge(cgs, from, to)) out.add(sid);
+    return out;
+}
 
 // KPI de complétion des dispos pour la semaine cible [from,to], scopé selon le rôle :
 // patron = tous les bars, directeur = ses bars assignés, responsable = les établissements
@@ -2950,6 +2974,10 @@ app.get('/api/dispos/kpi', checkDB, requireAuth, async (req, res) => {
         ).toArray();
         const sentSet = new Set(dispos.map(d => String(d.staff_id)));
 
+        // Un staff en congé toute la semaine est réputé « avec dispo » (couvert) :
+        // il ne doit pas être compté comme devant envoyer ni listé en « manquant ».
+        const fullLeaveSet = await fullWeekCongeSet(eligible.map(s => String(s._id)), from, to);
+
         // `missing` par établissement (en plus du compteur sent/total) → permet un
         // menu déroulant par bar « qui n'a pas encore envoyé » côté client.
         const by = scopeEstabIds.map(eid => ({ establishment_id: eid, establishment_name: estabNameById[eid] || eid, sent: 0, total: 0, missing: [] }));
@@ -2966,7 +2994,7 @@ app.get('/api/dispos/kpi', checkDB, requireAuth, async (req, res) => {
             // Le patron compte tout staff autorisé dans le global, même sans établissement.
             const inOverall = scope === 'patron' ? true : inScope.length > 0;
             if (!inOverall) return;
-            const hasSent = sentSet.has(sid);
+            const hasSent = sentSet.has(sid) || fullLeaveSet.has(sid);
             overallSet.add(sid);
             if (hasSent) overallSentSet.add(sid);
             inScope.forEach(v => {
