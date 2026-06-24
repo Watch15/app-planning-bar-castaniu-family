@@ -7876,18 +7876,22 @@ async function saveDashboardPdf() {
     const rowFont     = xDense ? '10px'    : (dense ? '11px'    : '12px');
     const headPad     = dense  ? '4px 6px' : '6px 8px';
 
-    let thead = '<tr style="background:#f0f0f0"><th style="padding:' + rowPad + ';text-align:left;border:1px solid #ddd">Staff</th>';
+    // Colonne "Staff" identique à gauche ET à droite du tableau
+    const staffTh = '<th style="padding:' + rowPad + ';text-align:left;border:1px solid #ddd">Staff</th>';
+    let thead = '<tr style="background:#f0f0f0">' + staffTh;
     days.forEach(({ d }) => {
         thead += '<th style="padding:' + headPad + ';text-align:center;border:1px solid #ddd;min-width:60px">' +
             DAY_NAMES_SHORT[d.getDay()] + '<br>' + d.getDate() + '</th>';
     });
-    thead += '</tr>';
+    thead += staffTh + '</tr>';
 
     let tbody = '';
     staffMap.forEach(staff => {
-        let row = '<tr><td style="padding:' + rowPad + ';border:1px solid #ddd;white-space:nowrap">' +
+        // Cellule nom (identique en début et fin de ligne)
+        const nameCell = '<td style="padding:' + rowPad + ';border:1px solid #ddd;white-space:nowrap">' +
             '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + staff.color + ';margin-right:5px"></span>' +
             escapeHtml(displayName(staff._id, staff.name)) + '</td>';
+        let row = '<tr>' + nameCell;
         days.forEach(({ date }) => {
             const dayShifts = staff.shifts[date];
             if (dayShifts && dayShifts.length) {
@@ -7903,7 +7907,7 @@ async function saveDashboardPdf() {
                 row += '<td style="padding:' + cellPad + ';border:1px solid #ddd;color:#bbb;text-align:center">—</td>';
             }
         });
-        row += '</tr>';
+        row += nameCell + '</tr>';
         tbody += row;
     });
 
@@ -7923,7 +7927,7 @@ async function saveDashboardPdf() {
     //                            (~40 % de waste → ~10 % à 26 staff)
     const containerWidth = xDense ? 650 : (dense ? 980 : 840);
     const container = document.createElement('div');
-    container.style.cssText = 'position:fixed;left:-10000px;top:0;width:' + containerWidth + 'px;background:#fff;padding:20px 24px;font-family:Arial,sans-serif;font-size:' + rowFont + ';color:#1a1a2e';
+    container.style.cssText = 'position:fixed;left:-10000px;top:0;width:' + containerWidth + 'px;background:#fff;padding:20px 24px;font-family:Arial,sans-serif;font-size:' + rowFont + ';color:#1a1a2e;display:flex;flex-direction:column;box-sizing:border-box';
     container.innerHTML =
         '<header style="display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;border-bottom:2px solid #1a1a2e;margin-bottom:14px">' +
             '<div style="display:flex;align-items:center;gap:11px">' +
@@ -7937,9 +7941,24 @@ async function saveDashboardPdf() {
             '</div>' +
             '<div><span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #6C63FF;border-radius:14px;color:#6C63FF;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Semaine</span></div>' +
         '</header>' +
-        '<table style="width:100%;border-collapse:collapse;table-layout:fixed">' +
+        '<table style="width:100%;border-collapse:collapse;table-layout:fixed;flex:1 1 auto">' +
         '<thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>';
     document.body.appendChild(container);
+
+    // Remplissage garanti : viser ~80% de la hauteur d'une page A4 quel que soit
+    // l'effectif. Si le contenu naturel est plus court (peu de staff), on force la
+    // hauteur du container -> la table (flex:1) étire ses lignes pour combler.
+    // Si le contenu est déjà plus haut (effectif important), on n'y touche pas :
+    // le fit min-ratio du PDF le réduira pour tenir sur une seule page.
+    const PDF_PAGE_W = 210, PDF_PAGE_H = 297, PDF_MARGIN = 8;
+    const PDF_AVAIL_W = PDF_PAGE_W - PDF_MARGIN * 2;          // 194 mm
+    const PDF_TARGET_FILL = 0.80;                             // 80 % de la page
+    // ratio source hauteur/largeur pour que le fit (pleine largeur) donne 80 % de hauteur
+    const targetH = container.offsetWidth * (PDF_TARGET_FILL * PDF_PAGE_H / PDF_AVAIL_W);
+    if (container.offsetHeight < targetH) {
+        container.style.height = targetH + 'px';
+        container.querySelector('table').style.height = '100%';
+    }
 
     try {
         const canvas = await window.html2canvas(container, { scale: 2, backgroundColor: '#ffffff' });
