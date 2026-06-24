@@ -147,7 +147,7 @@ document.getElementById('copyright-year').textContent = new Date().getFullYear()
     // ── Utilitaires ───────────────────────────────────────────────────────────
 
     function redirectByRole(role) {
-        if (role === 'patron' || role === 'directeur') window.location.href = '/index.html';
+        if (role === 'patron' || role === 'directeur' || role === 'observateur') window.location.href = '/index.html';
         else if (role === 'etablissement')             window.location.href = '/pointage.html';
         else                                           window.location.href = '/planning.html';
     }
