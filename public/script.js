@@ -134,6 +134,7 @@ let _shiftWasDragged = false; // bloque le click après un drag/resize mouse
 
 let draggedStaff = null;
 let draggedWeekShift = null; // { id, fromDate } — chip de shift glissé entre jours (grille semaine)
+let _swapTarget = null;      // .shift survolé par un shift glissé (échange/déplacement même jour, souris)
 
 // ── État tap-to-place mobile ──────────────────────────────────────────────────
 let _tapSelectedStaff = null; // staff sélectionné via tap mobile
@@ -2800,6 +2801,68 @@ async function removeStaffFromDay(rowId) {
     showToast('Retiré du planning');
 }
 
+// ── Échange / déplacement de shift par drag (même jour, souris) ───────────────
+// Pendant qu'on glisse un shift, s'il passe au-dessus d'un autre shift / d'un joker
+// d'une autre personne, on le marque comme cible. Au relâchement (onUp) :
+//   • cible = shift assigné  → on échange les personnes (les créneaux restent)
+//   • cible = joker          → la personne prend le créneau du joker, l'ancien est supprimé
+
+// .shift sous le point (x,y), en ignorant l'élément glissé (pointer-events off le temps du test)
+function _shiftElAtPoint(x, y, exclude) {
+    const prev = exclude.style.pointerEvents;
+    exclude.style.pointerEvents = 'none';
+    const node = document.elementFromPoint(x, y);
+    exclude.style.pointerEvents = prev || '';
+    return node ? node.closest('.shift') : null;
+}
+
+// tgt est une cible d'échange valide pour le shift actuellement glissé ?
+function _validSwapTarget(tgt) {
+    if (!tgt || tgt === activeEl) return false;
+    const dragged = currentShifts.find(s => String(s._id) === String(activeEl.dataset.id));
+    const target  = currentShifts.find(s => String(s._id) === String(tgt.dataset.id));
+    if (!dragged || !target) return false;
+    const targetJoker = tgt.classList.contains('shift-joker');
+    return targetJoker || String(target.staff_id) !== String(dragged.staff_id);
+}
+
+function _setSwapTarget(el) {
+    if (_swapTarget === el) return;
+    if (_swapTarget) _swapTarget.classList.remove('swap-target');
+    _swapTarget = el;
+    if (_swapTarget) _swapTarget.classList.add('swap-target');
+}
+
+async function performShiftSwap(draggedId, targetId) {
+    const dragged = currentShifts.find(s => String(s._id) === String(draggedId));
+    const target  = currentShifts.find(s => String(s._id) === String(targetId));
+    if (dragged && target && String(draggedId) !== String(targetId)) {
+        const targetJoker  = target.is_joker || target.staff_id === '__joker__';
+        const draggedIdent = { _id: dragged.staff_id, name: dragged.staff_name, color: dragged.color };
+        try {
+            if (targetJoker) {
+                // Déplacement : la personne prend le créneau du joker, l'ancien est supprimé
+                if (await applyShiftAssignment(draggedIdent, target) != null) {
+                    await fetch('/api/shifts/' + dragged._id, { method: 'DELETE', credentials: 'include' });
+                    showToast((dragged.staff_name || 'Staff') + ' déplacé sur le créneau ouvert');
+                }
+            } else {
+                // Échange des personnes : chaque shift garde son horaire, les staff permutent
+                const targetIdent = { _id: target.staff_id, name: target.staff_name, color: target.color };
+                await applyShiftAssignment(targetIdent, dragged);
+                await applyShiftAssignment(draggedIdent, target);
+                showToast('Postes échangés');
+            }
+        } catch { showToast('Erreur réseau', true); }
+    }
+    // Rechargement propre de la journée, puis resync grille semaine + stats
+    await loadDayDetail(selectedDate);
+    weekFullData[selectedDate] = currentShifts.map(s => ({ ...s }));
+    currentShiftsWeek = Object.values(weekFullData).flat();
+    renderWeekGrid();
+    renderStats();
+}
+
 // ── Drag & resize shifts ──────────────────────────────────────────────────────
 
 document.addEventListener('mousedown', e => {
@@ -2844,12 +2907,31 @@ function onMove(e) {
         if (newL >= minL && newL + activeEl.offsetWidth <= maxW) activeEl.style.left = newL + 'px';
     }
     updateShiftText(activeEl);
+
+    // Détection cible d'échange (souris uniquement : en tactile onMove n'a pas de clientY).
+    // Un joker glissé n'échange pas — seuls les shifts assignés initient le geste.
+    if (activeAction === 'drag' && e.clientY != null && !activeEl.classList.contains('shift-joker')) {
+        const tgt = _shiftElAtPoint(e.clientX, e.clientY, activeEl);
+        _setSwapTarget(_validSwapTarget(tgt) ? tgt : null);
+    }
 }
 
 async function onUp() {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup',   onUp);
     if (!activeEl) return;
+
+    // Lâché sur un autre shift / joker → échange ou déplacement (pas de changement d'heure)
+    const swapEl = _swapTarget;
+    _setSwapTarget(null);
+    if (swapEl && _shiftWasDragged && !activeEl.dataset.saving) {
+        const el = activeEl;
+        el.dataset.saving = '1';
+        el.style.opacity  = '0.6';
+        activeEl = null; activeAction = null;
+        await performShiftSwap(el.dataset.id, swapEl.dataset.id);
+        return; // loadDayDetail a re-rendu la journée
+    }
 
     // Anti-doublon : ignorer si un save est déjà en cours sur cet élément
     if (activeEl.dataset.saving) { activeEl = null; activeAction = null; return; }
