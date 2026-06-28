@@ -131,6 +131,7 @@ let activeAction = null;
 let startX, startY, startLeft, startWidth;
 let _shiftWasDragged = false; // bloque le click après un drag/resize mouse
 let _dragIntent  = null;      // 'slide' (horaire, horizontal) | 'swap' (échange, vertical) — décidé au 1er mouvement
+let _dragStartScrollLeft = 0; // scrollLeft de la timeline au début d'un drag souris (correction du défilement)
 const SWAP_VTHRESHOLD  = 20;  // px verticaux avant de basculer en mode échange
 const SLIDE_HTHRESHOLD = 6;   // px horizontaux avant de verrouiller le glissement d'horaire
 
@@ -2227,12 +2228,13 @@ function _autoScrollTick() {
     const scroller = _autoScroll.scroller
         || (_autoScroll.scroller = document.getElementById('timeline-scroll'));
 
+    let scrolled = false;
     if (vertical) {
         const vh = window.innerHeight;
         let dy = 0;
         if (y < AUTOSCROLL_EDGE)            dy = -AUTOSCROLL_SPEED * (1 - y / AUTOSCROLL_EDGE);
         else if (y > vh - AUTOSCROLL_EDGE)  dy =  AUTOSCROLL_SPEED * (1 - (vh - y) / AUTOSCROLL_EDGE);
-        if (dy) window.scrollBy(0, dy);
+        if (dy) { window.scrollBy(0, dy); scrolled = true; }
     }
 
     if (scroller) {
@@ -2241,13 +2243,22 @@ function _autoScrollTick() {
             let dx = 0;
             if (x < r.left + AUTOSCROLL_EDGE)       dx = -AUTOSCROLL_SPEED * (1 - (x - r.left) / AUTOSCROLL_EDGE);
             else if (x > r.right - AUTOSCROLL_EDGE) dx =  AUTOSCROLL_SPEED * (1 - (r.right - x) / AUTOSCROLL_EDGE);
-            if (dx) scroller.scrollLeft += dx;
+            if (dx) { scroller.scrollLeft += dx; scrolled = true; }
         }
     }
 
     // Drag tactile d'un shift : le garder collé sous le doigt pendant le défilement
     if (activeEl && _touchIntent === 'drag' && scroller) {
         onMove({ clientX: _autoScroll.x + (scroller.scrollLeft - _touchScrollLeft) });
+    } else if (scrolled && activeEl && !_touchActive) {
+        // Drag souris : pendant le défilement auto, garder le bloc (glissement) ou la
+        // cible d'échange à jour même si le curseur ne bouge pas.
+        if (_dragIntent === 'swap') {
+            const tgt = _shiftElAtPoint(x, y, activeEl);
+            _setSwapTarget(_validSwapTarget(tgt) ? tgt : null);
+        } else {
+            onMove({ clientX: x, clientY: y });
+        }
     }
 
     _autoScroll.raf = requestAnimationFrame(_autoScrollTick);
@@ -2749,6 +2760,7 @@ document.addEventListener('mousedown', e => {
     startY     = e.clientY;
     startLeft  = activeEl.offsetLeft;
     startWidth = activeEl.offsetWidth;
+    _dragStartScrollLeft = (document.getElementById('timeline-scroll') || {}).scrollLeft || 0;
 
     const isLeft  = e.target.closest('.resizer.left');
     const isRight = e.target.closest('.resizer.right');
@@ -2762,6 +2774,14 @@ document.addEventListener('mousedown', e => {
 function onMove(e) {
     if (!activeEl) return;
     _shiftWasDragged = true; // un mouvement réel a eu lieu → bloquer le click suivant
+
+    // Auto-scroll aux bords pendant un drag souris (démarré au 1er vrai mouvement, pas au
+    // simple clic — sinon on bloquerait l'ouverture de la modale). Le tactile gère son
+    // propre auto-scroll via onTouchMove (clientY absent ici).
+    if (e.clientY != null) {
+        updateAutoScrollPos(e.clientX, e.clientY);
+        if (_autoScroll.raf == null) startAutoScroll(true);
+    }
 
     // Décider l'intention au 1er mouvement significatif (souris uniquement : en tactile
     // onMove n'a pas de clientY → reste null → jamais 'swap'). Un resize n'échange jamais ;
@@ -2785,7 +2805,11 @@ function onMove(e) {
     }
 
     // Mode glissement / resize : déplacement horaire habituel.
-    const deltaX = e.clientX - startX;
+    // Correction du défilement horizontal de la timeline pendant le drag souris, pour que
+    // le shift suive le curseur en coordonnées contenu (le tactile corrige déjà son clientX).
+    const scroller    = e.clientY != null ? document.getElementById('timeline-scroll') : null;
+    const scrollDelta = scroller ? (scroller.scrollLeft - _dragStartScrollLeft) : 0;
+    const deltaX = (e.clientX - startX) + scrollDelta;
     const SNAP   = PX_PER_HOUR / 4; // 15 minutes
     const snapX  = Math.round(deltaX / SNAP) * SNAP;
     const maxW   = TOTAL_HOURS * PX_PER_HOUR;
@@ -2807,6 +2831,7 @@ function onMove(e) {
 async function onUp() {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup',   onUp);
+    stopAutoScroll(); // fin du drag souris (idempotent : le tactile l'a déjà appelé)
     if (!activeEl) return;
 
     // Mode échange (intention 'swap' verrouillée) : on n'applique jamais de changement
