@@ -3055,16 +3055,27 @@ app.patch('/api/dispos/:id/confirm', checkDB, requirePatron, denyObservateurEdit
         const setFields = { status: 'confirmed' };
         if (!isOff) setFields.establishment_id = establishment_id;
         await db.collection('availabilities').updateOne({ _id: new ObjectId(req.params.id) }, { $set: setFields });
+        let shiftCreated = false;
         if (create_shift && !isOff) {
-            const staffMember = await db.collection('staff').findOne({ _id: new ObjectId(dispo.staff_id) });
-            await db.collection('shifts').insertOne({
-                staff_id: dispo.staff_id, staff_name: dispo.staff_name,
-                establishment_id, date: dispo.date,
-                start_time: dispo.start_time, end_time: dispo.end_time,
-                color: staffMember?.color || '#3498db',
-            });
+            // Idempotence : ne pas recréer un shift si ce staff en a déjà un ce jour-là
+            // dans cet établissement (double confirmation, « Tout confirmer » après
+            // confirmation individuelle, ou « Recréer » après réaffectation).
+            const existingShift = await db.collection('shifts').findOne(
+                { staff_id: dispo.staff_id, date: dispo.date, establishment_id },
+                { projection: { _id: 1 } }
+            );
+            if (!existingShift) {
+                const staffMember = await db.collection('staff').findOne({ _id: new ObjectId(dispo.staff_id) });
+                await db.collection('shifts').insertOne({
+                    staff_id: dispo.staff_id, staff_name: dispo.staff_name,
+                    establishment_id, date: dispo.date,
+                    start_time: dispo.start_time, end_time: dispo.end_time,
+                    color: staffMember?.color || '#3498db',
+                });
+                shiftCreated = true;
+            }
         }
-        res.json({ message: isOff ? 'Indisponibilité confirmée' : ('Dispo confirmée' + (create_shift ? ' et shift créé' : '')) });
+        res.json({ message: isOff ? 'Indisponibilité confirmée' : ('Dispo confirmée' + (shiftCreated ? ' et shift créé' : '')) });
         touchLastUpdated();
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });

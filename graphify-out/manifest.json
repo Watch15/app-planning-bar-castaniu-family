@@ -1,6 +1,6 @@
 {
   "lib/utils.js": {
-    "mtime": 1782034755.227548,
+    "mtime": 1782035287.569947,
     "ast_hash": "3d0ef4da5547d7dfb0dd07494f6925cd",
     "semantic_hash": ""
   },
@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "public/script.js": {
-    "mtime": 1781769820.2465868,
-    "ast_hash": "4f661b148acd8610eb6a3bdf9516ff24",
+    "mtime": 1782473102.511008,
+    "ast_hash": "121f6150a2b6980e47fa0089b6e6192e",
     "semantic_hash": ""
   },
   "public/sw.js": {
@@ -75,8 +75,8 @@
     "semantic_hash": "a06d5a6e2e883b2b4a3d570fff6a9600"
   },
   "server.js": {
-    "mtime": 1782034821.0444496,
-    "ast_hash": "5bbc5fa6007753856431eadbcd33462e",
+    "mtime": 1782659609.457669,
+    "ast_hash": "03e5fe2824ff05a6acc30eb8bf8ef0fa",
     "semantic_hash": ""
   },
   "tests/routes.test.js": {
@@ -195,8 +195,8 @@
     "semantic_hash": ""
   },
   "public/login.js": {
-    "mtime": 1781250746.2470772,
-    "ast_hash": "f8e003187519077b467d39cb867a836a",
+    "mtime": 1782287083.9695358,
+    "ast_hash": "a4527fe996bf70e9a0f9d96a3dd971d1",
     "semantic_hash": ""
   },
   "docs/onboarding.md": {
@@ -215,7 +215,7 @@
     "semantic_hash": ""
   },
   "tests/dispos.test.js": {
-    "mtime": 1782034892.5197818,
+    "mtime": 1782035287.5729465,
     "ast_hash": "89e2cbfffb215ccd74e0e842bb24425e",
     "semantic_hash": ""
   },

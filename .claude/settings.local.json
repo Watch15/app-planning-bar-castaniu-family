@@ -15,7 +15,9 @@
       "Bash(C:/Python314/python.exe *)",
       "Bash(graphify query *)",
       "PowerShell(graphify query *)",
-      "Bash(graphify update *)"
+      "Bash(graphify update *)",
+      "Bash(npx eslint *)",
+      "Bash(echo \"exit=$?\")"
     ]
   }
 }

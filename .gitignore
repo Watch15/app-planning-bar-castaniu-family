@@ -10,3 +10,6 @@ Thumbs.db
 .vscode/
 task.md*
 ui_kits/
+.claude/
+graphify-out/
+graphify-out/
