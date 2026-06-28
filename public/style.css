@@ -215,6 +215,12 @@ a:hover { color: var(--accent-soft); }
 }
 .day-empty-label { font-size: 11px; color: #fca5a5; padding: 6px 0; text-align: center; }
 .day-shift-count { font-size: 10px; color: var(--text-muted); padding: 2px 0 4px; text-align: center; }
+.day-shift-pill[draggable="true"] { cursor: grab; }
+.day-shift-pill.dragging { opacity: 0.4; }
+.day-card.drag-over-day {
+  border-color: var(--accent); box-shadow: var(--shadow-lg);
+  background: rgba(108, 99, 255, 0.06);
+}
 
 /* ── Vue détail d'un jour ────────────────────────────────────────────────────*/
 .day-detail {

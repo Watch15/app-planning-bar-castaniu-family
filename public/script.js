@@ -123,6 +123,7 @@ let currentWeekStart = Week.currentWeekStart(new Date()); // Lundi courant (cuto
 let selectedDate     = toDateStr(new Date());   // "YYYY-MM-DD" du jour sélectionné
 let weekSummary      = {};                       // { "YYYY-MM-DD": nbShifts }
 let weekFullData     = {};                       // { "YYYY-MM-DD": [shifts...] }
+let weekConfirmedDispos = [];                    // dispos confirmées de la semaine (horaires drop grille)
 let currentView      = 'day';                    // 'day' | 'week'
 let currentSubView   = 'dashboard';              // 'dashboard' | 'agenda'
 
@@ -132,6 +133,7 @@ let startX, startLeft, startWidth;
 let _shiftWasDragged = false; // bloque le click après un drag/resize mouse
 
 let draggedStaff = null;
+let draggedWeekShift = null; // { id, fromDate } — chip de shift glissé entre jours (grille semaine)
 
 // ── État tap-to-place mobile ──────────────────────────────────────────────────
 let _tapSelectedStaff = null; // staff sélectionné via tap mobile
@@ -587,7 +589,7 @@ async function refreshWeek() {
     if (!currentVenueId) return;
     renderWeekLabel();
     await loadWeekSummary();
-    await loadWeekFullData();
+    await Promise.all([loadWeekFullData(), loadWeekConfirmedDispos()]);
     // Construire currentShiftsWeek depuis weekFullData (déjà chargé, 0 fetch supplémentaire)
     currentShiftsWeek = Object.values(weekFullData).flat();
     renderSidebar(); // Mettre à jour l'ordre staff APRÈS que currentVenueId est à jour
@@ -629,6 +631,86 @@ async function loadWeekFullData() {
         weekFullData = {};
         results.forEach(({ date, shifts }) => { weekFullData[date] = shifts; });
     }
+}
+
+// Dispos confirmées de la semaine — sert à déduire les horaires d'un shift créé
+// par drop sur la grille semaine (qui n'a pas d'axe horaire).
+async function loadWeekConfirmedDispos() {
+    const from = toDateStr(currentWeekStart);
+    const to   = toDateStr(addDays(currentWeekStart, 6));
+    try {
+        const res = await fetch('/api/dispos/confirmed?from=' + from + '&to=' + to, { credentials: 'include' });
+        weekConfirmedDispos = res.ok ? await res.json() : [];
+    } catch { weekConfirmedDispos = []; }
+}
+
+// Horaires à utiliser pour un drop sur la grille semaine : la dispo confirmée du
+// staff ce jour-là si elle existe, sinon un défaut 18h→20h.
+function dispoHoursFor(staffId, dateStr) {
+    const d = weekConfirmedDispos.find(x =>
+        String(x.staff_id) === String(staffId) && x.date === dateStr &&
+        x.type !== 'off' && x.start_time != null && x.end_time != null);
+    return d ? { start: d.start_time, end: d.end_time } : { start: 18, end: 20 };
+}
+
+// Drop d'un staff (barre latérale) sur une carte-jour → crée un shift ce jour-là.
+async function weekGridAddStaff(staff, dateStr) {
+    if (!currentVenueId || staff.isJoker) return;
+    const { start, end } = dispoHoursFor(staff._id, dateStr);
+    try {
+        const res = await fetch('/api/shifts', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                staff_id: staff._id, staff_name: staff.name,
+                establishment_id: currentVenueId, date: dateStr,
+                start_time: start, end_time: end, color: staff.color, is_joker: false,
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Erreur', true); return; }
+        if (data.warnings?.length) showConflictAlert(data.warnings, staff.name);
+
+        if (!weekFullData[dateStr]) weekFullData[dateStr] = [];
+        weekFullData[dateStr].push(data);
+        weekSummary[dateStr] = (weekSummary[dateStr] || 0) + 1;
+        currentShiftsWeek = Object.values(weekFullData).flat();
+        renderWeekGrid();
+        renderStats();
+        showToast(staff.name + ' ajouté le ' + formatDateShort(parseDate(dateStr)));
+        if (selectedDate === dateStr) await loadDayDetail(dateStr);
+    } catch { showToast('Erreur réseau', true); }
+}
+
+// Drop d'un chip de shift d'un jour vers un autre → transfère le shift (mêmes
+// horaires, nouvelle date), via la route /transfer.
+async function weekGridMoveShift(shiftId, fromDate, toDate) {
+    if (fromDate === toDate) return;
+    try {
+        const res = await fetch('/api/shifts/' + shiftId + '/transfer', {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ establishment_id: currentVenueId, date: toDate }),
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Erreur', true); return; }
+
+        const arr = weekFullData[fromDate] || [];
+        const idx = arr.findIndex(s => String(s._id) === String(shiftId));
+        if (idx !== -1) {
+            const [moved] = arr.splice(idx, 1);
+            moved.date = toDate;
+            if (!weekFullData[toDate]) weekFullData[toDate] = [];
+            weekFullData[toDate].push(moved);
+            weekSummary[fromDate] = Math.max(0, (weekSummary[fromDate] || 1) - 1);
+            weekSummary[toDate]   = (weekSummary[toDate] || 0) + 1;
+            currentShiftsWeek = Object.values(weekFullData).flat();
+        }
+        renderWeekGrid();
+        renderStats();
+        showToast('Shift déplacé au ' + formatDateShort(parseDate(toDate)));
+        if (selectedDate === fromDate || selectedDate === toDate) await loadDayDetail(selectedDate);
+    } catch { showToast('Erreur réseau', true); }
 }
 
 // ── Résumé semaine depuis l'API ────────────────────────────────────────────────
@@ -681,31 +763,81 @@ function renderWeekGrid() {
         if (empty) {
             body.innerHTML = '<div class="day-empty-label">Vide</div>';
         } else {
-            const shiftsForDay = currentShiftsWeek.filter(s => s.date === dateStr);
-            if (shiftsForDay.length > 0) {
-                const seen = new Set();
-                const dots = shiftsForDay
-                    .filter(s => { if (seen.has(s.staff_id)) return false; seen.add(s.staff_id); return true; })
-                    .slice(0, 6)
-                    .map(s => {
-                        const sm = allStaff.find(st => String(st._id) === s.staff_id);
-                        const color = sm ? sm.color : (s.color || '#888');
-                        return '<span style="width:8px;height:8px;border-radius:50%;background:' + color + ';display:inline-block;flex-shrink:0"></span>';
-                    }).join('');
-                body.innerHTML =
-                    '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">' + dots + '</div>' +
-                    '<div class="day-shift-count">' + count + ' shift' + (count > 1 ? 's' : '') + '</div>';
-            } else {
-                body.innerHTML = '<div class="day-shift-count">' + count + ' shift' + (count > 1 ? 's' : '') + '</div>';
-            }
+            const shiftsForDay = currentShiftsWeek
+                .filter(s => s.date === dateStr)
+                .sort((a, b) => a.start_time - b.start_time);
+            const MAX = 6;
+            // Un chip draggable par shift (glissable vers un autre jour)
+            const chips = shiftsForDay.slice(0, MAX).map(s => {
+                const sm      = allStaff.find(st => String(st._id) === s.staff_id);
+                const color   = sm ? sm.color : (s.color || '#888');
+                const isJoker = s.is_joker || s.staff_id === '__joker__';
+                const nm      = isJoker
+                    ? (s.staff_name || 'Joker')
+                    : ((s.staff_name || (sm && sm.name) || '').split(' ')[0] || '—');
+                return '<div class="day-shift-pill" draggable="true" data-shift-id="' + s._id + '" ' +
+                    'style="background:' + color + ';color:' + textColorFor(color) + '">' +
+                    escapeHtml(nm) + '</div>';
+            }).join('');
+            const extra = shiftsForDay.length - MAX;
+            const more  = extra > 0
+                ? '<div class="day-shift-count">+' + extra + ' autre' + (extra > 1 ? 's' : '') + '</div>'
+                : '';
+            body.innerHTML = chips + more +
+                '<div class="day-shift-count">' + count + ' shift' + (count > 1 ? 's' : '') + '</div>';
         }
 
         card.appendChild(body);
 
+        // Clic → ouvrir le détail du jour
         card.addEventListener('click', async () => {
             selectedDate = dateStr;
             renderWeekGrid(); // refresh sélection visuelle
             await loadDayDetail(dateStr);
+        });
+
+        // ── Drag & drop direct sur la grille semaine ──────────────────────────
+        // Cible de drop pour : un staff (barre latérale) → créer un shift ;
+        // un chip de shift d'un autre jour → déplacer le shift.
+        card.addEventListener('dragover', e => {
+            const staffDrag = draggedStaff && !draggedStaff.isJoker;
+            const shiftDrag = draggedWeekShift && draggedWeekShift.fromDate !== dateStr;
+            if (staffDrag || shiftDrag) {
+                e.preventDefault();
+                card.classList.add('drag-over-day');
+            }
+        });
+        card.addEventListener('dragleave', e => {
+            if (!card.contains(e.relatedTarget)) card.classList.remove('drag-over-day');
+        });
+        card.addEventListener('drop', async e => {
+            e.preventDefault();
+            card.classList.remove('drag-over-day');
+            if (draggedWeekShift) {
+                const { id, fromDate } = draggedWeekShift;
+                draggedWeekShift = null;
+                await weekGridMoveShift(id, fromDate, dateStr);
+            } else if (draggedStaff && !draggedStaff.isJoker) {
+                await weekGridAddStaff(draggedStaff, dateStr);
+            }
+        });
+
+        // Chips draggables (déplacement d'un shift entre jours)
+        body.querySelectorAll('.day-shift-pill[draggable="true"]').forEach(chip => {
+            chip.addEventListener('dragstart', e => {
+                e.stopPropagation();
+                draggedWeekShift = { id: chip.dataset.shiftId, fromDate: dateStr };
+                draggedStaff = null;
+                chip.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', chip.dataset.shiftId);
+            });
+            chip.addEventListener('dragend', () => {
+                chip.classList.remove('dragging');
+                draggedWeekShift = null;
+                document.querySelectorAll('.day-card.drag-over-day')
+                    .forEach(c => c.classList.remove('drag-over-day'));
+            });
         });
 
         grid.appendChild(card);
