@@ -2206,7 +2206,7 @@ function onSidebarDragEnd(card) {
 // Quand le curseur/doigt approche un bord, on fait défiler automatiquement :
 //   • vertical   → la fenêtre (les lignes staff débordent vers le bas)
 //   • horizontal → la timeline (#timeline-scroll, déroulé des heures)
-const _autoScroll = { raf: null, x: 0, y: 0, vertical: true, scroller: null };
+const _autoScroll = { raf: null, x: 0, y: 0, vertical: true, scroller: null, lastSL: 0, lastWinY: 0 };
 const AUTOSCROLL_EDGE  = 64; // px depuis le bord où le défilement s'amorce
 const AUTOSCROLL_SPEED = 20; // px/frame max
 
@@ -2214,6 +2214,10 @@ function updateAutoScrollPos(x, y) { _autoScroll.x = x; _autoScroll.y = y; }
 
 function startAutoScroll(vertical = true) {
     _autoScroll.vertical = vertical;
+    // Mémoriser le défilement courant pour détecter tout changement (bord OU molette)
+    _autoScroll.scroller = document.getElementById('timeline-scroll');
+    _autoScroll.lastSL   = _autoScroll.scroller ? _autoScroll.scroller.scrollLeft : 0;
+    _autoScroll.lastWinY = window.scrollY;
     if (_autoScroll.raf == null) _autoScroll.raf = requestAnimationFrame(_autoScrollTick);
 }
 
@@ -2228,13 +2232,12 @@ function _autoScrollTick() {
     const scroller = _autoScroll.scroller
         || (_autoScroll.scroller = document.getElementById('timeline-scroll'));
 
-    let scrolled = false;
     if (vertical) {
         const vh = window.innerHeight;
         let dy = 0;
         if (y < AUTOSCROLL_EDGE)            dy = -AUTOSCROLL_SPEED * (1 - y / AUTOSCROLL_EDGE);
         else if (y > vh - AUTOSCROLL_EDGE)  dy =  AUTOSCROLL_SPEED * (1 - (vh - y) / AUTOSCROLL_EDGE);
-        if (dy) { window.scrollBy(0, dy); scrolled = true; }
+        if (dy) window.scrollBy(0, dy);
     }
 
     if (scroller) {
@@ -2243,16 +2246,24 @@ function _autoScrollTick() {
             let dx = 0;
             if (x < r.left + AUTOSCROLL_EDGE)       dx = -AUTOSCROLL_SPEED * (1 - (x - r.left) / AUTOSCROLL_EDGE);
             else if (x > r.right - AUTOSCROLL_EDGE) dx =  AUTOSCROLL_SPEED * (1 - (r.right - x) / AUTOSCROLL_EDGE);
-            if (dx) { scroller.scrollLeft += dx; scrolled = true; }
+            if (dx) scroller.scrollLeft += dx;
         }
     }
+
+    // Tout changement de défilement depuis la frame précédente — auto-scroll aux bords
+    // OU molette de la souris pendant le drag.
+    const sl = scroller ? scroller.scrollLeft : 0;
+    const wy = window.scrollY;
+    const moved = sl !== _autoScroll.lastSL || wy !== _autoScroll.lastWinY;
+    _autoScroll.lastSL = sl;
+    _autoScroll.lastWinY = wy;
 
     // Drag tactile d'un shift : le garder collé sous le doigt pendant le défilement
     if (activeEl && _touchIntent === 'drag' && scroller) {
         onMove({ clientX: _autoScroll.x + (scroller.scrollLeft - _touchScrollLeft) });
-    } else if (scrolled && activeEl && !_touchActive) {
-        // Drag souris : pendant le défilement auto, garder le bloc (glissement) ou la
-        // cible d'échange à jour même si le curseur ne bouge pas.
+    } else if (moved && activeEl && !_touchActive) {
+        // Drag souris : pendant n'importe quel défilement (bord ou molette), garder le
+        // bloc (glissement) ou la cible d'échange à jour même si le curseur ne bouge pas.
         if (_dragIntent === 'swap') {
             const tgt = _shiftElAtPoint(x, y, activeEl);
             _setSwapTarget(_validSwapTarget(tgt) ? tgt : null);
