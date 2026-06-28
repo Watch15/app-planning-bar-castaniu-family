@@ -8061,15 +8061,15 @@ async function saveDashboardPdf() {
         '<thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>';
     document.body.appendChild(container);
 
-    // Remplissage garanti : viser ~80% de la hauteur d'une page A4 quel que soit
-    // l'effectif. Si le contenu naturel est plus court (peu de staff), on force la
-    // hauteur du container -> la table (flex:1) étire ses lignes pour combler.
-    // Si le contenu est déjà plus haut (effectif important), on n'y touche pas :
-    // le fit min-ratio du PDF le réduira pour tenir sur une seule page.
+    // Remplissage modéré : viser ~60% de la hauteur d'une page A4. Si le contenu
+    // naturel est plus court (peu de staff), on étire légèrement les lignes pour
+    // combler sans donner l'effet « trop grand » du remplissage à 80%. Si le contenu
+    // est déjà plus haut (effectif important), on n'y touche pas : le fit min-ratio
+    // du PDF le réduira pour tenir sur une seule page.
     const PDF_PAGE_W = 210, PDF_PAGE_H = 297, PDF_MARGIN = 8;
     const PDF_AVAIL_W = PDF_PAGE_W - PDF_MARGIN * 2;          // 194 mm
-    const PDF_TARGET_FILL = 0.80;                             // 80 % de la page
-    // ratio source hauteur/largeur pour que le fit (pleine largeur) donne 80 % de hauteur
+    const PDF_TARGET_FILL = 0.60;                             // 60 % de la page
+    // ratio source hauteur/largeur pour que le fit (pleine largeur) donne 60 % de hauteur
     const targetH = container.offsetWidth * (PDF_TARGET_FILL * PDF_PAGE_H / PDF_AVAIL_W);
     if (container.offsetHeight < targetH) {
         container.style.height = targetH + 'px';
