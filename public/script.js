@@ -2214,11 +2214,22 @@ function onSidebarDragEnd(card) {
 // Quand le curseur/doigt approche un bord, on fait défiler automatiquement :
 //   • vertical   → la fenêtre (les lignes staff débordent vers le bas)
 //   • horizontal → la timeline (#timeline-scroll, déroulé des heures)
-const _autoScroll = { raf: null, x: 0, y: 0, vertical: true, scroller: null, lastSL: 0, lastWinY: 0 };
+// La molette de la souris est aussi prise en compte (voir _onDragWheel) : durant
+// un drag HTML5 natif le navigateur bloque le scroll molette, on le pilote donc.
+const _autoScroll = { raf: null, x: 0, y: 0, vertical: true, scroller: null, lastSL: 0, lastWinY: 0, wheelDX: 0, wheelDY: 0 };
 const AUTOSCROLL_EDGE  = 64; // px depuis le bord où le défilement s'amorce
 const AUTOSCROLL_SPEED = 20; // px/frame max
 
 function updateAutoScrollPos(x, y) { _autoScroll.x = x; _autoScroll.y = y; }
+
+// Molette pendant un drag : on neutralise le scroll natif (bloqué pendant un drag
+// HTML5) et on accumule le delta ; c'est le tick rAF qui l'applique, source unique
+// de défilement (même rect, même test "au-dessus de la timeline", même resync).
+function _onDragWheel(e) {
+    e.preventDefault();
+    _autoScroll.wheelDX += e.deltaX || (e.shiftKey ? e.deltaY : 0); // → timeline
+    _autoScroll.wheelDY += e.deltaY;                                // → fenêtre
+}
 
 function startAutoScroll(vertical = true) {
     _autoScroll.vertical = vertical;
@@ -2226,11 +2237,15 @@ function startAutoScroll(vertical = true) {
     _autoScroll.scroller = document.getElementById('timeline-scroll');
     _autoScroll.lastSL   = _autoScroll.scroller ? _autoScroll.scroller.scrollLeft : 0;
     _autoScroll.lastWinY = window.scrollY;
+    _autoScroll.wheelDX  = _autoScroll.wheelDY = 0;
+    // addEventListener dédoublonne par référence : appels répétés sans effet.
+    window.addEventListener('wheel', _onDragWheel, { passive: false });
     if (_autoScroll.raf == null) _autoScroll.raf = requestAnimationFrame(_autoScrollTick);
 }
 
 function stopAutoScroll() {
     if (_autoScroll.raf != null) { cancelAnimationFrame(_autoScroll.raf); _autoScroll.raf = null; }
+    window.removeEventListener('wheel', _onDragWheel);
     _autoScroll.scroller = null;
 }
 
@@ -2239,23 +2254,32 @@ function _autoScrollTick() {
     // Réf. mise en cache pour la durée du drag (la timeline n'est pas recréée pendant)
     const scroller = _autoScroll.scroller
         || (_autoScroll.scroller = document.getElementById('timeline-scroll'));
+    const r = scroller ? scroller.getBoundingClientRect() : null;
 
-    if (vertical) {
-        const vh = window.innerHeight;
-        let dy = 0;
-        if (y < AUTOSCROLL_EDGE)            dy = -AUTOSCROLL_SPEED * (1 - y / AUTOSCROLL_EDGE);
-        else if (y > vh - AUTOSCROLL_EDGE)  dy =  AUTOSCROLL_SPEED * (1 - (vh - y) / AUTOSCROLL_EDGE);
-        if (dy) window.scrollBy(0, dy);
+    // Molette accumulée depuis la frame précédente. deltaX (ou deltaY+Shift) défile la
+    // timeline si le curseur est au-dessus d'elle ; sinon le deltaY défile la fenêtre.
+    const { wheelDX, wheelDY } = _autoScroll;
+    _autoScroll.wheelDX = _autoScroll.wheelDY = 0;
+    let wheelWinDY = wheelDY;
+    if (r && wheelDX && x > r.left && x < r.right && y > r.top && y < r.bottom) {
+        scroller.scrollLeft += wheelDX;
+        wheelWinDY = 0; // consommé horizontalement
     }
 
-    if (scroller) {
-        const r = scroller.getBoundingClientRect();
-        if (x > r.left && x < r.right) {
-            let dx = 0;
-            if (x < r.left + AUTOSCROLL_EDGE)       dx = -AUTOSCROLL_SPEED * (1 - (x - r.left) / AUTOSCROLL_EDGE);
-            else if (x > r.right - AUTOSCROLL_EDGE) dx =  AUTOSCROLL_SPEED * (1 - (r.right - x) / AUTOSCROLL_EDGE);
-            if (dx) scroller.scrollLeft += dx;
-        }
+    let dy = 0;
+    if (vertical) {
+        const vh = window.innerHeight;
+        if (y < AUTOSCROLL_EDGE)            dy = -AUTOSCROLL_SPEED * (1 - y / AUTOSCROLL_EDGE);
+        else if (y > vh - AUTOSCROLL_EDGE)  dy =  AUTOSCROLL_SPEED * (1 - (vh - y) / AUTOSCROLL_EDGE);
+        dy += wheelWinDY;
+    }
+    if (dy) window.scrollBy(0, dy);
+
+    if (r && x > r.left && x < r.right) {
+        let dx = 0;
+        if (x < r.left + AUTOSCROLL_EDGE)       dx = -AUTOSCROLL_SPEED * (1 - (x - r.left) / AUTOSCROLL_EDGE);
+        else if (x > r.right - AUTOSCROLL_EDGE) dx =  AUTOSCROLL_SPEED * (1 - (r.right - x) / AUTOSCROLL_EDGE);
+        if (dx) scroller.scrollLeft += dx;
     }
 
     // Tout changement de défilement depuis la frame précédente — auto-scroll aux bords
