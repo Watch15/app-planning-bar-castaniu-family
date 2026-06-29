@@ -7430,6 +7430,15 @@ async function logout() {
 // ── Démarrage ─────────────────────────────────────────────────────────────────
 
 init();
+
+// Retour au dashboard depuis un onglet (Performance / Pointage) : quand le
+// navigateur restaure index.html depuis le bfcache (retour arrière, swipe back),
+// le document n'est PAS ré-exécuté et le poll d'auto-refresh est gelé pendant
+// l'absence. Au retour, on vérifie via refreshIfStale() si les données ont changé
+// pour ne pas rester figé sur un planning périmé — sans refetch si rien n'a bougé.
+window.addEventListener('pageshow', e => {
+    if (e.persisted && currentUser) refreshIfStale();
+});
 // ── Création en masse de profils staff depuis une liste de noms ───────────────
 
 function openBulkStaffNamesModal() {
@@ -7902,18 +7911,24 @@ async function startAutoRefresh() {
         if (res.ok) { const d = await res.json(); _lastUpdatedTs = d.ts || 0; }
     } catch { /* silencieux */ }
 
-    // Poll toutes les 60 secondes
-    _pollRefreshTimer = setInterval(async () => {
-        try {
-            const res = await fetch('/api/last-updated', { credentials: 'include' });
-            if (!res.ok) return;
-            const { ts } = await res.json();
-            if (ts && ts !== _lastUpdatedTs) {
-                _lastUpdatedTs = ts;
-                await silentRefresh();
-            }
-        } catch { /* silencieux */ }
-    }, 30000);
+    // Poll toutes les 30 secondes
+    _pollRefreshTimer = setInterval(refreshIfStale, 30000);
+}
+
+// Rafraîchit les données seulement si le serveur signale un changement depuis le
+// dernier refresh (compare /api/last-updated à _lastUpdatedTs). Évite ~7 fetches
+// inutiles quand rien n'a bougé et met à jour le timestamp pour ne pas
+// redéclencher au tick suivant. Partagé par le poll et le retour bfcache.
+async function refreshIfStale() {
+    try {
+        const res = await fetch('/api/last-updated', { credentials: 'include' });
+        if (!res.ok) return;
+        const { ts } = await res.json();
+        if (ts && ts !== _lastUpdatedTs) {
+            _lastUpdatedTs = ts;
+            await silentRefresh();
+        }
+    } catch { /* silencieux */ }
 }
 
 async function silentRefresh() {
