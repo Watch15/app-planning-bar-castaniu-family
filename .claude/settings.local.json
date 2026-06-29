@@ -18,7 +18,9 @@
       "Bash(graphify update *)",
       "Bash(npx eslint *)",
       "Bash(echo \"exit=$?\")",
-      "PowerShell(graphify update *)"
+      "PowerShell(graphify update *)",
+      "Bash(ls *.js)",
+      "Bash(ls src *)"
     ]
   }
 }

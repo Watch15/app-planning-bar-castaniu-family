@@ -168,7 +168,7 @@ async function init() {
     // ── Bouton retour immédiatement après auth (avant tout fetch) ────────────
     const btnBack = document.getElementById('btn-back');
     if (currentUser.role === 'directeur' || currentUser.role === 'patron') {
-        btnBack.href        = '/index.html';
+        btnBack.href        = '/';
         btnBack.textContent = '← Dashboard';
         btnBack.style.display = '';
     } else if (currentUser.role === 'staff') {
@@ -223,7 +223,7 @@ async function init() {
 
         if (myEstabs.length === 0 && currentUser.role !== 'patron') {
             // Directeur sans établissement assigné → retour dashboard
-            window.location.href = '/index.html'; return;
+            window.location.href = '/'; return;
         }
 
         // Établissement courant dans le header

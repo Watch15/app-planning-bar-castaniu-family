@@ -61,7 +61,7 @@ async function checkAuth() {
         if (!res.ok) { window.location.href = '/login.html'; return null; }
         const data = await res.json();
         if (!['patron', 'directeur'].includes(data.user?.role)) {
-            window.location.href = '/index.html'; return null;
+            window.location.href = '/'; return null;
         }
         return data.user;
     } catch { window.location.href = '/login.html'; return null; }

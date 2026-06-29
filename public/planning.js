@@ -55,8 +55,8 @@ async function checkAuth() {
             if (!res.ok) { if (attempt === 0) { await new Promise(r => setTimeout(r, 800)); continue; } break; }
             const data = await res.json();
             // Patron + directeur → index.html, établissement → pointage.html
-            if (data.user?.role === 'patron')       { window.location.href = '/index.html';   return null; }
-            if (data.user?.role === 'directeur')    { window.location.href = '/index.html';   return null; }
+            if (data.user?.role === 'patron')       { window.location.href = '/';   return null; }
+            if (data.user?.role === 'directeur')    { window.location.href = '/';   return null; }
             if (data.user?.role === 'etablissement') { window.location.href = '/pointage.html'; return null; }
             return data.user;
         } catch {
@@ -90,7 +90,7 @@ async function init() {
 
     // Seul le staff et directeur ont accès à cette page
     if (user.role === 'patron') {
-        window.location.href = '/index.html'; return;
+        window.location.href = '/'; return;
     }
     if (user.role === 'etablissement') {
         window.location.href = '/pointage.html'; return;
