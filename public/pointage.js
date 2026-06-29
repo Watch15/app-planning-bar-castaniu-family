@@ -1,5 +1,10 @@
 // ── Utilitaires ───────────────────────────────────────────────────────────────
 
+// Rôles « vue patron » : accès complet au pointage (consultation + correction des
+// heures réelles), comme le patron. Source unique pour éviter la dérive entre les
+// différents points de contrôle de ce fichier.
+const MANAGER_ROLES = ['patron', 'directeur', 'observateur'];
+
 function toDateStr(d) {
     return d.getFullYear() + '-' +
         String(d.getMonth() + 1).padStart(2, '0') + '-' +
@@ -167,7 +172,7 @@ async function init() {
 
     // ── Bouton retour immédiatement après auth (avant tout fetch) ────────────
     const btnBack = document.getElementById('btn-back');
-    if (currentUser.role === 'directeur' || currentUser.role === 'patron' || currentUser.role === 'observateur') {
+    if (MANAGER_ROLES.includes(currentUser.role)) {
         btnBack.href        = '/';
         btnBack.textContent = '← Dashboard';
         btnBack.style.display = '';
@@ -221,7 +226,7 @@ async function init() {
             myEstabs = allEstabs.filter(e => (e.id || String(e._id)) === currentEstabId);
         }
 
-        if (myEstabs.length === 0 && currentUser.role !== 'patron' && currentUser.role !== 'observateur') {
+        if (myEstabs.length === 0 && !['patron', 'observateur'].includes(currentUser.role)) {
             // Directeur sans établissement assigné → retour dashboard
             window.location.href = '/'; return;
         }
@@ -255,8 +260,8 @@ async function init() {
         }
     }
 
-    // ── Sélecteur de date pour patron/directeur/observateur (saisie d'une soirée passée) ──
-    if (currentUser.role === 'patron' || currentUser.role === 'directeur' || currentUser.role === 'observateur') {
+    // ── Sélecteur de date pour les rôles « vue patron » (saisie d'une soirée passée) ──
+    if (MANAGER_ROLES.includes(currentUser.role)) {
         const bar       = document.getElementById('date-select-bar');
         const dateInput = document.getElementById('date-select');
         const btnReset  = document.getElementById('btn-reset-date');
@@ -411,8 +416,8 @@ function renderTotalFooter(shifts) {
 // ── Construction d'une carte shift ───────────────────────────────────────────
 
 function buildShiftCard(shift) {
-    // Patron, directeur et observateur peuvent toujours corriger les heures réelles
-    const canEdit = currentUser && (currentUser.role === 'patron' || currentUser.role === 'directeur' || currentUser.role === 'observateur');
+    // Les rôles « vue patron » peuvent toujours corriger les heures réelles
+    const canEdit = currentUser && MANAGER_ROLES.includes(currentUser.role);
 
     const card = document.createElement('div');
     const isValidated = shift.real_start != null && shift.real_end != null;
