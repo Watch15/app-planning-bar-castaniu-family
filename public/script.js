@@ -2105,6 +2105,14 @@ function initDropZone() {
     // plutôt que sur #timeline-body qui est vidé/recréé à chaque renderBody()
     const container = document.getElementById('day-detail');
 
+    // Auto-scroll de la page pendant un drag de carte staff, où que soit le curseur
+    // (notamment au-dessus de la barre staff en bas de page). Le tick d'auto-scroll est
+    // démarré par onSidebarDragStart ; ici on ne fait qu'alimenter la position courante,
+    // pour qu'il défile vers le bord approché même hors de la timeline.
+    document.addEventListener('dragover', e => {
+        if (draggedStaff) updateAutoScrollPos(e.clientX, e.clientY);
+    });
+
     container.addEventListener('dragover', e => {
         if (!draggedStaff) return;
         updateAutoScrollPos(e.clientX, e.clientY);
