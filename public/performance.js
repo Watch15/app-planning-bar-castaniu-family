@@ -60,7 +60,7 @@ async function checkAuth() {
         const res = await fetch('/auth/me', { credentials: 'include' });
         if (!res.ok) { window.location.href = '/login.html'; return null; }
         const data = await res.json();
-        if (!['patron', 'directeur'].includes(data.user?.role)) {
+        if (!['patron', 'directeur', 'observateur'].includes(data.user?.role)) {
             window.location.href = '/'; return null;
         }
         return data.user;

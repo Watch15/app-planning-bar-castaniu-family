@@ -152,7 +152,7 @@ async function checkAuth() {
         const res  = await fetch('/auth/me', { credentials: 'include' });
         if (!res.ok) { window.location.href = '/login.html'; return null; }
         const data = await res.json();
-        if (!['etablissement', 'patron', 'directeur', 'staff'].includes(data.user?.role)) {
+        if (!['etablissement', 'patron', 'directeur', 'staff', 'observateur'].includes(data.user?.role)) {
             window.location.href = '/login.html'; return null;
         }
         return data.user;
@@ -167,7 +167,7 @@ async function init() {
 
     // ── Bouton retour immédiatement après auth (avant tout fetch) ────────────
     const btnBack = document.getElementById('btn-back');
-    if (currentUser.role === 'directeur' || currentUser.role === 'patron') {
+    if (currentUser.role === 'directeur' || currentUser.role === 'patron' || currentUser.role === 'observateur') {
         btnBack.href        = '/';
         btnBack.textContent = '← Dashboard';
         btnBack.style.display = '';
@@ -221,7 +221,7 @@ async function init() {
             myEstabs = allEstabs.filter(e => (e.id || String(e._id)) === currentEstabId);
         }
 
-        if (myEstabs.length === 0 && currentUser.role !== 'patron') {
+        if (myEstabs.length === 0 && currentUser.role !== 'patron' && currentUser.role !== 'observateur') {
             // Directeur sans établissement assigné → retour dashboard
             window.location.href = '/'; return;
         }
@@ -255,8 +255,8 @@ async function init() {
         }
     }
 
-    // ── Sélecteur de date pour patron/directeur (saisie d'une soirée passée) ──
-    if (currentUser.role === 'patron' || currentUser.role === 'directeur') {
+    // ── Sélecteur de date pour patron/directeur/observateur (saisie d'une soirée passée) ──
+    if (currentUser.role === 'patron' || currentUser.role === 'directeur' || currentUser.role === 'observateur') {
         const bar       = document.getElementById('date-select-bar');
         const dateInput = document.getElementById('date-select');
         const btnReset  = document.getElementById('btn-reset-date');
@@ -411,8 +411,8 @@ function renderTotalFooter(shifts) {
 // ── Construction d'une carte shift ───────────────────────────────────────────
 
 function buildShiftCard(shift) {
-    // Patron et directeur peuvent toujours corriger les heures réelles
-    const canEdit = currentUser && (currentUser.role === 'patron' || currentUser.role === 'directeur');
+    // Patron, directeur et observateur peuvent toujours corriger les heures réelles
+    const canEdit = currentUser && (currentUser.role === 'patron' || currentUser.role === 'directeur' || currentUser.role === 'observateur');
 
     const card = document.createElement('div');
     const isValidated = shift.real_start != null && shift.real_end != null;
