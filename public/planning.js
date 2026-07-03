@@ -1640,7 +1640,7 @@ function createDispoCard(date, d) {
     const BTN_CONFIG = {
         soir:   { label: 'Soir',        sub: '16h → 02h', col: '#1a1a2e' },
         midi:   { label: 'Midi',        sub: '10h → 17h', col: '#534AB7' },
-        long:   { label: 'Long',        sub: '10h → 02h', col: '#e74c3c' },
+        long:   { label: 'Long',        sub: '10h → 02h', col: '#e67e22' },
         custom: { label: 'Personnalisé', sub: 'horaires libres', col: '#2ecc71' },
         off:    { label: 'Indispo',     sub: null,           col: '#888' },
     };

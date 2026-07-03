@@ -6200,7 +6200,7 @@ async function loadDisposList() {
                 const typeColor = !dispo
                     ? '#ccc'
                     : isOff ? '#e74c3c'
-                    : (dispo.type === 'midi' ? '#534AB7' : dispo.type === 'long' ? '#e74c3c' : '#1a1a2e');
+                    : (dispo.type === 'midi' ? '#534AB7' : dispo.type === 'long' ? '#e67e22' : '#1a1a2e');
 
                 pill.innerHTML =
                     '<div style="font-size:10px;color:#aaa;margin-bottom:2px">' + DAY_SHORT[d.getDay()] + ' ' + d.getDate() + '</div>' +
