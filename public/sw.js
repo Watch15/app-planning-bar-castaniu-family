@@ -7,6 +7,13 @@ const CACHE = 'templyo-' + '%%BUILD_TIME%%';
 const STATIC = [
     '/login.html',
     '/set-password.html',
+    // Coquilles applicatives : elles portent de la CSS en ligne (ex. .dispo-type-btn.selected-long
+    // dans planning.html). Sans préchargement, ce HTML pouvait rester périmé pendant que le JS
+    // préchargé se mettait à jour → classes sans style (« la couleur du Long disparaît »).
+    '/index.html',
+    '/planning.html',
+    '/pointage.html',
+    '/performance.html',
     '/login.js',
     '/set-password.js',
     '/script.js',
