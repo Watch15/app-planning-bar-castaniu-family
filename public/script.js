@@ -2917,6 +2917,13 @@ async function onUp() {
             body: JSON.stringify({ start_time: startTime, end_time: endTime }),
         });
         const data = await res.json();
+        if (!res.ok) {
+            // Double shift refusé par le serveur → message + remise en place du bloc (état mémoire inchangé)
+            const shift = currentShifts.find(s => String(s._id) === String(id));
+            showConflictAlert([{ message: data.error || 'Enregistrement refusé' }], shift?.staff_name || '');
+            renderBody();
+            return;
+        }
         if (data.warnings?.length) {
             const shift = currentShifts.find(s => String(s._id) === String(id));
             showConflictAlert(data.warnings, shift?.staff_name || '');

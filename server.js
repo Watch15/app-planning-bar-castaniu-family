@@ -2017,8 +2017,9 @@ app.post('/api/shifts', checkDB, requirePatron, denyObservateurEdit, async (req,
             }).toArray();
             for (const s of conflicts) {
                 const gap = Math.min(Math.abs(start_time - s.end_time), Math.abs(s.start_time - end_time));
+                // Double shift : chevauchement horaire avec un autre établissement → blocage strict
                 if (start_time < s.end_time && end_time > s.start_time)
-                    warnings.push({ type: 'overlap', message: 'Chevauchement avec ' + s.establishment_id });
+                    return res.status(409).json({ error: 'Double shift : ' + (staff_name || 'ce staff') + ' a déjà un shift sur ce créneau (' + s.establishment_id + '). Enregistrement bloqué.' });
                 else if (gap < 1)
                     warnings.push({ type: 'gap', message: 'Seulement ' + Math.round(gap * 60) + ' min de coupure avec ' + s.establishment_id });
             }
@@ -2187,8 +2188,9 @@ app.patch('/api/shifts/:id', checkDB, requirePatron, denyObservateurEdit, async 
             }).toArray();
             for (const s of conflicts) {
                 const gap = Math.min(Math.abs(newStart - s.end_time), Math.abs(s.start_time - newEnd));
+                // Double shift : chevauchement horaire avec un autre établissement → blocage strict
                 if (newStart < s.end_time && newEnd > s.start_time)
-                    warnings.push({ type: 'overlap', message: 'Chevauchement avec ' + s.establishment_id });
+                    return res.status(409).json({ error: 'Double shift : ' + (staff_name || existing.staff_name || 'ce staff') + ' a déjà un shift sur ce créneau (' + s.establishment_id + '). Modification bloquée.' });
                 else if (gap < 1)
                     warnings.push({ type: 'gap', message: Math.round(gap * 60) + ' min de coupure avec ' + s.establishment_id });
             }
