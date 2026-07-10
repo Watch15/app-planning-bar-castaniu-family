@@ -2917,16 +2917,16 @@ async function onUp() {
             body: JSON.stringify({ start_time: startTime, end_time: endTime }),
         });
         const data = await res.json();
+        const shift = currentShifts.find(s => String(s._id) === String(id));
+        const staffName = shift?.staff_name || '';
         if (!res.ok) {
             // Double shift refusé par le serveur → message + remise en place du bloc (état mémoire inchangé)
-            const shift = currentShifts.find(s => String(s._id) === String(id));
-            showConflictAlert([{ message: data.error || 'Enregistrement refusé' }], shift?.staff_name || '');
+            showConflictAlert([{ message: data.error || 'Enregistrement refusé' }], staffName);
             renderBody();
             return;
         }
         if (data.warnings?.length) {
-            const shift = currentShifts.find(s => String(s._id) === String(id));
-            showConflictAlert(data.warnings, shift?.staff_name || '');
+            showConflictAlert(data.warnings, staffName);
             el.classList.add('conflict');
         } else {
             el.classList.remove('conflict');
