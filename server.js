@@ -13,7 +13,7 @@ const {
     isValidObjectId, hashToken, normalizePhone,
     weekStart, currentWeekStart, disposWeekStart, isAutoPublished, isDatePublished, normalizePublishDoc, chargeMultiplier,
     toDateStr, datesOverlap, congeDaysInRange, splitDisposByConges, isFullRangeOnConge,
-    cleanOffDates, scopeManagerOff,
+    validateOffPeriod, scopeManagerOff,
 } = require('./lib/utils');
 
 // Sentry — initialisation conditionnelle (ne se charge que si SENTRY_DSN fourni).
@@ -3212,68 +3212,68 @@ function requireDirecteur(req, res, next) {
     next();
 }
 
-// POST — le directeur déclare un ou plusieurs jours OFF (upsert par jour)
+// POST — le directeur déclare une PÉRIODE d'absence (start_date → end_date)
 app.post('/api/me/manager-off', checkDB, requireDirecteur, async (req, res) => {
     const userId = req.session.user._id;
-    const dates  = Array.isArray(req.body.dates) ? req.body.dates
-                 : (req.body.date ? [req.body.date] : []);
     const note   = (req.body.note || '').toString().trim().slice(0, 500);
-    const { clean, error } = cleanOffDates(dates, toDateStr(new Date()));
+    const { start, end, error } = validateOffPeriod(req.body.start_date, req.body.end_date, toDateStr(new Date()));
     if (error) return res.status(400).json({ error });
     try {
-        const ops = clean.map(date => ({
-            updateOne: {
-                filter: { user_id: userId, date },
-                update: {
-                    $set:         { type: 'off', note, name: req.session.user.name || '', updated_at: new Date() },
-                    $setOnInsert: { user_id: userId, date, created_at: new Date() },
-                },
-                upsert: true,
-            },
-        }));
-        const result = await db.collection('manager_time_off').bulkWrite(ops, { ordered: false });
-        const n = (result.upsertedCount || 0) + (result.modifiedCount || 0);
-        res.status(201).json({ message: n > 0 ? n + ' jour(s) d\'absence enregistré(s)' : 'Absences à jour' });
+        // Pas de chevauchement avec une période déjà déclarée (à venir/en cours)
+        const today    = toDateStr(new Date());
+        const existing = await db.collection('manager_time_off')
+            .find({ user_id: userId, end_date: { $gte: today } }).toArray();
+        const clash = existing.find(p => datesOverlap(start, end, p.start_date, p.end_date));
+        if (clash)
+            return res.status(409).json({ error: 'Cette période chevauche une absence déjà déclarée (' + clash.start_date + ' → ' + clash.end_date + ').' });
+        const doc = {
+            user_id: userId, name: req.session.user.name || '',
+            start_date: start, end_date: end, type: 'off', note,
+            created_at: new Date(),
+        };
+        const { insertedId } = await db.collection('manager_time_off').insertOne(doc);
+        res.status(201).json({ message: 'Absence enregistrée', _id: insertedId });
         touchLastUpdated();
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-// GET — les absences (à venir par défaut) du directeur connecté
+// GET — les absences (en cours + à venir) du directeur connecté
 app.get('/api/me/manager-off', checkDB, requireDirecteur, async (req, res) => {
-    const { from, to } = req.query;
     try {
-        const q = { user_id: req.session.user._id };
-        if (from && ISO_DATE_RE.test(from)) q.date = { ...(q.date || {}), $gte: from };
-        if (to   && ISO_DATE_RE.test(to))   q.date = { ...(q.date || {}), $lte: to };
-        if (!q.date) q.date = { $gte: toDateStr(new Date()) };
-        const offs = await db.collection('manager_time_off').find(q).sort({ date: 1 }).toArray();
+        const offs = await db.collection('manager_time_off')
+            .find({ user_id: req.session.user._id, end_date: { $gte: toDateStr(new Date()) } })
+            .sort({ start_date: 1 }).toArray();
         res.json(offs);
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-// DELETE — le directeur retire une de ses absences (jour à venir)
-app.delete('/api/me/manager-off/:date', checkDB, requireDirecteur, async (req, res) => {
-    const date = req.params.date;
-    if (!ISO_DATE_RE.test(date)) return res.status(400).json({ error: 'Date invalide' });
-    if (date < toDateStr(new Date())) return res.status(400).json({ error: 'Une absence passée ne peut plus être retirée.' });
+// DELETE — le directeur retire une de ses absences (période non entièrement passée)
+app.delete('/api/me/manager-off/:id', checkDB, requireDirecteur, async (req, res) => {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'ID invalide' });
     try {
-        const r = await db.collection('manager_time_off').deleteOne({ user_id: req.session.user._id, date });
-        if (r.deletedCount === 0) return res.status(404).json({ error: 'Absence introuvable' });
+        const off = await db.collection('manager_time_off').findOne({ _id: new ObjectId(req.params.id) });
+        if (!off) return res.status(404).json({ error: 'Absence introuvable' });
+        if (String(off.user_id) !== String(req.session.user._id))
+            return res.status(403).json({ error: 'Cette absence ne t\'appartient pas.' });
+        if (off.end_date < toDateStr(new Date()))
+            return res.status(400).json({ error: 'Une absence déjà passée ne peut plus être retirée.' });
+        await db.collection('manager_time_off').deleteOne({ _id: new ObjectId(req.params.id) });
         res.json({ message: 'Absence retirée' });
         touchLastUpdated();
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 
-// GET (patron/directeur/observateur) — absences des directeurs, scopées aux
-// établissements accessibles au demandeur. Sert le calendrier congés patron.
+// GET (patron/directeur/observateur) — absences des directeurs qui CHEVAUCHENT
+// la fenêtre demandée, scopées aux établissements accessibles. Sert le calendrier congés.
 app.get('/api/managers-off', checkDB, requirePatron, async (req, res) => {
     const { from, to } = req.query;
     try {
+        // Une période chevauche [from,to] ssi start_date <= to ET end_date >= from.
         const q = {};
-        if (from && ISO_DATE_RE.test(from)) q.date = { ...(q.date || {}), $gte: from };
-        if (to   && ISO_DATE_RE.test(to))   q.date = { ...(q.date || {}), $lte: to };
-        if (!q.date) q.date = { $gte: toDateStr(new Date()) };
-        const offs = await db.collection('manager_time_off').find(q).sort({ date: 1 }).toArray();
+        if (to   && ISO_DATE_RE.test(to))   q.start_date = { $lte: to };
+        if (from && ISO_DATE_RE.test(from)) q.end_date   = { $gte: from };
+        if (!q.end_date) q.end_date = { $gte: toDateStr(new Date()) };
+        const offs = await db.collection('manager_time_off').find(q).sort({ start_date: 1 }).toArray();
         if (offs.length === 0) return res.json([]);
         // Résoudre nom + établissements de chaque directeur pour l'affichage et le scope.
         const viewer  = req.session.user;

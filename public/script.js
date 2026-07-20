@@ -513,13 +513,20 @@ function renderUserBadge(user) {
 async function openManagerOffModal() {
     const modal = document.getElementById('manager-off-modal');
     if (!modal) return;
-    const dateInput = document.getElementById('manager-off-date');
-    if (dateInput) dateInput.min = toDateStr(new Date()); // pas de jour passé
+    const today = toDateStr(new Date());
+    const startEl = document.getElementById('manager-off-start');
+    const endEl   = document.getElementById('manager-off-end');
+    if (startEl) startEl.min = today; // pas de période passée
+    if (endEl)   endEl.min   = today;
     if (!modal._bound) {
         modal._bound = true;
         document.getElementById('manager-off-close').addEventListener('click', () => { modal.style.display = 'none'; });
         modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
         document.getElementById('manager-off-add').addEventListener('click', addManagerOff);
+        // Confort : choisir « Du » cale « Au » sur la même date par défaut
+        if (startEl) startEl.addEventListener('change', () => {
+            if (endEl) { endEl.min = startEl.value || today; if (!endEl.value || endEl.value < startEl.value) endEl.value = startEl.value; }
+        });
     }
     const dd = document.getElementById('user-menu-dropdown');
     if (dd) dd.classList.remove('open');
@@ -547,41 +554,49 @@ function renderManagerOffList(offs) {
         list.innerHTML = '<p style="text-align:center;color:#aaa;font-size:13px;padding:12px 0">Aucune absence déclarée</p>';
         return;
     }
+    const fmtDay = ds => {
+        const d = new Date(ds + 'T12:00:00');
+        return DAY_NAMES_LONG[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear();
+    };
     offs.forEach(o => {
-        const d = new Date(o.date + 'T12:00:00');
-        const label = DAY_NAMES_LONG[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear();
+        // Période : « Le <jour> » si un seul jour, sinon « Du <jour> au <jour> »
+        const label = (o.start_date === o.end_date)
+            ? 'Le ' + fmtDay(o.start_date)
+            : 'Du ' + fmtDay(o.start_date) + ' au ' + fmtDay(o.end_date);
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;align-items:center;gap:10px;background:#fff5f5;border:1px solid #f3c0c0;border-radius:8px;padding:8px 12px';
         row.innerHTML =
             '<span style="flex:1;font-size:13px;font-weight:600;color:#1a1a2e">🔴 ' + escapeHtml(label) + '</span>' +
-            '<button class="mgr-off-del" data-date="' + escapeHtml(o.date) + '" title="Retirer" style="background:none;border:none;color:#e74c3c;font-size:16px;cursor:pointer;line-height:1">✕</button>';
+            '<button class="mgr-off-del" data-id="' + escapeHtml(o._id) + '" title="Retirer" style="background:none;border:none;color:#e74c3c;font-size:16px;cursor:pointer;line-height:1">✕</button>';
         list.appendChild(row);
     });
     list.querySelectorAll('.mgr-off-del').forEach(btn =>
-        btn.addEventListener('click', () => removeManagerOff(btn.dataset.date)));
+        btn.addEventListener('click', () => removeManagerOff(btn.dataset.id)));
 }
 
 async function addManagerOff() {
-    const input = document.getElementById('manager-off-date');
-    const date  = input && input.value;
-    if (!date) { showToast('Choisis une date', true); return; }
+    const startEl = document.getElementById('manager-off-start');
+    const endEl   = document.getElementById('manager-off-end');
+    const start = startEl && startEl.value;
+    const end   = (endEl && endEl.value) || start; // « Au » vide → période d'un jour
+    if (!start) { showToast('Choisis au moins une date de début', true); return; }
     try {
         const res = await fetch('/api/me/manager-off', {
             method: 'POST', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dates: [date] }),
+            body: JSON.stringify({ start_date: start, end_date: end }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Erreur');
-        input.value = '';
-        showToast(data.message || 'Absence ajoutée');
+        startEl.value = ''; if (endEl) endEl.value = '';
+        showToast(data.message || 'Absence enregistrée');
         await loadManagerOff();
     } catch (e) { showToast(e.message, true); }
 }
 
-async function removeManagerOff(date) {
+async function removeManagerOff(id) {
     try {
-        const res = await fetch('/api/me/manager-off/' + encodeURIComponent(date), {
+        const res = await fetch('/api/me/manager-off/' + encodeURIComponent(id), {
             method: 'DELETE', credentials: 'include',
         });
         const data = await res.json();
@@ -5013,10 +5028,10 @@ async function loadCongesCalendar() {
         ]);
         const conges      = res.ok  ? await res.json()  : [];
         const managersOff = mres.ok ? await mres.json() : [];
-        // Normaliser chaque OFF directeur (jour unique) au format « congé » d'un jour.
+        // Les absences directeur sont déjà des périodes (start_date/end_date) → format « congé ».
         const mgrAsConges = managersOff.map(o => ({
             staff_id: 'mgr:' + o.user_id, staff_name: o.name || 'Directeur',
-            start_date: o.date, end_date: o.date, mode: 'manager', is_manager: true,
+            start_date: o.start_date, end_date: o.end_date, mode: 'manager', is_manager: true,
         }));
         renderCongesCalendar(month, conges.concat(mgrAsConges));
     } catch {

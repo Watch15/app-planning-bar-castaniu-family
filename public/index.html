@@ -957,12 +957,17 @@
             <span class="modal-title">🔴 Mes absences</span>
             <button class="modal-close" id="manager-off-close">&times;</button>
         </div>
-        <p style="font-size:12.5px;color:var(--text-muted,#888);line-height:1.4;margin:0 0 12px">
-            Déclare les jours où tu n'es pas disponible. Le patron les voit dans son calendrier congés.
+        <p style="font-size:12.5px;color:#5a5f6e;line-height:1.4;margin:0 0 14px">
+            Déclare une période où tu n'es pas disponible. Le patron la voit dans son calendrier congés.
         </p>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
-            <input type="date" id="manager-off-date" style="flex:1 1 150px;min-width:0;height:34px;padding:0 10px;border:1px solid var(--light-border,#e0e0e0);border-radius:8px;font-size:13px;font-family:var(--font)">
-            <button id="manager-off-add" class="btn-add-staff" style="height:34px">＋ Ajouter</button>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
+            <label style="flex:1 1 120px;min-width:0;font-size:11px;font-weight:600;color:#5a5f6e;display:flex;flex-direction:column;gap:4px">Du
+                <input type="date" id="manager-off-start" style="height:36px;padding:0 10px;border:1px solid #d0d4dc;border-radius:8px;font-size:13px;color:#1a1a2e;background:#fff;font-family:var(--font)">
+            </label>
+            <label style="flex:1 1 120px;min-width:0;font-size:11px;font-weight:600;color:#5a5f6e;display:flex;flex-direction:column;gap:4px">Au
+                <input type="date" id="manager-off-end" style="height:36px;padding:0 10px;border:1px solid #d0d4dc;border-radius:8px;font-size:13px;color:#1a1a2e;background:#fff;font-family:var(--font)">
+            </label>
+            <button id="manager-off-add" style="height:36px;padding:0 16px;background:#6C63FF;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap">＋ Ajouter</button>
         </div>
         <div id="manager-off-list" style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto"></div>
     </div>
