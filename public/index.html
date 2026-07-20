@@ -964,6 +964,12 @@
 
         <!-- Onglet Membres -->
         <div id="staff-tab-staff">
+            <!-- Recherche + filtres (E-18) : nom, établissement (dont « sans établissement »), groupe -->
+            <div class="staff-manage-filters" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 2px 10px">
+                <input type="text" id="staff-manage-search" placeholder="Rechercher un nom…" style="flex:1 1 150px;min-width:0;height:32px;padding:0 10px;border:1px solid var(--light-border,#e0e0e0);border-radius:8px;font-size:13px;font-family:var(--font)">
+                <select id="staff-manage-estab-filter" title="Filtrer par établissement" style="height:32px;max-width:48%;padding:0 8px;border:1px solid var(--light-border,#e0e0e0);border-radius:8px;font-size:13px;font-family:var(--font);background:#fff;color:#333"></select>
+                <select id="staff-manage-group-filter" title="Filtrer par groupe" style="height:32px;max-width:48%;padding:0 8px;border:1px solid var(--light-border,#e0e0e0);border-radius:8px;font-size:13px;font-family:var(--font);background:#fff;color:#333"></select>
+            </div>
             <div class="staff-manage-list" id="staff-manage-list"></div>
             <div class="staff-add-form">
                 <div class="staff-add-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">

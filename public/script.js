@@ -7124,6 +7124,37 @@ function renderRolesHeader() {
     container.appendChild(btnNew);
 }
 
+// Recherche insensible à la casse ET aux accents (E-18)
+function _normalizeSearch(s) {
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+// (Re)peuple les deux <select> de filtre en préservant la sélection courante.
+// Établissement : tous les bars + « Sans établissement ». Groupe : masqué s'il
+// n'y a aucun groupe défini.
+function populateStaffManageFilters() {
+    const estabEl = document.getElementById('staff-manage-estab-filter');
+    const groupEl = document.getElementById('staff-manage-group-filter');
+    if (estabEl) {
+        const prev = estabEl.value;
+        let opts = '<option value="">Tous les établissements</option>';
+        allEstablishments.forEach(e => { opts += '<option value="' + escapeHtml(e.id) + '">' + escapeHtml(e.name) + '</option>'; });
+        opts += '<option value="__none__">Sans établissement</option>';
+        estabEl.innerHTML = opts;
+        estabEl.value = prev;
+        if (estabEl.value !== prev) estabEl.value = ''; // sélection devenue invalide
+    }
+    if (groupEl) {
+        const prev = groupEl.value;
+        let opts = '<option value="">Tous les groupes</option>';
+        allGroups.forEach(g => { opts += '<option value="' + escapeHtml(g) + '">' + escapeHtml(g) + '</option>'; });
+        groupEl.innerHTML = opts;
+        groupEl.value = prev;
+        if (groupEl.value !== prev) groupEl.value = '';
+        groupEl.style.display = allGroups.length ? '' : 'none';
+    }
+}
+
 function renderStaffManageList() {
     const list = document.getElementById('staff-manage-list');
     list.innerHTML = '';
@@ -7133,7 +7164,37 @@ function renderStaffManageList() {
         return;
     }
 
-    allStaff.forEach(staff => {
+    // Filtres recherche (E-18) : nom/surnom + établissement + groupe
+    const searchEl = document.getElementById('staff-manage-search');
+    const estabEl  = document.getElementById('staff-manage-estab-filter');
+    const groupEl  = document.getElementById('staff-manage-group-filter');
+    populateStaffManageFilters();
+    // Écouteurs attachés une seule fois (renderStaffManageList est rappelé à chaque édition)
+    if (searchEl && !searchEl._filterBound) {
+        searchEl._filterBound = true;
+        searchEl.addEventListener('input', renderStaffManageList);
+        if (estabEl) estabEl.addEventListener('change', renderStaffManageList);
+        if (groupEl) groupEl.addEventListener('change', renderStaffManageList);
+    }
+    const q      = _normalizeSearch(searchEl ? searchEl.value : '');
+    const estabF = estabEl ? estabEl.value : '';
+    const groupF = groupEl ? groupEl.value : '';
+
+    const filtered = allStaff.filter(staff => {
+        if (q && !_normalizeSearch((staff.name || '') + ' ' + (staff.nickname || '')).includes(q)) return false;
+        const venues = staff.venues || [];
+        if (estabF === '__none__') { if (venues.length) return false; }
+        else if (estabF && !venues.includes(estabF)) return false;
+        if (groupF && !(staff.groups || []).includes(groupF)) return false;
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        list.innerHTML = '<p style="text-align:center;color:#ccc;font-size:13px;padding:16px 0">Aucun membre ne correspond à la recherche</p>';
+        return;
+    }
+
+    filtered.forEach(staff => {
         const row = document.createElement('div');
         row.className = 'staff-manage-row';
 
