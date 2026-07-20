@@ -548,7 +548,9 @@ function initViewTabs() {
             document.getElementById('week-dashboard').style.display = currentSubView === 'dashboard' ? '' : 'none';
             document.getElementById('week-agenda').style.display    = currentSubView === 'agenda'    ? '' : 'none';
             document.getElementById('week-gantt').style.display     = currentSubView === 'gantt'     ? '' : 'none';
+            document.getElementById('week-team').style.display      = currentSubView === 'team'      ? '' : 'none';
             if (currentSubView === 'gantt') renderWeekGantt();
+            if (currentSubView === 'team')  renderTeamDashboard();
             // Repositionne la vue pour que le sticky header ne masque pas la première ligne
             const weekFull = document.getElementById('week-full');
             if (weekFull) {
@@ -3369,6 +3371,136 @@ function renderWeekFull() {
     renderDashboard();
     renderAgenda();
     if (currentSubView === 'gantt') renderWeekGantt();
+    if (currentSubView === 'team')  renderTeamDashboard();
+}
+
+// ── Vue « Équipe » : une carte par soirée, une ligne par personne (E-20) ──────
+// Reprend la présentation « Mon équipe » du staff responsable (D-66, planning.js)
+// côté patron/directeur, à partir de weekFullData déjà en mémoire. Le scoping est
+// automatique : weekFullData est déjà filtré côté serveur aux établissements
+// accessibles à l'utilisateur, et on applique en plus le filtre de groupe actif.
+function renderTeamDashboard() {
+    const container = document.getElementById('week-team');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const isJoker   = s => s.is_joker || s.staff_id === '__joker__';
+    const estabName = id => {
+        const e = allEstablishments.find(x => x.id === id || String(x._id) === id);
+        return e ? e.name : '';
+    };
+    const fmtH = v => {
+        const hh = Math.floor(v % 24).toString().padStart(2, '0');
+        const mm = Math.round((v % 1) * 60);
+        return hh + 'h' + (mm > 0 ? String(mm).padStart(2, '0') : '');
+    };
+
+    const todayStr = toDateStr(new Date());
+    const weekDates = Array.from({ length: 7 }, (_, i) => {
+        const d = addDays(currentWeekStart, i);
+        return { date: toDateStr(d), d };
+    }).filter(({ date }) =>
+        (weekFullData[date] || []).some(s => staffMatchesCurrentGroup(s.staff_id))
+    );
+
+    if (weekDates.length === 0) {
+        container.innerHTML = '<div style="padding:32px;text-align:center;color:#ccc;font-size:13px">Aucune soirée cette semaine</div>';
+        return;
+    }
+
+    const intro = document.createElement('div');
+    intro.style.cssText = 'padding:16px 20px 8px;font-size:13px;color:#888;line-height:1.4';
+    intro.textContent = 'Équipe planifiée par soirée cette semaine. Touche une ligne pour ouvrir le jour.';
+    container.appendChild(intro);
+
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'padding:0 12px 24px;display:flex;flex-direction:column;gap:12px';
+
+    // Pill établissement (même convention visuelle que D-66)
+    const estabPill = id => '<span style="display:inline-flex;align-items:center;font-size:11px;font-weight:600;color:#534AB7;background:rgba(108,99,255,0.08);padding:3px 9px;border-radius:8px;border:1px solid rgba(108,99,255,0.18);white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(estabName(id)) + '</span>';
+
+    weekDates.forEach(({ date, d }) => {
+        const dayShifts = (weekFullData[date] || []).filter(s => staffMatchesCurrentGroup(s.staff_id));
+        const team   = dayShifts.filter(s => !isJoker(s));
+        const jokers = dayShifts.filter(s => isJoker(s) && s.joker_open === true);
+        if (team.length === 0 && jokers.length === 0) return;
+
+        const isToday_ = date === todayStr;
+        const isPast   = date < todayStr;
+
+        // Regrouper par établissement (team + jokers ouverts)
+        const estabIds = [...new Set([...team, ...jokers].map(s => s.establishment_id))]
+            .sort((a, b) => String(estabName(a)).localeCompare(String(estabName(b))));
+        const multiEstab = estabIds.length > 1;
+
+        const card = document.createElement('div');
+        card.style.cssText =
+            'background:#fff;border-radius:12px;padding:14px 14px 12px;' +
+            'box-shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);' +
+            (isToday_ ? 'border-left:3px solid var(--accent,#6C63FF);' : 'border-left:3px solid transparent;') +
+            (isPast   ? 'opacity:0.62;' : '');
+
+        const dayLabel = DAY_NAMES_LONG[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()];
+        let html =
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap">' +
+                '<div style="font-weight:700;font-size:15px;color:' + (isToday_ ? 'var(--accent,#6C63FF)' : '#1a1a2e') + ';letter-spacing:-0.2px">' + dayLabel + '</div>' +
+                (isToday_
+                    ? '<span style="font-size:10px;font-weight:700;color:#fff;background:var(--accent,#6C63FF);padding:3px 8px;border-radius:8px;letter-spacing:0.3px">Aujourd hui</span>'
+                    : (!multiEstab ? estabPill(estabIds[0]) : '')) +
+            '</div>';
+
+        estabIds.forEach(estabId => {
+            if (multiEstab) html += '<div style="margin:10px 0 6px">' + estabPill(estabId) + '</div>';
+
+            // Fusionner les shifts du même staff dans le même bar (ex. coupure)
+            const byStaff = new Map();
+            team.filter(s => s.establishment_id === estabId).forEach(s => {
+                const key = String(s.staff_id);
+                if (!byStaff.has(key)) byStaff.set(key, { staff_id: s.staff_id, staff_name: s.staff_name, color: s.color, slots: [] });
+                const hasReal = s.real_start != null && s.real_end != null;
+                byStaff.get(key).slots.push({ st: hasReal ? s.real_start : s.start_time, en: hasReal ? s.real_end : s.end_time });
+            });
+            const merged = [...byStaff.values()].map(e => { e.slots.sort((a, b) => a.st - b.st); return e; })
+                .sort((a, b) => a.slots[0].st - b.slots[0].st);
+
+            html += '<div style="display:flex;flex-direction:column;gap:5px">';
+            merged.forEach(m => {
+                const hours = m.slots.map(s => fmtH(s.st) + ' → ' + fmtH(s.en)).join(', ');
+                html +=
+                    '<div class="team-row" data-date="' + date + '" role="button" tabindex="0" ' +
+                    'style="display:flex;align-items:center;gap:9px;background:#f4f5f8;border-radius:8px;padding:7px 10px;cursor:pointer">' +
+                        '<span style="width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:' + escapeHtml(m.color || '#95a5a6') + '"></span>' +
+                        '<span style="font-weight:600;font-size:13px;color:#1a1a2e;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + displayName(m.staff_id, m.staff_name) + '</span>' +
+                        '<span style="font-size:12px;color:#6b7280;font-variant-numeric:tabular-nums;white-space:nowrap">' + hours + '</span>' +
+                    '</div>';
+            });
+            // Postes joker encore ouverts sur ce bar
+            jokers.filter(s => s.establishment_id === estabId).forEach(s => {
+                const hasReal = s.real_start != null && s.real_end != null;
+                const st = hasReal ? s.real_start : s.start_time;
+                const en = hasReal ? s.real_end   : s.end_time;
+                html +=
+                    '<div class="team-row" data-date="' + date + '" role="button" tabindex="0" ' +
+                    'style="display:flex;align-items:center;gap:9px;background:#fff8ec;border:1px dashed #f0c36d;border-radius:8px;padding:7px 10px;cursor:pointer">' +
+                        '<span style="flex:1 1 auto;font-size:12px;font-weight:600;color:#b8860b">🃏 Poste ouvert</span>' +
+                        '<span style="font-size:12px;color:#b8860b;font-variant-numeric:tabular-nums;white-space:nowrap">' + fmtH(st) + ' → ' + fmtH(en) + '</span>' +
+                    '</div>';
+            });
+            html += '</div>';
+        });
+
+        card.innerHTML = html;
+        wrap.appendChild(card);
+    });
+
+    container.appendChild(wrap);
+
+    // Clic / clavier sur une ligne → ouvrir le jour concerné
+    container.querySelectorAll('.team-row').forEach(row => {
+        const go = () => switchToDayView(row.dataset.date);
+        row.addEventListener('click', go);
+        row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    });
 }
 
 // ── Tableau de bord (lignes staff × colonnes jour) ────────────────────────────
