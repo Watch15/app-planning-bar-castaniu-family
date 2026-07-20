@@ -853,6 +853,7 @@
                     <span class="user-menu-arrow">▾</span>
                 </button>
                 <div class="user-menu-dropdown" id="user-menu-dropdown">
+                    <button class="user-menu-item" id="menu-mes-absences" style="display:none" onclick="openManagerOffModal()">🔴 Mes absences</button>
                     <button class="user-menu-item user-menu-logout" onclick="logout()">⎋ Déconnexion</button>
                 </div>
             </div>
@@ -949,6 +950,24 @@
 </div>
 
 <!-- Modale gestion staff -->
+<!-- Modale « Mes absences » — directeur (E-19). Jours OFF déclaratifs, isolés du staff. -->
+<div class="modal-overlay" id="manager-off-modal" style="display:none">
+    <div class="modal" style="width:440px;max-width:95vw">
+        <div class="modal-header">
+            <span class="modal-title">🔴 Mes absences</span>
+            <button class="modal-close" id="manager-off-close">&times;</button>
+        </div>
+        <p style="font-size:12.5px;color:var(--text-muted,#888);line-height:1.4;margin:0 0 12px">
+            Déclare les jours où tu n'es pas disponible. Le patron les voit dans son calendrier congés.
+        </p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+            <input type="date" id="manager-off-date" style="flex:1 1 150px;min-width:0;height:34px;padding:0 10px;border:1px solid var(--light-border,#e0e0e0);border-radius:8px;font-size:13px;font-family:var(--font)">
+            <button id="manager-off-add" class="btn-add-staff" style="height:34px">＋ Ajouter</button>
+        </div>
+        <div id="manager-off-list" style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto"></div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="staff-modal" style="display:none">
     <div class="modal" style="width:560px;max-width:95vw">
         <div class="modal-header">

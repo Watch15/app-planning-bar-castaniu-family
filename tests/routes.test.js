@@ -60,3 +60,26 @@ test('query param scalaire normal → traverse le middleware anti-injection', as
     const res = await fetch(base + '/api/establishments?from=2020-01-01');
     assert.equal(res.status, 503);
 });
+
+// Absences directeur (E-19) : les routes sont montées (503 via checkDB sans base,
+// et non 404 — preuve du bon chemin + méthode). L'auth requireDirecteur passe
+// APRÈS checkDB, donc sans base on obtient bien 503.
+test('GET /api/me/manager-off est montée (→ 503 sans base)', async () => {
+    const res = await fetch(base + '/api/me/manager-off');
+    assert.equal(res.status, 503);
+});
+test('POST /api/me/manager-off est montée (→ 503 sans base)', async () => {
+    const res = await fetch(base + '/api/me/manager-off', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ dates: ['2026-08-01'] }),
+    });
+    assert.equal(res.status, 503);
+});
+test('DELETE /api/me/manager-off/:date est montée (→ 503 sans base)', async () => {
+    const res = await fetch(base + '/api/me/manager-off/2026-08-01', { method: 'DELETE' });
+    assert.equal(res.status, 503);
+});
+test('GET /api/managers-off est montée (→ 503 sans base)', async () => {
+    const res = await fetch(base + '/api/managers-off');
+    assert.equal(res.status, 503);
+});

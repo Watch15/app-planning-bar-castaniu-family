@@ -13,6 +13,7 @@ const {
     isValidObjectId, hashToken, normalizePhone,
     weekStart, currentWeekStart, disposWeekStart, isAutoPublished, isDatePublished, normalizePublishDoc, chargeMultiplier,
     toDateStr, datesOverlap, congeDaysInRange, splitDisposByConges, isFullRangeOnConge,
+    cleanOffDates, scopeManagerOff,
 } = require('./lib/utils');
 
 // Sentry — initialisation conditionnelle (ne se charge que si SENTRY_DSN fourni).
@@ -3196,6 +3197,95 @@ app.delete('/api/conges/:id', checkDB, requireAuth, async (req, res) => {
         await db.collection('time_off').deleteOne({ _id: new ObjectId(req.params.id) });
         res.json({ message: 'Congé annulé' });
         touchLastUpdated();
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// ── Absences des directeurs (E-19) ────────────────────────────────────────────
+// Un directeur n'a PAS de profil staff (staff_id null par design) : ses jours OFF
+// sont stockés séparément, keyés sur son user._id, dans `manager_time_off`.
+// Choix Option B : isolation totale du pipeline staff (planning, récap, barre)
+// pour qu'un directeur ne devienne jamais planifiable comme un employé.
+function requireDirecteur(req, res, next) {
+    if (!req.session?.user) return res.status(401).json({ error: 'Non authentifié' });
+    if (req.session.user.role !== 'directeur')
+        return res.status(403).json({ error: 'Accès réservé au directeur' });
+    next();
+}
+
+// POST — le directeur déclare un ou plusieurs jours OFF (upsert par jour)
+app.post('/api/me/manager-off', checkDB, requireDirecteur, async (req, res) => {
+    const userId = req.session.user._id;
+    const dates  = Array.isArray(req.body.dates) ? req.body.dates
+                 : (req.body.date ? [req.body.date] : []);
+    const note   = (req.body.note || '').toString().trim().slice(0, 500);
+    const { clean, error } = cleanOffDates(dates, toDateStr(new Date()));
+    if (error) return res.status(400).json({ error });
+    try {
+        const ops = clean.map(date => ({
+            updateOne: {
+                filter: { user_id: userId, date },
+                update: {
+                    $set:         { type: 'off', note, name: req.session.user.name || '', updated_at: new Date() },
+                    $setOnInsert: { user_id: userId, date, created_at: new Date() },
+                },
+                upsert: true,
+            },
+        }));
+        const result = await db.collection('manager_time_off').bulkWrite(ops, { ordered: false });
+        const n = (result.upsertedCount || 0) + (result.modifiedCount || 0);
+        res.status(201).json({ message: n > 0 ? n + ' jour(s) d\'absence enregistré(s)' : 'Absences à jour' });
+        touchLastUpdated();
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// GET — les absences (à venir par défaut) du directeur connecté
+app.get('/api/me/manager-off', checkDB, requireDirecteur, async (req, res) => {
+    const { from, to } = req.query;
+    try {
+        const q = { user_id: req.session.user._id };
+        if (from && ISO_DATE_RE.test(from)) q.date = { ...(q.date || {}), $gte: from };
+        if (to   && ISO_DATE_RE.test(to))   q.date = { ...(q.date || {}), $lte: to };
+        if (!q.date) q.date = { $gte: toDateStr(new Date()) };
+        const offs = await db.collection('manager_time_off').find(q).sort({ date: 1 }).toArray();
+        res.json(offs);
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// DELETE — le directeur retire une de ses absences (jour à venir)
+app.delete('/api/me/manager-off/:date', checkDB, requireDirecteur, async (req, res) => {
+    const date = req.params.date;
+    if (!ISO_DATE_RE.test(date)) return res.status(400).json({ error: 'Date invalide' });
+    if (date < toDateStr(new Date())) return res.status(400).json({ error: 'Une absence passée ne peut plus être retirée.' });
+    try {
+        const r = await db.collection('manager_time_off').deleteOne({ user_id: req.session.user._id, date });
+        if (r.deletedCount === 0) return res.status(404).json({ error: 'Absence introuvable' });
+        res.json({ message: 'Absence retirée' });
+        touchLastUpdated();
+    } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
+});
+
+// GET (patron/directeur/observateur) — absences des directeurs, scopées aux
+// établissements accessibles au demandeur. Sert le calendrier congés patron.
+app.get('/api/managers-off', checkDB, requirePatron, async (req, res) => {
+    const { from, to } = req.query;
+    try {
+        const q = {};
+        if (from && ISO_DATE_RE.test(from)) q.date = { ...(q.date || {}), $gte: from };
+        if (to   && ISO_DATE_RE.test(to))   q.date = { ...(q.date || {}), $lte: to };
+        if (!q.date) q.date = { $gte: toDateStr(new Date()) };
+        const offs = await db.collection('manager_time_off').find(q).sort({ date: 1 }).toArray();
+        if (offs.length === 0) return res.json([]);
+        // Résoudre nom + établissements de chaque directeur pour l'affichage et le scope.
+        const viewer  = req.session.user;
+        const userIds = [...new Set(offs.map(o => o.user_id))].filter(isValidObjectId);
+        const users   = userIds.length
+            ? await db.collection('users').find(
+                { _id: { $in: userIds.map(id => new ObjectId(id)) } },
+                { projection: { name: 1, assigned_establishments: 1 } }
+            ).toArray()
+            : [];
+        const metaById = new Map(users.map(u => [String(u._id), { name: u.name || '', estabs: u.assigned_establishments || [] }]));
+        res.json(scopeManagerOff(offs, metaById, viewer, canAccessEstablishment));
     } catch (e) { console.error('[' + req.method + ' ' + req.path + ']', e); res.status(500).json({ error: 'Erreur interne' }); }
 });
 

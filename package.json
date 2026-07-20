@@ -10,7 +10,7 @@
     "seed": "node scripts/seed.js",
     "create-patron": "node scripts/create-patron.js",
     "lint": "eslint .",
-    "test": "node --test tests/utils.test.js tests/shift-hours.test.js tests/week.test.js tests/routes.test.js tests/conges.test.js tests/dispos.test.js"
+    "test": "node --test tests/utils.test.js tests/shift-hours.test.js tests/week.test.js tests/routes.test.js tests/conges.test.js tests/dispos.test.js tests/manager-off.test.js"
   },
   "license": "ISC",
   "type": "commonjs",

@@ -502,6 +502,93 @@ function renderUserBadge(user) {
     // Brand mobile (header-left) — affiche le rôle en sous-texte
     const mobSub = document.getElementById('mobile-brand-sub');
     if (mobSub) mobSub.textContent = roleName + ' · ' + firstName;
+    // Entrée « Mes absences » réservée au directeur (E-19)
+    const mesAbs = document.getElementById('menu-mes-absences');
+    if (mesAbs) mesAbs.style.display = user.role === 'directeur' ? '' : 'none';
+}
+
+// ── Absences directeur (E-19) — modale « Mes absences » ────────────────────────
+// Le directeur n'a pas de profil staff : ses jours OFF sont keyés sur son user._id
+// (routes /api/me/manager-off), isolés du pipeline staff.
+async function openManagerOffModal() {
+    const modal = document.getElementById('manager-off-modal');
+    if (!modal) return;
+    const dateInput = document.getElementById('manager-off-date');
+    if (dateInput) dateInput.min = toDateStr(new Date()); // pas de jour passé
+    if (!modal._bound) {
+        modal._bound = true;
+        document.getElementById('manager-off-close').addEventListener('click', () => { modal.style.display = 'none'; });
+        modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+        document.getElementById('manager-off-add').addEventListener('click', addManagerOff);
+    }
+    const dd = document.getElementById('user-menu-dropdown');
+    if (dd) dd.classList.remove('open');
+    modal.style.display = 'flex';
+    await loadManagerOff();
+}
+
+async function loadManagerOff() {
+    const list = document.getElementById('manager-off-list');
+    if (!list) return;
+    list.innerHTML = '<p style="text-align:center;color:#ccc;font-size:13px;padding:12px 0">Chargement…</p>';
+    try {
+        const res = await fetch('/api/me/manager-off', { credentials: 'include' });
+        if (!res.ok) throw new Error('load');
+        renderManagerOffList(await res.json());
+    } catch {
+        list.innerHTML = '<p style="text-align:center;color:#e74c3c;font-size:13px;padding:12px 0">Erreur de chargement</p>';
+    }
+}
+
+function renderManagerOffList(offs) {
+    const list = document.getElementById('manager-off-list');
+    list.innerHTML = '';
+    if (!offs.length) {
+        list.innerHTML = '<p style="text-align:center;color:#aaa;font-size:13px;padding:12px 0">Aucune absence déclarée</p>';
+        return;
+    }
+    offs.forEach(o => {
+        const d = new Date(o.date + 'T12:00:00');
+        const label = DAY_NAMES_LONG[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear();
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;background:#fff5f5;border:1px solid #f3c0c0;border-radius:8px;padding:8px 12px';
+        row.innerHTML =
+            '<span style="flex:1;font-size:13px;font-weight:600;color:#1a1a2e">🔴 ' + escapeHtml(label) + '</span>' +
+            '<button class="mgr-off-del" data-date="' + escapeHtml(o.date) + '" title="Retirer" style="background:none;border:none;color:#e74c3c;font-size:16px;cursor:pointer;line-height:1">✕</button>';
+        list.appendChild(row);
+    });
+    list.querySelectorAll('.mgr-off-del').forEach(btn =>
+        btn.addEventListener('click', () => removeManagerOff(btn.dataset.date)));
+}
+
+async function addManagerOff() {
+    const input = document.getElementById('manager-off-date');
+    const date  = input && input.value;
+    if (!date) { showToast('Choisis une date', true); return; }
+    try {
+        const res = await fetch('/api/me/manager-off', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dates: [date] }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erreur');
+        input.value = '';
+        showToast(data.message || 'Absence ajoutée');
+        await loadManagerOff();
+    } catch (e) { showToast(e.message, true); }
+}
+
+async function removeManagerOff(date) {
+    try {
+        const res = await fetch('/api/me/manager-off/' + encodeURIComponent(date), {
+            method: 'DELETE', credentials: 'include',
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erreur');
+        showToast(data.message || 'Absence retirée');
+        await loadManagerOff();
+    } catch (e) { showToast(e.message, true); }
 }
 
 function renderDateDisplay() {
@@ -4919,9 +5006,19 @@ async function loadCongesCalendar() {
     const to   = month + '-' + String(lastDay).padStart(2, '0');
     try {
         // status=approved → congés réellement posés (déclarations 'info' + demandes validées)
-        const res = await fetch('/api/conges?from=' + from + '&to=' + to + '&status=approved', { credentials: 'include' });
-        const conges = res.ok ? await res.json() : [];
-        renderCongesCalendar(month, conges);
+        // + absences des directeurs (E-19) : jours OFF keyés user._id, hors pipeline staff.
+        const [res, mres] = await Promise.all([
+            fetch('/api/conges?from=' + from + '&to=' + to + '&status=approved', { credentials: 'include' }),
+            fetch('/api/managers-off?from=' + from + '&to=' + to, { credentials: 'include' }),
+        ]);
+        const conges      = res.ok  ? await res.json()  : [];
+        const managersOff = mres.ok ? await mres.json() : [];
+        // Normaliser chaque OFF directeur (jour unique) au format « congé » d'un jour.
+        const mgrAsConges = managersOff.map(o => ({
+            staff_id: 'mgr:' + o.user_id, staff_name: o.name || 'Directeur',
+            start_date: o.date, end_date: o.date, mode: 'manager', is_manager: true,
+        }));
+        renderCongesCalendar(month, conges.concat(mgrAsConges));
     } catch {
         c.innerHTML = '<div style="padding:24px;text-align:center;color:#e74c3c;font-size:13px">Erreur de chargement</div>';
     }
@@ -4973,12 +5070,17 @@ function renderCongesCalendar(month, conges) {
         const people  = peopleByDate.get(dateStr) || [];
         let names = '';
         if (people.length) {
-            names = '<div class="cal-names">' + people.map(p =>
-                '<span class="cal-name" title="' + escapeHtml((p.staff_name || '') + (p.mode === 'info' ? ' (info)' : '')) + '">' +
-                '<span class="d" style="background:' + escapeHtml(colorOf(p.staff_id)) + '"></span>' +
-                escapeHtml(displayName(p.staff_id, p.staff_name)) +
-                '</span>'
-            ).join('') + '</div>';
+            names = '<div class="cal-names">' + people.map(p => {
+                // Absence directeur (E-19) : pastille rouge + suffixe « Directeur »
+                const isMgr    = p.is_manager;
+                const chipCol  = isMgr ? '#e74c3c' : colorOf(p.staff_id);
+                const label    = isMgr ? (p.staff_name || 'Directeur') : displayName(p.staff_id, p.staff_name);
+                const titleTxt = (p.staff_name || '') + (isMgr ? ' — Directeur' : (p.mode === 'info' ? ' (info)' : ''));
+                return '<span class="cal-name" title="' + escapeHtml(titleTxt) + '">' +
+                    '<span class="d" style="background:' + escapeHtml(chipCol) + '"></span>' +
+                    escapeHtml(label) + (isMgr ? ' <span style="font-size:9px;color:#e74c3c;font-weight:700">DIR</span>' : '') +
+                '</span>';
+            }).join('') + '</div>';
         }
         html += '<div class="cal-cell' + (people.length ? ' has-conge' : '') + (isWe ? ' weekend' : '') + '">' +
             '<div class="cal-day-num' + (isWe ? ' we' : '') + '">' + day + '</div>' + names +
