@@ -7,6 +7,7 @@
 
 /* ── Variables globales ──────────────────────────────────────────────────────*/
 :root {
+  --header-h:      52px; /* hauteur réelle du header, mise à jour en JS si wrap (index.html) */
   --dark-bg:       #0f0f1a;
   --dark-surface:  #1a1a2e;
   --dark-surface2: #222244;
@@ -107,12 +108,14 @@ a:hover { color: var(--accent-soft); }
 .header {
   background: var(--dark-bg);
   border-radius: 0; border: none;
-  padding: 0 16px; height: 52px;
+  padding: 6px 16px; min-height: 52px;
   display: flex; align-items: center; justify-content: space-between;
   position: sticky; top: 0; z-index: 100;
   border-bottom: 1px solid var(--dark-border);
 }
-.header-left  { display: flex; align-items: center; gap: 6px; }
+/* Les boutons de navigation passent à la ligne quand la fenêtre est trop étroite
+   (plage desktop 768px→~1350px), pour rester tous visibles en entier. */
+.header-left  { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .header-right { display: flex; align-items: center; gap: 8px; }
 .app-title    { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.2px; }
 .date-display { font-size: 11px; color: var(--dark-muted); white-space: nowrap; }
@@ -226,7 +229,7 @@ a:hover { color: var(--accent-soft); }
   display: flex; align-items: center; gap: 10px;
   padding: 10px 20px; border-bottom: 1px solid var(--light-border);
   background: var(--light-bg);
-  position: sticky; top: 52px; z-index: 51;
+  position: sticky; top: var(--header-h); z-index: 51;
 }
 .day-detail-title { font-size: 14px; font-weight: 700; color: var(--text-primary); flex: 1; }
 /* Boutons dans le header jour (fond clair) — surcharge le style header sombre */
@@ -707,7 +710,7 @@ label[for], select, .tab-btn, .staff-card, .shift-card {
 .week-sub-tabs {
   display: flex; gap: 0; border-bottom: 1px solid var(--light-border);
   padding: 0 20px; background: var(--light-bg);
-  position: sticky; top: 52px; z-index: 51;
+  position: sticky; top: var(--header-h); z-index: 51;
   overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
 .week-sub-tabs::-webkit-scrollbar { display: none; }

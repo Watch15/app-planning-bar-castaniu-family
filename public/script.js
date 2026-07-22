@@ -653,7 +653,9 @@ function initViewTabs() {
             // Repositionne la vue pour que le sticky header ne masque pas la première ligne
             const weekFull = document.getElementById('week-full');
             if (weekFull) {
-                const top = weekFull.getBoundingClientRect().top + window.pageYOffset - 52;
+                // Décale de la hauteur réelle du header (variable s'il wrappe) — cf. --header-h
+                const headerH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h'), 10) || 52;
+                const top = weekFull.getBoundingClientRect().top + window.pageYOffset - headerH;
                 window.scrollTo({ top, behavior: 'smooth' });
             }
         });
@@ -4566,6 +4568,18 @@ function populateStaffSelect() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Le header peut passer sur 2 lignes quand les boutons ne tiennent pas en
+    // largeur (plage desktop 768→~1350px). On publie sa hauteur réelle dans
+    // --header-h pour que les barres sticky (day-detail, sous-onglets semaine)
+    // se positionnent juste en dessous au lieu d'un 52px figé.
+    const headerEl = document.querySelector('.header');
+    if (headerEl) {
+        const syncHeaderH = () =>
+            document.documentElement.style.setProperty('--header-h', headerEl.offsetHeight + 'px');
+        syncHeaderH(); // valeur synchrone avant le premier paint (évite un flash)
+        new ResizeObserver(syncHeaderH).observe(headerEl);
+    }
+
     // Bouton gestion établissements
     const btnEstab = document.getElementById('btn-manage-establishments');
     if (btnEstab) btnEstab.addEventListener('click', () => openEstablishmentsModal());
