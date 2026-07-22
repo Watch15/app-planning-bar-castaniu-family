@@ -114,21 +114,11 @@
                 gap: 0 !important;
             }
             /* Règle mobile : toutes les actions primaires basculent dans le drawer (☰).
-               Seuls le titre (brand) à gauche et les boutons 🔔 + ☰ à droite restent visibles. */
-            .header-left .btn-manage-staff,
-            .header-left #btn-manage-accounts,
-            .header-left #btn-dispos,
-            .header-left #btn-pointage,
-            .header-left #btn-recap,
-            .header-left > div[style*="position:relative"],
-            .header-left > div[style*="border-left"] {
-                display: none !important;
-            }
-            .header-left .header-sep { display: none !important; }
+               Le titre (brand) à gauche et les boutons 🔔 + ☰ à droite restent visibles. */
+            .header-nav { display: none !important; }               /* masque tous les boutons de nav d'un coup */
+            .header-left .header-sep { display: none !important; }   /* séparateur brand↔nav (hors .header-nav) */
             .header-left .header-mobile-brand { display: flex !important; }
-            .header-nav { display: none !important; } /* toutes les actions basculent dans le drawer ☰ */
             .header-left {
-                flex-wrap: nowrap !important;
                 gap: 0 !important;
                 width: auto !important;
             }
@@ -362,17 +352,10 @@
                 justify-content: space-between;
                 padding: 0 10px !important; height: 44px !important; gap: 0 !important;
             }
-            .header-left .btn-manage-staff,
-            .header-left #btn-manage-accounts,
-            .header-left #btn-dispos,
-            .header-left #btn-pointage,
-            .header-left #btn-recap,
-            .header-left > div[style*="position:relative"],
-            .header-left > div[style*="border-left"] { display: none !important; }
+            .header-nav { display: none !important; }
             .header-left .header-sep          { display: none !important; }
             .header-left .header-mobile-brand { display: flex !important; }
-            .header-nav { display: none !important; }
-            .header-left { flex-wrap: nowrap !important; gap: 0 !important; width: auto !important; }
+            .header-left { gap: 0 !important; width: auto !important; }
             .header-right { display: flex; align-items: center; gap: 6px; }
             .header-right .date-display { display: none !important; }
             .header-right .header-sep   { display: none !important; }
