@@ -5721,7 +5721,7 @@ async function loadCongesList() {
         const mgrRows = managersOff.map(o => ({
             _id: 'mgr:' + o._id, staff_name: o.name || 'Directeur',
             start_date: o.start_date, end_date: o.end_date,
-            reason: o.note || '', status: 'manager', is_manager: true,
+            reason: o.note || '', status: 'manager',
         }));
         _congesAll = conges.concat(mgrRows);
         renderCongesListPatron();
@@ -5738,7 +5738,7 @@ function renderCongesListPatron() {
     // Les absences directeur sont des périodes déclarées (confirmées) → visibles
     // sous « Tous » et « Validés », jamais sous « En attente ».
     if (_congesFilter !== 'all')
-        rows = rows.filter(c => c.status === _congesFilter || (c.is_manager && _congesFilter === 'approved'));
+        rows = rows.filter(c => c.status === _congesFilter || (c.status === 'manager' && _congesFilter === 'approved'));
     if (search) rows = rows.filter(c => normalizeStr(c.staff_name || '').includes(search));
 
     if (!rows.length) {
