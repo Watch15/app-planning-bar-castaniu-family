@@ -21,7 +21,8 @@
       "PowerShell(graphify update *)",
       "Bash(ls *.js)",
       "Bash(ls src *)",
-      "PowerShell(node --test \"$env:LOCALAPPDATA\\\\Temp\\\\claude\\\\C--Users-pierr-app-planning-bar\\\\20605351-1055-4503-a5d9-c954d96e2cd2\\\\scratchpad\\\\long-multi.test.js\")"
+      "PowerShell(node --test \"$env:LOCALAPPDATA\\\\Temp\\\\claude\\\\C--Users-pierr-app-planning-bar\\\\20605351-1055-4503-a5d9-c954d96e2cd2\\\\scratchpad\\\\long-multi.test.js\")",
+      "Bash(awk 'NR>=3490 && NR<=3620 && /estabName\\\\\\(/' public/script.js)"
     ]
   }
 }

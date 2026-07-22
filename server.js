@@ -3216,11 +3216,11 @@ function requireDirecteur(req, res, next) {
 app.post('/api/me/manager-off', checkDB, requireDirecteur, async (req, res) => {
     const userId = req.session.user._id;
     const note   = (req.body.note || '').toString().trim().slice(0, 500);
-    const { start, end, error } = validateOffPeriod(req.body.start_date, req.body.end_date, toDateStr(new Date()));
+    const today  = toDateStr(new Date());
+    const { start, end, error } = validateOffPeriod(req.body.start_date, req.body.end_date, today);
     if (error) return res.status(400).json({ error });
     try {
         // Pas de chevauchement avec une période déjà déclarée (à venir/en cours)
-        const today    = toDateStr(new Date());
         const existing = await db.collection('manager_time_off')
             .find({ user_id: userId, end_date: { $gte: today } }).toArray();
         const clash = existing.find(p => datesOverlap(start, end, p.start_date, p.end_date));

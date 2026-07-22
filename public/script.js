@@ -554,10 +554,7 @@ function renderManagerOffList(offs) {
         list.innerHTML = '<p style="text-align:center;color:#aaa;font-size:13px;padding:12px 0">Aucune absence déclarée</p>';
         return;
     }
-    const fmtDay = ds => {
-        const d = new Date(ds + 'T12:00:00');
-        return DAY_NAMES_LONG[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear();
-    };
+    const fmtDay = ds => formatDateLong(new Date(ds + 'T12:00:00'));
     offs.forEach(o => {
         // Période : « Le <jour> » si un seul jour, sinon « Du <jour> au <jour> »
         const label = (o.start_date === o.end_date)
@@ -3486,15 +3483,13 @@ function renderTeamDashboard() {
     if (!container) return;
     container.innerHTML = '';
 
-    const isJoker   = s => s.is_joker || s.staff_id === '__joker__';
+    const isJoker = s => s.is_joker || s.staff_id === '__joker__';
+    const fmtH    = ShiftHours.fmtHourOfDay;
+    // Résolution locale du nom d'établissement : _estabName vit dans le scope
+    // DOMContentLoaded, hors de portée de cette fonction (top-level).
     const estabName = id => {
         const e = allEstablishments.find(x => x.id === id || String(x._id) === id);
         return e ? e.name : '';
-    };
-    const fmtH = v => {
-        const hh = Math.floor(v % 24).toString().padStart(2, '0');
-        const mm = Math.round((v % 1) * 60);
-        return hh + 'h' + (mm > 0 ? String(mm).padStart(2, '0') : '');
     };
 
     const todayStr = toDateStr(new Date());
@@ -7242,14 +7237,15 @@ function renderRolesHeader() {
 }
 
 // Recherche insensible à la casse ET aux accents (E-18)
-function _normalizeSearch(s) {
-    return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-}
-
 // (Re)peuple les deux <select> de filtre en préservant la sélection courante.
 // Établissement : tous les bars + « Sans établissement ». Groupe : masqué s'il
-// n'y a aucun groupe défini.
+// n'y a aucun groupe défini. Ne reconstruit que si les données source ont changé
+// — évite de rebâtir les deux <select> à chaque frappe dans la recherche.
+// (Affecter une valeur absente des <option> laisse .value === '' → pas de garde.)
 function populateStaffManageFilters() {
+    const sig = allEstablishments.map(e => e.id + ':' + e.name).join('|') + '#' + allGroups.join('|');
+    if (populateStaffManageFilters._sig === sig) return;
+    populateStaffManageFilters._sig = sig;
     const estabEl = document.getElementById('staff-manage-estab-filter');
     const groupEl = document.getElementById('staff-manage-group-filter');
     if (estabEl) {
@@ -7259,7 +7255,6 @@ function populateStaffManageFilters() {
         opts += '<option value="__none__">Sans établissement</option>';
         estabEl.innerHTML = opts;
         estabEl.value = prev;
-        if (estabEl.value !== prev) estabEl.value = ''; // sélection devenue invalide
     }
     if (groupEl) {
         const prev = groupEl.value;
@@ -7267,7 +7262,6 @@ function populateStaffManageFilters() {
         allGroups.forEach(g => { opts += '<option value="' + escapeHtml(g) + '">' + escapeHtml(g) + '</option>'; });
         groupEl.innerHTML = opts;
         groupEl.value = prev;
-        if (groupEl.value !== prev) groupEl.value = '';
         groupEl.style.display = allGroups.length ? '' : 'none';
     }
 }
@@ -7293,12 +7287,12 @@ function renderStaffManageList() {
         if (estabEl) estabEl.addEventListener('change', renderStaffManageList);
         if (groupEl) groupEl.addEventListener('change', renderStaffManageList);
     }
-    const q      = _normalizeSearch(searchEl ? searchEl.value : '');
+    const q      = normalizeStr(searchEl ? searchEl.value : '');
     const estabF = estabEl ? estabEl.value : '';
     const groupF = groupEl ? groupEl.value : '';
 
     const filtered = allStaff.filter(staff => {
-        if (q && !_normalizeSearch((staff.name || '') + ' ' + (staff.nickname || '')).includes(q)) return false;
+        if (q && !normalizeStr((staff.name || '') + ' ' + (staff.nickname || '')).includes(q)) return false;
         const venues = staff.venues || [];
         if (estabF === '__none__') { if (venues.length) return false; }
         else if (estabF && !venues.includes(estabF)) return false;
