@@ -599,8 +599,10 @@ label[for], select, .tab-btn, .staff-card, .shift-card {
   display: flex; align-items: center; gap: 8px; width: 100%;
   padding: 10px 14px; background: none; border: none;
   font-size: 13px; font-family: var(--font); cursor: pointer;
+  color: rgba(255,255,255,0.88); /* dropdown sur fond sombre — texte clair lisible */
   transition: background var(--transition);
 }
+.user-menu-item:hover { background: rgba(255,255,255,0.06); }
 .user-menu-logout {
   color: var(--danger); font-weight: 500;
 }
