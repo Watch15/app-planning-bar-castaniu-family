@@ -41,6 +41,14 @@ function normalizeStr(str) {
     return str.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
+// Recherche par début de mot : « s » ne matche que les mots COMMENÇANT par « s »
+// (« Sophie », « Marie Sanchez »), jamais ceux qui contiennent un s (« Lisa »).
+function matchesWordPrefix(text, query) {
+    const q = normalizeStr(query).trim();
+    if (!q) return true;
+    return normalizeStr(text).split(/[^a-z0-9]+/).some(w => w.startsWith(q));
+}
+
 function parseTimeInput(val, referenceStart) {
     if (!val) return null;
     const [h, m] = val.split(':').map(Number);
@@ -681,7 +689,7 @@ function initExtraForm() {
         }
 
         const matches = val
-            ? allStaff.filter(s => normalizeStr(s.name).includes(val)).slice(0, 8)
+            ? allStaff.filter(s => matchesWordPrefix(s.name, val)).slice(0, 8)
             : pool.slice(0, 8);
 
         if (matches.length === 0) {

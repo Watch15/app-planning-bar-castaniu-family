@@ -100,6 +100,15 @@ function normalizeStr(str) {
     return str.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
+// Recherche par début de mot : « s » ne matche que les mots COMMENÇANT par « s »
+// (« Sophie », « Marie Sanchez »), jamais ceux qui contiennent un s (« Lisa »).
+// Sépare sur tout ce qui n'est pas alphanumérique (espaces, tirets, apostrophes).
+function matchesWordPrefix(text, query) {
+    const q = normalizeStr(query).trim();
+    if (!q) return true;
+    return normalizeStr(text).split(/[^a-z0-9]+/).some(w => w.startsWith(q));
+}
+
 // ── Joker — slot non attribué ─────────────────────────────────────────────────
 const JOKER_STAFF = {
     _id:   '__joker__',
@@ -1105,9 +1114,9 @@ function renderSidebar() {
 
     // Filtrage + tri par pertinence si recherche active
     if (searchVal) {
-        // Garder uniquement ceux qui contiennent la recherche
-        sorted = sorted.filter(s => normalizeStr(s.name).includes(searchVal));
-        // Trier : commence par la recherche en premier, contient ensuite
+        // Garder ceux dont un mot du nom commence par la recherche
+        sorted = sorted.filter(s => matchesWordPrefix(s.name, searchVal));
+        // Trier : nom entier commençant par la recherche en premier
         sorted.sort((a, b) => {
             const aStarts = normalizeStr(a.name).startsWith(searchVal) ? 0 : 1;
             const bStarts = normalizeStr(b.name).startsWith(searchVal) ? 0 : 1;
@@ -5739,7 +5748,7 @@ function renderCongesListPatron() {
     // sous « Tous » et « Validés », jamais sous « En attente ».
     if (_congesFilter !== 'all')
         rows = rows.filter(c => c.status === _congesFilter || (c.status === 'manager' && _congesFilter === 'approved'));
-    if (search) rows = rows.filter(c => normalizeStr(c.staff_name || '').includes(search));
+    if (search) rows = rows.filter(c => matchesWordPrefix(c.staff_name || '', search));
 
     if (!rows.length) {
         list.innerHTML = '<div style="padding:24px;text-align:center;color:#999;font-size:13px">Aucun congé à afficher.</div>';
@@ -6696,7 +6705,7 @@ function renderStaffNotesList() {
     const searchInput = document.getElementById('staff-notes-search');
     const query = searchInput ? normalizeStr(searchInput.value.trim()) : '';
     const filtered = query
-        ? _staffNotesData.filter(e => normalizeStr(e.name).includes(query))
+        ? _staffNotesData.filter(e => matchesWordPrefix(e.name, query))
         : _staffNotesData;
 
     list.innerHTML = '';
@@ -7325,7 +7334,7 @@ function renderStaffManageList() {
     const groupF = groupEl ? groupEl.value : '';
 
     const filtered = allStaff.filter(staff => {
-        if (q && !normalizeStr((staff.name || '') + ' ' + (staff.nickname || '')).includes(q)) return false;
+        if (q && !matchesWordPrefix((staff.name || '') + ' ' + (staff.nickname || ''), q)) return false;
         const venues = staff.venues || [];
         if (estabF === '__none__') { if (venues.length) return false; }
         else if (estabF && !venues.includes(estabF)) return false;
