@@ -5675,6 +5675,7 @@ const _CONGE_STATUS_PATRON = {
     pending:  { icon: '⏳', cls: 'badge--warning', label: 'En attente' },
     approved: { icon: '✓',  cls: 'badge--success', label: 'Validé' },
     rejected: { icon: '✗',  cls: 'badge--danger',  label: 'Refusé' },
+    manager:  { icon: '🏢', cls: 'badge--info',    label: 'Directeur' },
 };
 
 const _MONTHS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
@@ -5705,9 +5706,24 @@ async function loadCongesList() {
     list.innerHTML = '<div style="padding:24px;text-align:center;color:#aaa;font-size:13px">Chargement…</div>';
     try {
         const today = toDateStr(new Date());
-        const res = await fetch('/api/conges?from=' + today, { credentials: 'include' });
+        // Congés staff (time_off) + absences des directeurs (manager_time_off, hors
+        // pipeline staff : keyées user._id) → sinon un directeur en congé n'apparaît
+        // nulle part dans ce sous-onglet.
+        const [res, mres] = await Promise.all([
+            fetch('/api/conges?from=' + today, { credentials: 'include' }),
+            fetch('/api/managers-off?from=' + today, { credentials: 'include' }),
+        ]);
         if (!res.ok) throw new Error();
-        _congesAll = await res.json();
+        const conges      = await res.json();
+        const managersOff = mres.ok ? await mres.json() : [];
+        // Une absence directeur est déjà une période → format « congé » en lecture
+        // seule (pas de validation : elle est déclarée, pas demandée).
+        const mgrRows = managersOff.map(o => ({
+            _id: 'mgr:' + o._id, staff_name: o.name || 'Directeur',
+            start_date: o.start_date, end_date: o.end_date,
+            reason: o.note || '', status: 'manager', is_manager: true,
+        }));
+        _congesAll = conges.concat(mgrRows);
         renderCongesListPatron();
     } catch {
         list.innerHTML = '<div style="padding:24px;text-align:center;color:#c0392b;font-size:13px">Erreur de chargement.</div>';
@@ -5719,7 +5735,10 @@ function renderCongesListPatron() {
     if (!list) return;
     const search = normalizeStr(document.getElementById('conges-search')?.value || '').trim();
     let rows = _congesAll.slice();
-    if (_congesFilter !== 'all') rows = rows.filter(c => c.status === _congesFilter);
+    // Les absences directeur sont des périodes déclarées (confirmées) → visibles
+    // sous « Tous » et « Validés », jamais sous « En attente ».
+    if (_congesFilter !== 'all')
+        rows = rows.filter(c => c.status === _congesFilter || (c.is_manager && _congesFilter === 'approved'));
     if (search) rows = rows.filter(c => normalizeStr(c.staff_name || '').includes(search));
 
     if (!rows.length) {
