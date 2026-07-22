@@ -126,6 +126,7 @@
             }
             .header-left .header-sep { display: none !important; }
             .header-left .header-mobile-brand { display: flex !important; }
+            .header-nav { display: none !important; } /* toutes les actions basculent dans le drawer ☰ */
             .header-left {
                 flex-wrap: nowrap !important;
                 gap: 0 !important;
@@ -370,6 +371,7 @@
             .header-left > div[style*="border-left"] { display: none !important; }
             .header-left .header-sep          { display: none !important; }
             .header-left .header-mobile-brand { display: flex !important; }
+            .header-nav { display: none !important; }
             .header-left { flex-wrap: nowrap !important; gap: 0 !important; width: auto !important; }
             .header-right { display: flex; align-items: center; gap: 6px; }
             .header-right .date-display { display: none !important; }
@@ -807,6 +809,9 @@
                 <span class="header-app-title">Templyo</span>
             </div>
             <div class="header-sep header-desktop-sep"></div>
+            <!-- Boutons de navigation : wrappent en 2e ligne quand la fenêtre est étroite,
+                 tandis que la marque reste ancrée à gauche (harmonisation E-header) -->
+            <div class="header-nav">
             <!-- Groupe 1 : gestion -->
             <button class="btn-manage-staff" id="btn-manage-staff">👥 Staff</button>
             <button class="btn-manage-staff" id="btn-manage-accounts" style="background:var(--accent-subtle);border-color:var(--accent);color:var(--accent)">🔑 Comptes</button>
@@ -838,6 +843,7 @@
                 <button id="dispo-settings-btn" title="Paramètres dispos" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--dark-muted);padding:0;line-height:1;transition:color 0.15s" onmouseover="this.style.color='rgba(255,255,255,0.8)'" onmouseout="this.style.color='var(--dark-muted)'">⚙</button>
                 <div id="dispo-advanced-panel" style="display:none;position:absolute;top:36px;left:0;background:var(--light-card);color:var(--text-primary);border:1.5px solid var(--light-border);border-radius:10px;padding:12px 14px;z-index:200;min-width:260px;box-shadow:var(--shadow-lg)"></div>
             </div>
+            </div><!-- /.header-nav -->
         </div>
         <div class="header-right">
             <span class="date-display" id="date-display"></span>

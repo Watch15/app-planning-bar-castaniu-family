@@ -113,9 +113,11 @@ a:hover { color: var(--accent-soft); }
   position: sticky; top: 0; z-index: 100;
   border-bottom: 1px solid var(--dark-border);
 }
-/* Les boutons de navigation passent à la ligne quand la fenêtre est trop étroite
-   (plage desktop 768px→~1350px), pour rester tous visibles en entier. */
-.header-left  { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.header-left  { display: flex; align-items: center; gap: 6px; }
+/* La marque (logo + Templyo) reste ancrée à gauche, centrée verticalement ;
+   seuls les boutons de navigation passent à la 2e ligne quand la fenêtre est
+   trop étroite (plage desktop 768px→~1350px) — pour rester tous visibles. */
+.header-nav   { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .header-right { display: flex; align-items: center; gap: 8px; }
 .app-title    { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.2px; }
 .date-display { font-size: 11px; color: var(--dark-muted); white-space: nowrap; }
